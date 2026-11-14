@@ -77,7 +77,7 @@ flowchart LR
 | API | API Gateway **HTTP API**, `/v1` | $1 per million calls. Native Cognito JWT authorizer. |
 | Compute | Python 3.12 Lambdas, one per domain | Handler per domain with a small internal router. |
 | Database | DynamoDB on-demand, PITR, AWS-managed encryption | Four tables (section 6). |
-| Staff auth | Cognito user pool, groups `cic_admin`, `instructor`, `reviewer` | Invite-only, no self sign-up. TOTP MFA for admins. |
+| Staff auth | Cognito user pool, groups `cic_admin`, `instructor`, `reviewer` | Invite-only, no self sign-up. TOTP MFA. Cognito applies MFA per pool, not per group, so it is required for all staff (open decision 10). Managed Login is used for the staff sign-in screens. |
 | Student auth | Custom: class code + per-student secret words, opaque session, behind a small identity interface | Deviation from the "use Cognito" standard (section 11). SSO can be added later without changing the API. |
 | Files | S3 behind CloudFront (OAC) for curriculum images | Roster CSVs are posted as JSON text, so no upload bucket is needed. |
 | Video | Unlisted YouTube embeds (`youtube-nocookie.com`) | Free bandwidth and captions. |
@@ -100,7 +100,8 @@ Authorization is enforced in the Lambda, using the verified identity from the au
 
 - Instructor endpoints call `require_class_member(user, classId)` before any read or write.
 - Student endpoints take `studentId` and `classId` from the authorizer context, never from the request body or path.
-- Only `cic_admin` can write curriculum or manage users.
+- Only `cic_admin` can manage users, cohorts, schools, and API keys.
+- **Curriculum writes** (create, edit draft, publish) are allowed for `cic_admin` and for any staff user with the **`canAuthor`** flag. An admin sets the flag per user (default off, so partner-school teachers cannot edit shared curriculum). It is a permission, not a fifth role. `GET /me` returns it so the UI can show or hide authoring. Every publish is written to the audit log. Reviewers can never write.
 - Student-facing module payloads are sanitized: answer keys and explanations are removed server-side.
 
 ### Student access
@@ -170,13 +171,13 @@ Publishing validates the module and creates the next `V#` item. Published versio
 |---|---|---|
 | `ORG#<id>` | `META` | partner school or organization name |
 | `COH#<id>` | `META` | cohort name, e.g. "Maryvale". Hierarchy is Cohort, then one or more Classes, then Students. A cohort can hold a single class, and `cohortId` on a class is optional. |
-| `CLS#<id>` | `META` | name, orgId, cohortId, status, `joinCode`, login failure counter and window |
+| `CLS#<id>` | `META` | name, orgId, cohortId, status, `currentModuleId` (optional), `joinCode`, login failure counter and window |
 | `CLS#<id>` | `INS#<userId>` | instructor membership |
-| `CLS#<id>` | `STU#<studentId>` | roster entry: `displayName`, `rosterNumber`, optional `externalId`, status |
+| `CLS#<id>` | `STU#<studentId>` | roster entry: `displayName`, `rosterNumber`, optional `externalId`, `startModuleId`, status |
 | `CLS#<id>` | `ASG#<order>#<moduleId>` | assignment: pinned `moduleVersion`, order, open/target dates |
 | `CLS#<id>` | `OVR#<studentId>#<moduleId>` | instructor unlock override |
 | `STU#<id>` | `META` | classId, `credHmac`, `credVersion` |
-| `USR#<sub>` | `META` | role, orgId (Cognito holds name and email) |
+| `USR#<sub>` | `META` | role, `canAuthor`, orgId (Cognito holds name and email) |
 | `KEY#<keyId>` | `META` | secret hash, scopes, label, createdBy, lastUsedAt, revokedAt |
 | `SES#<hash>` | `META` | studentId, classId, `ttl` |
 
@@ -212,12 +213,14 @@ Logs and audit entries reference IDs, never names.
 
 - **Activity complete:** video and slides after the student marks done and a minimum active time; check, worksheet, and exit after submit (a check may require `scorePct >= X` if the author sets it); assessment after its single submit.
 - **Module complete:** all required activities complete.
-- **Module unlocked** for a student when it is first in the class order, or the previous module is complete, or the instructor created an override.
+- **Module unlocked** for a student when it is the student's **start module**, or the previous module is complete, or the instructor created an override. Modules *before* the start module are `catch_up`: available to open, but they never block progress.
 - **Assessment order:** the pretest is the first activity, the post-test the last. Neither shows correct answers or scores to the student.
 
 ### 7.2 Resume and late joiners
 
-`GET /v1/student/home` returns the first unlocked module with an incomplete activity and the first incomplete activity inside it. A student added mid-term sees the same list, starts at the beginning, and takes the pretest first. No instructor re-teaching is needed. Modules that are behind the class's target date get a "catch up" marker.
+Every student has a **start module**. It defaults to the class's `currentModuleId` if the instructor has set one, otherwise the first assigned module. When an instructor adds a late student (or imports one), they can pass `startModuleId` to drop the student at the right module, for example "Python Loops" where the class is now.
+
+`GET /v1/student/home` returns the resume pointer: the first incomplete activity in the start module or later (pretest first). Modules before the start module show as `catch_up`. They stay open, so the student can fill the gap on their own time, but nothing waits on them. No instructor re-teaching is needed. Learning gain only counts students with both a pretest and a post-test for a module, so `catch_up` modules a student skips simply drop out of `n`.
 
 ### 7.3 Versions
 
@@ -339,3 +342,4 @@ Deferred or open:
 7. **Amplify hosting** is deferred. The backend deploys first. The GitHub connection needs a token with access to the hackathon org repo, or we deploy a built bundle.
 8. **"Complete" rule** for a module (submit only vs minimum score), and who writes the matched pre/post questions.
 9. **Bedrock model ID and region.** Confirm which small model is available in the deploy region before writing the IAM policy.
+10. **Staff MFA.** Cognito MFA is per pool. Decide between required TOTP for all staff (simplest, most secure) and optional TOTP (less friction for partner-school teachers, no admin enforcement). Current default: required.
