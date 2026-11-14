@@ -7,11 +7,10 @@ from boto3.dynamodb.conditions import Key
 
 from cic import db, keys
 from cic.authz import Student
-from cic.errors import ApiError, Forbidden, NotFound
+from cic.classdata import get_module_doc
+from cic.errors import Forbidden, NotFound
 from cic.ids import now_ms
 from cic.progress import compute_modules, flatten_activities
-
-_MODULE_CACHE: Dict[Tuple[str, int], dict] = {}  # published versions are immutable, so caching is safe
 
 STRIP_KEYS = ("answerKey", "explanation", "correct")
 
@@ -42,16 +41,6 @@ class Ctx:
         if module_id not in self.modules:
             raise NotFound("Module not found")
         return self.modules[module_id]
-
-
-def get_module_doc(module_id: str, version: int) -> dict:
-    cache_key = (module_id, version)
-    if cache_key not in _MODULE_CACHE:
-        item = db.get_table(db.CONTENT).get_item(Key={"pk": keys.module_pk(module_id), "sk": keys.version_sk(version)}).get("Item")
-        if not item or "module" not in item:
-            raise ApiError("Module content is unavailable", code="CONTENT_MISSING")
-        _MODULE_CACHE[cache_key] = item["module"]
-    return _MODULE_CACHE[cache_key]
 
 
 def load_ctx(student: Student) -> Ctx:

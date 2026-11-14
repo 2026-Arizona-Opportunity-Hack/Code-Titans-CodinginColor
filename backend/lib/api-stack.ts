@@ -10,6 +10,7 @@ import { AppConfig } from "./config";
 import { DataStack } from "./data-stack";
 import { createStudentAuthorizer } from "./domains/authorizers";
 import { DomainContext, addRoutes } from "./domains/context";
+import { ReportsApi } from "./domains/reports";
 import { StudentPlayerApi } from "./domains/student-player";
 import { createPythonFunction, hostArchitecture } from "./lambda-factory";
 
@@ -90,6 +91,7 @@ export class ApiStack extends cdk.Stack {
 
     // ---- Domains: add one line per domain construct here. ----
     new StudentPlayerApi(this, "StudentPlayer", ctx);
+    new ReportsApi(this, "Reports", ctx);
 
     new cdk.CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint, description: "HTTP API base URL (append /v1)" });
   }

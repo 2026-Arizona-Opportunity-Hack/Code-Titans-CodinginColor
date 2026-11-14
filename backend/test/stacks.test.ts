@@ -99,6 +99,14 @@ describe("ApiStack", () => {
     });
   });
 
+  test("reports routes use the Cognito JWT authorizer", () => {
+    api.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "GET /v1/classes/{classId}/modules/{moduleId}/gain",
+      AuthorizationType: "JWT",
+    });
+    api.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /v1/admin/cohorts/{cohortId}/summary", AuthorizationType: "JWT" });
+  });
+
   test("no function is granted wildcard DynamoDB actions", () => {
     const policies = JSON.stringify(api.findResources("AWS::IAM::Policy"));
     expect(policies).toContain("dynamodb:PutItem");

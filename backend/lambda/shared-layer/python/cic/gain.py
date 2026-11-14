@@ -64,28 +64,62 @@ def _concept_pct(item: dict, concept: str):
     return _f(c["correct"]) / _f(c["total"]) * 100, int(c.get("items", 0))
 
 
-def by_concept(assessments: Dict[str, dict]) -> List[dict]:
-    """Per-concept gain. `assessments` is {studentId: {"pre": item, "post": item}}."""
-    concepts = set()
+MASTERY_PCT = 80
+
+
+def concept_pairs(assessments: Dict[str, dict]) -> Dict[str, dict]:
+    """Collect, per concept, the (pre, post) pairs, item counts and post-test scores."""
+    out: Dict[str, dict] = {}
     for pair in assessments.values():
         for role in ("pre", "post"):
-            concepts |= set((pair.get(role) or {}).get("byConcept") or {})
-    out = []
-    for concept in sorted(concepts):
-        pairs, pre_items, post_items = [], 0, 0
+            for concept in (pair.get(role) or {}).get("byConcept") or {}:
+                out.setdefault(concept, {"pairs": [], "pre_items": 0, "post_items": 0, "post_scores": []})
+    for concept, bucket in out.items():
         for pair in assessments.values():
-            if not pair.get("pre") or not pair.get("post"):
-                continue
-            pre, pre_n = _concept_pct(pair["pre"], concept)
-            post, post_n = _concept_pct(pair["post"], concept)
-            if pre is None or post is None:
-                continue
-            pairs.append((pre, post))
-            pre_items, post_items = max(pre_items, pre_n), max(post_items, post_n)
-        row = summarize(pairs)
-        row.update(concept=concept, lowItemCount=min(pre_items, post_items) < LOW_ITEM_COUNT)
-        out.append(row)
+            pre, post = pair.get("pre"), pair.get("post")
+            post_pct, post_n = _concept_pct(post, concept) if post else (None, 0)
+            if post_pct is not None:
+                bucket["post_scores"].append(post_pct)
+            pre_pct, pre_n = _concept_pct(pre, concept) if pre else (None, 0)
+            if pre_pct is not None and post_pct is not None:
+                bucket["pairs"].append((pre_pct, post_pct))
+                bucket["pre_items"], bucket["post_items"] = max(bucket["pre_items"], pre_n), max(bucket["post_items"], post_n)
     return out
+
+
+def merge_concept_pairs(parts: List[Dict[str, dict]]) -> Dict[str, dict]:
+    """Combine concept_pairs results from several modules."""
+    merged: Dict[str, dict] = {}
+    for part in parts:
+        for concept, b in part.items():
+            m = merged.setdefault(concept, {"pairs": [], "pre_items": 0, "post_items": 0, "post_scores": []})
+            m["pairs"] += b["pairs"]
+            m["post_scores"] += b["post_scores"]
+            m["pre_items"] += b["pre_items"]
+            m["post_items"] += b["post_items"]
+    return merged
+
+
+def concept_rows(pairs_by_concept: Dict[str, dict]) -> List[dict]:
+    """Gain and mastery per concept. masteryPct is the share of post-tested students at or above 80%."""
+    rows = []
+    for concept in sorted(pairs_by_concept):
+        b = pairs_by_concept[concept]
+        row = summarize(b["pairs"])
+        scores = b["post_scores"]
+        row.update(
+            concept=concept,
+            lowItemCount=min(b["pre_items"], b["post_items"]) < LOW_ITEM_COUNT,
+            postN=len(scores),
+            masteryPct=round(sum(1 for x in scores if x >= MASTERY_PCT) / len(scores) * 100) if scores else None,
+        )
+        rows.append(row)
+    return rows
+
+
+def by_concept(assessments: Dict[str, dict]) -> List[dict]:
+    """Per-concept gain. `assessments` is {studentId: {"pre": item, "post": item}}."""
+    return concept_rows(concept_pairs(assessments))
 
 
 def module_gain(assessments: Dict[str, dict], enrolled: int) -> dict:

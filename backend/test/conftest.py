@@ -63,10 +63,11 @@ def tables(monkeypatch):
         _create(client, "core", ["gsi1", "gsi2", "gsi3"])
         _create(client, "progress", ["gsi1", "gsi2"])
         _create(client, "events", [])
-        from cic import db
+        from cic import classdata, db
 
         db._tables.clear()
         db._resource = None
+        classdata._MODULE_CACHE.clear()  # published versions are cached in production; tests reuse ids
         yield {k: db.get_table(k) for k in names}
         db._tables.clear()
         db._resource = None

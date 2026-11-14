@@ -186,6 +186,15 @@ Roles `I` (member) and `A` unless noted.
 | GET | `/classes/{classId}/export?type=gain\|progress` | CSV download (formula-safe) |
 | GET | `/admin/cohorts/{cohortId}/summary` | `A` only. Completion and gain across the cohort's classes. |
 
+Notes for the other section 5 endpoints:
+
+- `attention` returns `{notStarted: [...], stuck: [...]}`. Each row has the student, `moduleId`, `activityId`, and for stuck rows `reasons`: `repeated_attempts`, `taking_longer_than_expected` (needs `estimatedMinutes` on the activity), or `inactive`. Thresholds come from the class `settings` (`stuckFailedAttempts` 3, `notStartedDays` 1, `inactiveDays` 3).
+- `concepts` rows have the gain fields plus `masteryPct`, the share of post-tested students at or above 80% on that concept ("80% stuck on loops" is `100 - masteryPct`), and `postN`.
+- `review-queue` takes `limit` and `cursor`; each item has a `submissionId` (use it in the review route), the student, and the free-text `answers`. A reviewed submission leaves the queue.
+- `export` returns `text/csv` (not the JSON envelope) with `Content-Disposition: attachment`. Cells starting with `=`, `+`, `-` or `@` are prefixed with `'`. Every export is written to the audit log.
+- `GET /classes/{classId}/progress` returns `{modules, students}`, where each student has `modules[moduleId] = {state, percent, activeMinutes}` and a `resume` pointer.
+- `GET /admin/cohorts/{cohortId}/summary` has the same shape as the read API cohort summary, but is not suppressed for small groups.
+
 `GET /classes/{classId}/modules/{moduleId}/gain`:
 
 ```json
