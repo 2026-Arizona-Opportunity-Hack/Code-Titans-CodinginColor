@@ -29,3 +29,7 @@ Thumbs.db
 *.log
 # Kiro (local AI assistant config, specs, steering, hooks)
 .kiro/
+
+# Claude Code local-only files (the repo's shared CLAUDE.md, AGENTS.md and .claude/hooks are already tracked and unchanged)
+CLAUDE.local.md
+.claude/settings.local.json
