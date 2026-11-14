@@ -15,7 +15,7 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 | Student | `Authorization: Bearer <session token>` | `/student/*` | `authorizer-student` Lambda |
 | Key | `X-Api-Key: cic_<keyId>_<secret>` | `/read/*` | `authorizer-apikey` Lambda |
 
-**Roles in tables below:** `A` = cic_admin, `I` = instructor (member of that class), `R` = reviewer, `S` = student.
+**Roles in tables below:** `A` = cic_admin, `I` = instructor (member of that class), `R` = reviewer, `S` = student, `Au` = staff user with the `canAuthor` flag.
 
 **Response envelope**
 
@@ -39,7 +39,7 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 | 429 | `LOGIN_THROTTLED` (with `Retry-After`), `RATE_LIMITED`, `AI_QUOTA_EXCEEDED` |
 | 500 | `INTERNAL_ERROR` (generic message, details only in logs) |
 
-**Other rules:** JSON only, UTF-8, request bodies capped at 256 KB. Lists take `limit` (default 50, max 200) and `cursor`. Timestamps are ISO 8601 UTC. IDs are opaque strings. All routes answer `OPTIONS` with CORS headers for the allowlisted origins.
+**Other rules:** JSON only, UTF-8, request bodies capped at 256 KB. Lists take `limit` (default 50, max 200) and `cursor`. Timestamps are ISO 8601 UTC. IDs are opaque strings. `studentId` is a UUID v4 (examples below are shortened). All routes answer `OPTIONS` with CORS headers for the allowlisted origins.
 
 ---
 
@@ -49,7 +49,7 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 |---|---|---|---|
 | POST | `/auth/student/login` | Public | Class code + student secret words, returns a session |
 | POST | `/auth/student/logout` | Student | Delete the session |
-| GET | `/me` | Staff | Role, display name, class memberships |
+| GET | `/me` | Staff | Role, display name, `permissions: {canAuthor}`, class memberships |
 | GET | `/health` | Public | Liveness |
 
 `POST /auth/student/login`
@@ -75,8 +75,8 @@ All `A` only.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/admin/users` | List staff users |
-| POST | `/admin/users` | Invite a user `{email, name, role: instructor\|reviewer\|cic_admin}` (Cognito admin-create-user) |
-| PATCH | `/admin/users/{userId}` | Change role or disable |
+| POST | `/admin/users` | Invite a user `{email, name, role: instructor\|reviewer\|cic_admin, canAuthor?}` (Cognito admin-create-user) |
+| PATCH | `/admin/users/{userId}` | Change role, set `canAuthor`, or disable |
 | GET, POST | `/admin/orgs` | List or create partner schools |
 | PATCH | `/admin/orgs/{orgId}` | Rename or archive |
 | GET, POST | `/admin/cohorts` | List or create cohorts `{name, orgId?}` |
@@ -92,15 +92,15 @@ All `A` only.
 
 | Method | Path | Roles | Purpose |
 |---|---|---|---|
-| GET | `/curriculum/modules` | A, I, R | List modules. A can pass `status=draft\|published\|all`. Others get published only. |
-| POST | `/curriculum/modules` | A | Create a draft `{title, template: "standard"}` (the template seeds the pre, video, check, worksheet, exit, post structure) |
-| GET | `/curriculum/modules/{moduleId}` | A, I, R | Latest published module. A can pass `?draft=true`. Includes answer keys (staff only). |
-| PUT | `/curriculum/modules/{moduleId}/draft` | A | Save the whole draft. Requires `If-Match: <revision>`. 409 `REVISION_CONFLICT` if stale. |
-| POST | `/curriculum/modules/{moduleId}/publish` | A | Validate and create the next immutable version |
-| GET | `/curriculum/modules/{moduleId}/versions` | A | Version list with publish dates |
+| GET | `/curriculum/modules` | A, I, R | List modules. A and Au can pass `status=draft\|published\|all`. Others get published only. |
+| POST | `/curriculum/modules` | A, Au | Create a draft `{title, template: "standard"}` (the template seeds the pre, video, check, worksheet, exit, post structure) |
+| GET | `/curriculum/modules/{moduleId}` | A, I, R | Latest published module. Instructors use this to browse modules before assigning them. A and Au can pass `?draft=true`. Includes answer keys (staff only). |
+| PUT | `/curriculum/modules/{moduleId}/draft` | A, Au | Save the whole draft. Requires `If-Match: <revision>`. 409 `REVISION_CONFLICT` if stale. |
+| POST | `/curriculum/modules/{moduleId}/publish` | A, Au | Validate and create the next immutable version |
+| GET | `/curriculum/modules/{moduleId}/versions` | A, Au | Version list with publish dates |
 | GET | `/curriculum/modules/{moduleId}/versions/{n}` | A, I, R | A specific version |
 | GET | `/curriculum/concepts` | A, I, R | Concept tags in use (for the tag picker and reports) |
-| POST | `/curriculum/assets/upload-url` | A | Presigned S3 PUT for an image `{contentType, size}`. PNG, JPEG, or WebP, max 5 MB. |
+| POST | `/curriculum/assets/upload-url` | A, Au | Presigned S3 PUT for an image `{contentType, size}`. PNG, JPEG, or WebP, max 5 MB. |
 
 **Publish validation** (400 `VALIDATION_ERROR` with a list of problems): at least one pretest and one post-test; every assessment question has a `concept`, an answer key, and points; pre and post cover the same concepts; video IDs match the allowlist; no empty prompts.
 
@@ -119,13 +119,17 @@ All `A` only.
 | POST | `/classes` | I, A | Create `{name, orgId, cohortId?, termStart?, termEnd?}`. The creator becomes a member. |
 | GET | `/classes` | I, A | My classes. A can pass `orgId`, `cohortId`. |
 | GET | `/classes/{classId}` | I, A | Class detail, assignments, counts |
-| PATCH | `/classes/{classId}` | I, A | Rename, settings (stuck thresholds), archive |
+| PATCH | `/classes/{classId}` | I, A | Rename, settings (stuck thresholds), `currentModuleId` (where late joiners start by default), archive |
 | POST | `/classes/{classId}/members` | A | Add an instructor `{userId}` |
-| GET | `/classes/{classId}/roster` | I, A | Roster with status |
+| GET | `/classes/{classId}/roster?q=&status=` | I, A | Roster with `rosterNumber`, `externalId` (if any), status. `q` is a case-insensitive name search. |
+| GET | `/classes/{classId}/roster/duplicates` | I, A | Groups of students in the class with the same display name, for review |
+| GET | `/students?q=&cohortId=&classId=` | I, A | Search students by name, filtered by cohort and class. Instructors only see classes they belong to. Each result has `studentId`, `displayName`, `rosterNumber`, `classId`. |
+| GET | `/students/{studentId}` | I, A | Student detail by ID (authorization checked against the student's class) |
 | POST | `/classes/{classId}/roster/import?dryRun=true` | I, A | Preview a CSV import. No writes. |
 | POST | `/classes/{classId}/roster/import` | I, A | Commit the import |
-| POST | `/classes/{classId}/roster` | I, A | Add one student `{displayName}` (late joiner). Returns that student's credential once. |
-| PATCH | `/classes/{classId}/roster/{studentId}` | I, A | Rename or deactivate |
+| POST | `/classes/{classId}/roster` | I, A | Add one student `{displayName, externalId?, startModuleId?}` (late joiner). `startModuleId` defaults to the class's `currentModuleId`. Returns that student's credential once. It cannot be shown again; use `/credentials` to reissue. A repeated name is created as a new student and returned with `possibleDuplicateOf`. |
+| PATCH | `/classes/{classId}/roster/{studentId}` | I, A | Rename or deactivate (deactivate is how a duplicate is retired for the demo) |
+| POST | `/classes/{classId}/roster/{studentId}/merge` | I, A | **After the demo.** Merge a duplicate into `{intoStudentId}`, keeping the better result per activity |
 | DELETE | `/classes/{classId}/roster/{studentId}` | A | Delete a student and their progress |
 | POST | `/classes/{classId}/credentials` | I, A | Generate or reset credentials `{studentIds?}` (all if omitted). Old words stop working and those students' sessions are revoked. The words are returned in this response only. |
 | POST | `/classes/{classId}/join-code/rotate` | I, A | Issue a new class code |
@@ -138,14 +142,21 @@ All `A` only.
 `POST .../roster/import` body (CSV is sent as text, not as a file upload):
 
 ```json
-{ "csv": "displayName\nAna R.\nBen T.\n" }
+{ "csv": "displayName,externalId\nAna R.,1042\nBen T.,1043\n", "duplicateNames": "create", "startModuleId": "py-loops" }
 ```
 
-Single required column `displayName` (the only student identifier we store; use a last initial to tell apart duplicate first names). Limits: 500 rows, 100 characters per name. The dry run returns:
+- `displayName` is required. `externalId` is optional. Any other column is **ignored, never stored or logged**, and listed in the dry-run response as `ignoredColumns`. The frontend should also strip extra columns in the browser before sending, so unneeded data (a birthdate column in a school export, for example) never leaves the instructor's machine.
+- `startModuleId` (optional) sets the start module for newly created students. It defaults to the class's `currentModuleId`.
+- **Matching.** A row with an `externalId` that already exists in the class updates that student (no new credential is created). A row without a match is added as a new student.
+- **Repeated names.** Names are not unique. By default a repeated name is created as a new student and flagged as a possible duplicate. Set `duplicateNames` to `"skip"` to ignore rows whose name already exists, which is useful when re-importing a file that has no `externalId` column.
+- Limits: 500 rows, 100 characters per name.
+
+The dry run (`?dryRun=true`) writes nothing and returns:
 
 ```json
-{ "data": { "valid": 28, "duplicates": [{"row": 7, "reason": "same displayName as row 3"}],
-            "errors": [{"row": 12, "reason": "displayName is empty"}] } }
+{ "data": { "toCreate": 26, "toUpdate": 2, "ignoredColumns": ["dob"],
+            "possibleDuplicates": [ { "row": 7, "displayName": "Alex Kim", "matchesStudentId": "stu_03" } ],
+            "errors": [ { "row": 12, "reason": "displayName is empty" } ] } }
 ```
 
 `POST .../credentials` response (the login sheet):
@@ -199,7 +210,7 @@ Student session only. `studentId` and `classId` always come from the session, ne
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/student/home` | Assigned modules with state (`locked`, `available`, `in_progress`, `complete`), progress percent, and the **resume** pointer `{moduleId, activityId}` |
+| GET | `/student/home` | Assigned modules with state (`locked`, `available`, `in_progress`, `complete`, `catch_up`), progress percent, and the **resume** pointer `{moduleId, activityId}`. The pointer starts at the student's start module (see architecture.md 7.2). The UI renders it and computes nothing. |
 | GET | `/student/modules/{moduleId}` | The pinned module version, **sanitized** (no answer keys), with per-activity state. 403 `MODULE_LOCKED` if not unlocked. |
 | PUT | `/student/modules/{moduleId}/activities/{activityId}/draft` | Autosave worksheet answers |
 | POST | `/student/modules/{moduleId}/activities/{activityId}/heartbeat` | `{seconds}` of active time (credited up to 45 per call) |
