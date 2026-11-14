@@ -39,7 +39,7 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 | 429 | `LOGIN_THROTTLED` (with `Retry-After`), `RATE_LIMITED`, `AI_QUOTA_EXCEEDED` |
 | 500 | `INTERNAL_ERROR` (generic message, details only in logs) |
 
-**Other rules:** JSON only, UTF-8, request bodies capped at 256 KB. Lists take `limit` (default 50, max 200) and `cursor`. Timestamps are ISO 8601 UTC. IDs are opaque strings. All routes answer `OPTIONS` with CORS headers for the allowlisted origins.
+**Other rules:** JSON only, UTF-8, request bodies capped at 256 KB. Lists take `limit` (default 50, max 200) and `cursor`. Timestamps are ISO 8601 UTC. IDs are opaque strings. `studentId` is a UUID v4 (examples below are shortened). All routes answer `OPTIONS` with CORS headers for the allowlisted origins.
 
 ---
 
@@ -121,11 +121,15 @@ All `A` only.
 | GET | `/classes/{classId}` | I, A | Class detail, assignments, counts |
 | PATCH | `/classes/{classId}` | I, A | Rename, settings (stuck thresholds), archive |
 | POST | `/classes/{classId}/members` | A | Add an instructor `{userId}` |
-| GET | `/classes/{classId}/roster` | I, A | Roster with status |
+| GET | `/classes/{classId}/roster?q=&status=` | I, A | Roster with `rosterNumber`, `externalId` (if any), status. `q` is a case-insensitive name search. |
+| GET | `/classes/{classId}/roster/duplicates` | I, A | Groups of students in the class with the same display name, for review |
+| GET | `/students?q=&cohortId=&classId=` | I, A | Search students by name, filtered by cohort and class. Instructors only see classes they belong to. Each result has `studentId`, `displayName`, `rosterNumber`, `classId`. |
+| GET | `/students/{studentId}` | I, A | Student detail by ID (authorization checked against the student's class) |
 | POST | `/classes/{classId}/roster/import?dryRun=true` | I, A | Preview a CSV import. No writes. |
 | POST | `/classes/{classId}/roster/import` | I, A | Commit the import |
-| POST | `/classes/{classId}/roster` | I, A | Add one student `{displayName}` (late joiner). Returns that student's credential once. |
-| PATCH | `/classes/{classId}/roster/{studentId}` | I, A | Rename or deactivate |
+| POST | `/classes/{classId}/roster` | I, A | Add one student `{displayName, externalId?}` (late joiner). Returns that student's credential once. A repeated name is created as a new student and returned with `possibleDuplicateOf`. |
+| PATCH | `/classes/{classId}/roster/{studentId}` | I, A | Rename or deactivate (deactivate is how a duplicate is retired for the demo) |
+| POST | `/classes/{classId}/roster/{studentId}/merge` | I, A | **After the demo.** Merge a duplicate into `{intoStudentId}`, keeping the better result per activity |
 | DELETE | `/classes/{classId}/roster/{studentId}` | A | Delete a student and their progress |
 | POST | `/classes/{classId}/credentials` | I, A | Generate or reset credentials `{studentIds?}` (all if omitted). Old words stop working and those students' sessions are revoked. The words are returned in this response only. |
 | POST | `/classes/{classId}/join-code/rotate` | I, A | Issue a new class code |
@@ -138,14 +142,20 @@ All `A` only.
 `POST .../roster/import` body (CSV is sent as text, not as a file upload):
 
 ```json
-{ "csv": "displayName\nAna R.\nBen T.\n" }
+{ "csv": "displayName,externalId\nAna R.,1042\nBen T.,1043\n", "duplicateNames": "create" }
 ```
 
-Single required column `displayName` (the only student identifier we store; use a last initial to tell apart duplicate first names). Limits: 500 rows, 100 characters per name. The dry run returns:
+- `displayName` is required. `externalId` is optional. No other columns are accepted.
+- **Matching.** A row with an `externalId` that already exists in the class updates that student (no new credential is created). A row without a match is added as a new student.
+- **Repeated names.** Names are not unique. By default a repeated name is created as a new student and flagged as a possible duplicate. Set `duplicateNames` to `"skip"` to ignore rows whose name already exists, which is useful when re-importing a file that has no `externalId` column.
+- Limits: 500 rows, 100 characters per name.
+
+The dry run (`?dryRun=true`) writes nothing and returns:
 
 ```json
-{ "data": { "valid": 28, "duplicates": [{"row": 7, "reason": "same displayName as row 3"}],
-            "errors": [{"row": 12, "reason": "displayName is empty"}] } }
+{ "data": { "toCreate": 26, "toUpdate": 2,
+            "possibleDuplicates": [ { "row": 7, "displayName": "Alex Kim", "matchesStudentId": "stu_03" } ],
+            "errors": [ { "row": 12, "reason": "displayName is empty" } ] } }
 ```
 
 `POST .../credentials` response (the login sheet):
