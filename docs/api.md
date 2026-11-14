@@ -33,9 +33,9 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 |---|---|
 | 400 | `VALIDATION_ERROR`, `INVALID_CSV` |
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` |
-| 403 | `FORBIDDEN`, `MODULE_LOCKED`, `ASSESSMENT_ALREADY_SUBMITTED` |
+| 403 | `FORBIDDEN`, `MODULE_LOCKED`, `ACTIVITY_LOCKED`, `ASSESSMENT_ALREADY_SUBMITTED` |
 | 404 | `NOT_FOUND` |
-| 409 | `REVISION_CONFLICT`, `DUPLICATE_SUBMISSION`, `ALREADY_PUBLISHED` |
+| 409 | `REVISION_CONFLICT`, `DUPLICATE_SUBMISSION`, `ALREADY_PUBLISHED`, `TOO_EARLY` |
 | 429 | `LOGIN_THROTTLED` (with `Retry-After`), `RATE_LIMITED`, `AI_QUOTA_EXCEEDED` |
 | 500 | `INTERNAL_ERROR` (generic message, details only in logs) |
 
@@ -234,7 +234,12 @@ Student session only. `studentId` and `classId` always come from the session, ne
             "next": { "type": "activity", "activityId": "a-vid" } } }
 ```
 
-- Repeating the same `clientSubmissionId` returns the first result (safe retries on a bad connection).
+- Repeating the same `clientSubmissionId` returns the first result (safe retries on a bad connection). It is 8 to 64 characters of letters, digits, `-` or `_`.
+- Activities open in order. Submitting a later activity before the earlier required ones are done returns 403 `ACTIVITY_LOCKED`.
+- For worksheets, `questionId` in each answer is the field's `fieldId`. Fields with an answer key are scored on submit. The rest go to the review queue and the response has `pendingReview: true`.
+- `exit` questions and assessments return `recorded: true` with no scores. Only `check` returns `scorePct`, `passed` and `results`.
+- `POST .../complete` (video and slides) returns 409 `TOO_EARLY` until the activity's `minSeconds` of active time has been recorded by heartbeats.
+- `heartbeat` takes `{"seconds": 1-120}` and credits at most 45 seconds per call.
 - An assessment can be submitted once. A second try returns 403 `ASSESSMENT_ALREADY_SUBMITTED`.
 - When the last required activity completes, the response includes `moduleUnlocked: "<nextModuleId>"`.
 - Grading uses the `answerKey` stored server-side. Worksheet fields without a key go to the instructor review queue and show as "submitted".

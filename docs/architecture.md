@@ -179,7 +179,7 @@ Publishing validates the module and creates the next `V#` item. Published versio
 | `STU#<id>` | `META` | classId, `credHmac`, `credVersion` |
 | `USR#<sub>` | `META` | role, `canAuthor`, orgId (Cognito holds name and email) |
 | `KEY#<keyId>` | `META` | secret hash, scopes, label, createdBy, lastUsedAt, revokedAt |
-| `SES#<hash>` | `META` | studentId, classId, `ttl` |
+| `SES#<sha256(token)>` | `META` | `studentId`, `classId`, `credVersion` (copied from the student at login), `ttl` (epoch seconds). Written by the login endpoint, read by `authorizer-student`. Tokens look like `ses_<random>`. |
 
 **Student identity.** A student is identified by `studentId`, a system-generated UUID v4, never by name.
 - `displayName` is a plain display field with **no uniqueness constraint**. Two students named "Alex Kim" are two rows with two IDs, two credentials, and two separate progress records. Login and every API path use the ID, so duplicate names cannot cause a mix-up.

@@ -22,6 +22,8 @@ export interface DomainContext {
   };
   /** Cognito JWT authorizer for staff routes. */
   staffAuthorizer: apigwv2.IHttpRouteAuthorizer;
+  /** Lambda authorizer for student session tokens. */
+  studentAuthorizer: apigwv2.IHttpRouteAuthorizer;
 }
 
 /**

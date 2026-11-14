@@ -1,4 +1,5 @@
 """ID and time helpers."""
+import time
 import uuid
 from datetime import datetime, timezone
 
@@ -10,3 +11,7 @@ def new_id() -> str:
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def now_ms() -> int:
+    return int(time.time() * 1000)

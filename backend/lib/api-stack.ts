@@ -8,7 +8,9 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 import { AppConfig } from "./config";
 import { DataStack } from "./data-stack";
+import { createStudentAuthorizer } from "./domains/authorizers";
 import { DomainContext, addRoutes } from "./domains/context";
+import { StudentPlayerApi } from "./domains/student-player";
 import { createPythonFunction, hostArchitecture } from "./lambda-factory";
 
 export interface ApiStackProps extends cdk.StackProps {
@@ -64,9 +66,10 @@ export class ApiStack extends cdk.Stack {
       { jwtAudience: [props.userPoolClient.userPoolClientId] },
     );
 
+    const defaults = { layer, allowedOrigins: config.allowedOrigins };
     const ctx: DomainContext = {
       api: this.api,
-      defaults: { layer, allowedOrigins: config.allowedOrigins },
+      defaults,
       tables: {
         content: data.contentTable,
         core: data.coreTable,
@@ -74,6 +77,7 @@ export class ApiStack extends cdk.Stack {
         events: data.eventsTable,
       },
       staffAuthorizer,
+      studentAuthorizer: createStudentAuthorizer(this, defaults, data.coreTable),
     };
 
     // Liveness check: public, no data access.
@@ -85,6 +89,7 @@ export class ApiStack extends cdk.Stack {
     addRoutes(ctx, health, ["GET /v1/health"]);
 
     // ---- Domains: add one line per domain construct here. ----
+    new StudentPlayerApi(this, "StudentPlayer", ctx);
 
     new cdk.CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint, description: "HTTP API base URL (append /v1)" });
   }

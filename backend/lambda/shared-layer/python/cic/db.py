@@ -4,6 +4,7 @@ Table names come from environment variables set by CDK. boto3 resources are
 created at module level (reused across warm invocations) via get_table.
 """
 import os
+from decimal import Decimal
 from typing import Any, Dict, Iterator
 
 import boto3
@@ -39,3 +40,14 @@ def query_all(table: Any, **kwargs: Any) -> Iterator[dict]:
         if not last:
             return
         kwargs["ExclusiveStartKey"] = last
+
+
+def to_dynamo(value: Any) -> Any:
+    """Convert floats to Decimal (DynamoDB rejects floats) and drop None values from dicts."""
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, dict):
+        return {k: to_dynamo(v) for k, v in value.items() if v is not None}
+    if isinstance(value, (list, tuple)):
+        return [to_dynamo(v) for v in value]
+    return value

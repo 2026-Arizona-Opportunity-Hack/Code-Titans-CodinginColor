@@ -86,6 +86,25 @@ describe("ApiStack", () => {
     });
   });
 
+  test("student routes use the Lambda authorizer with a 60 second cache and simple responses", () => {
+    api.hasResourceProperties("AWS::ApiGatewayV2::Authorizer", {
+      AuthorizerType: "REQUEST",
+      EnableSimpleResponses: true,
+      AuthorizerResultTtlInSeconds: 60,
+      IdentitySource: ["$request.header.Authorization"],
+    });
+    api.hasResourceProperties("AWS::ApiGatewayV2::Route", {
+      RouteKey: "POST /v1/student/modules/{moduleId}/activities/{activityId}/submit",
+      AuthorizationType: "CUSTOM",
+    });
+  });
+
+  test("no function is granted wildcard DynamoDB actions", () => {
+    const policies = JSON.stringify(api.findResources("AWS::IAM::Policy"));
+    expect(policies).toContain("dynamodb:PutItem");
+    expect(policies).not.toContain('"dynamodb:*"');
+  });
+
   test("throttles by default and logs without IP addresses", () => {
     api.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
       DefaultRouteSettings: { ThrottlingRateLimit: 50, ThrottlingBurstLimit: 100 },
