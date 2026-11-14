@@ -53,7 +53,7 @@ Judges score **Scope, Documentation, Polish and Security**, plus a separate **Ac
 
 ## Tech stack
 
-- Frontend:
+- Frontend: Next.js (App Router) + TypeScript, static export, Tailwind CSS (see `frontend/`)
 - Backend:
 - Database:
 - APIs / services:
@@ -66,6 +66,20 @@ cd Code Titans-CodinginColor
 cp .env.example .env   # fill in your own values — never commit .env
 # install + start commands here
 ```
+
+### Frontend
+
+Needs Node 20 or newer. It runs on fake data (Mock Service Worker) until the backend is deployed.
+
+```bash
+cd frontend
+cp .env.example .env.local   # keep NEXT_PUBLIC_USE_MOCKS=true for fake data
+npm install
+npm run dev                  # http://localhost:3000
+```
+
+Other commands: `npm run lint`, `npm run typecheck`, `npm run build` (static export to `frontend/out/`).
+Only `NEXT_PUBLIC_` values are exposed to the browser, so never put a secret in them.
 
 ## Links
 

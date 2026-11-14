@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+/*
+  Design tokens, from the Coding in Color Brand Guidelines (section 7, approved
+  color constants). Components use the semantic names below, never raw hex.
+
+  Accessibility decisions (the project targets Lighthouse accessibility >= 95):
+  - CIC Dark Green #007A3D is the working brand color: buttons, headings, links.
+    White on it is 5.45:1.
+  - CIC Primary Green #00A850 is a NON-TEXT accent only (bars, borders, progress,
+    highlights). Text on it fails contrast (3.1:1), and the guide also says to
+    use it sparingly.
+  - CIC Light Gray #C8C8C8 is for borders and dividers only (1.7:1 on white).
+    Secondary text uses CIC Medium Gray #595959 (7:1).
+  - The guide defines no dark theme and asks for white backgrounds, so this app
+    is light only.
+*/
+:root {
+  --canvas: #ffffff; /* CIC_WHITE: page background */
+  --surface: #ffffff;
+  --tint: #e6f4ed; /* CIC_LIGHT_TINT: callouts, alternating table rows */
+  --ink: #000000; /* CIC_BLACK: primary body text */
+  --muted: #595959; /* CIC_MED_GRAY: supporting copy */
+  --line: #c8c8c8; /* CIC_LIGHT_GRAY: borders and dividers only */
+
+  --brand: #007a3d; /* CIC_DARK_GREEN: headers, buttons, links */
+  --brand-hover: #006332; /* slightly deeper for hover and pressed */
+  --on-brand: #ffffff;
+  --accent: #00a850; /* CIC_PRIMARY_GREEN: non-text accent only */
+
+  --success: #007a3d;
+  --warning: #8a4b00;
+  --danger: #b3261e;
+}
+
+/* Expose tokens as Tailwind utilities: bg-tint, text-brand, border-line, ... */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-tint: var(--tint);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-on-brand: var(--on-brand);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  /* Two families at most (brand rule): one sans for everything, one mono for code. */
+  --font-sans: var(--font-atkinson), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 1rem; /* 16px: top of the guide's 14-16px digital body range */
+  line-height: 1.6; /* guide minimum is 1.15 */
+}
+
+/* Heading hierarchy: bold, CIC Dark Green. */
+h1,
+h2,
+h3 {
+  color: var(--brand);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+a {
+  color: var(--brand);
+  text-underline-offset: 3px;
+}
+a:hover {
+  color: var(--brand-hover);
+}
+
+/* A clear keyboard focus indicator on everything interactive.
+   Black with a gap shows on white, on tint, and on dark green buttons. */
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Buttons: 44px minimum touch target. Primary uses Dark Green with white text. */
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.5rem 1.25rem;
+    border: 2px solid transparent;
+    border-radius: 0.5rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--brand);
+    color: var(--on-brand);
+  }
+  .btn-primary:hover {
+    background: var(--brand-hover);
+    color: var(--on-brand);
+  }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--brand);
+    border-color: var(--brand);
+  }
+  .btn-secondary:hover {
+    background: var(--tint);
+    color: var(--brand-hover);
+  }
+}
+
+/* Skip link: hidden until it receives keyboard focus. */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 700;
+  border-radius: 0.5rem;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* Respect the user's reduced-motion preference everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
