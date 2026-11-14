@@ -27,3 +27,5 @@ target/
 .DS_Store
 Thumbs.db
 *.log
+# Kiro (local AI assistant config, specs, steering, hooks)
+.kiro/
