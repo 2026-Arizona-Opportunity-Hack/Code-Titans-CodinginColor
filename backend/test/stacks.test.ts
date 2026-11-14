@@ -107,6 +107,17 @@ describe("ApiStack", () => {
     api.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /v1/admin/cohorts/{cohortId}/summary", AuthorizationType: "JWT" });
   });
 
+  test("read API routes need the API key and are throttled harder", () => {
+    api.hasResourceProperties("AWS::ApiGatewayV2::Authorizer", {
+      AuthorizerType: "REQUEST",
+      IdentitySource: ["$request.header.X-Api-Key"],
+    });
+    api.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /v1/read/cohorts", AuthorizationType: "CUSTOM" });
+    api.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
+      RouteSettings: Match.objectLike({ "GET /v1/read/cohorts": { ThrottlingRateLimit: 5, ThrottlingBurstLimit: 10 } }),
+    });
+  });
+
   test("no function is granted wildcard DynamoDB actions", () => {
     const policies = JSON.stringify(api.findResources("AWS::IAM::Policy"));
     expect(policies).toContain("dynamodb:PutItem");

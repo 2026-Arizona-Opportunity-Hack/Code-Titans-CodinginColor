@@ -8,8 +8,9 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 import { AppConfig } from "./config";
 import { DataStack } from "./data-stack";
-import { createStudentAuthorizer } from "./domains/authorizers";
+import { createApiKeyAuthorizer, createStudentAuthorizer } from "./domains/authorizers";
 import { DomainContext, addRoutes } from "./domains/context";
+import { ReadApi } from "./domains/read";
 import { ReportsApi } from "./domains/reports";
 import { StudentPlayerApi } from "./domains/student-player";
 import { createPythonFunction, hostArchitecture } from "./lambda-factory";
@@ -79,6 +80,8 @@ export class ApiStack extends cdk.Stack {
       },
       staffAuthorizer,
       studentAuthorizer: createStudentAuthorizer(this, defaults, data.coreTable),
+      apiKeyAuthorizer: createApiKeyAuthorizer(this, defaults, data.coreTable),
+      throttles: {},
     };
 
     // Liveness check: public, no data access.
@@ -92,8 +95,22 @@ export class ApiStack extends cdk.Stack {
     // ---- Domains: add one line per domain construct here. ----
     new StudentPlayerApi(this, "StudentPlayer", ctx);
     new ReportsApi(this, "Reports", ctx);
+    new ReadApi(this, "Read", ctx);
+
+    this.applyRouteThrottles(ctx.throttles);
 
     new cdk.CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint, description: "HTTP API base URL (append /v1)" });
+  }
+
+  /** Stricter limits for specific routes, such as the key-authenticated read API. */
+  private applyRouteThrottles(throttles: Record<string, { rate: number; burst: number }>): void {
+    const stage = this.api.defaultStage?.node.defaultChild as apigwv2.CfnStage;
+    // CfnStage.routeSettings is an untyped map, so it needs CloudFormation's PascalCase keys.
+    const settings: Record<string, { ThrottlingRateLimit: number; ThrottlingBurstLimit: number }> = {};
+    for (const [routeKey, t] of Object.entries(throttles)) {
+      settings[routeKey] = { ThrottlingRateLimit: t.rate, ThrottlingBurstLimit: t.burst };
+    }
+    stage.routeSettings = settings;
   }
 
   /** Default throttling and a PII-free access log (no IP address or user agent). */

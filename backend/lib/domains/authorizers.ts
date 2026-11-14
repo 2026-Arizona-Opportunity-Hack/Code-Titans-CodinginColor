@@ -23,3 +23,18 @@ export function createStudentAuthorizer(scope: Construct, defaults: FunctionDefa
     resultsCacheTtl: cdk.Duration.seconds(60),
   });
 }
+
+export function createApiKeyAuthorizer(scope: Construct, defaults: FunctionDefaults, core: dynamodb.ITable): HttpLambdaAuthorizer {
+  const fn = createPythonFunction(scope, "ApiKeyAuthorizerFunction", defaults, {
+    dir: "authorizer-apikey",
+    description: "Checks the dashboard API key (hash compare, scopes, revocation)",
+    timeout: cdk.Duration.seconds(5),
+    environment: { CORE_TABLE: core.tableName },
+  });
+  core.grantReadWriteData(fn); // reads the key, and records lastUsedAt
+  return new HttpLambdaAuthorizer("ApiKeyAuthorizer", fn, {
+    responseTypes: [HttpLambdaResponseType.SIMPLE],
+    identitySource: ["$request.header.X-Api-Key"],
+    resultsCacheTtl: cdk.Duration.seconds(60),
+  });
+}

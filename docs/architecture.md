@@ -178,7 +178,7 @@ Publishing validates the module and creates the next `V#` item. Published versio
 | `CLS#<id>` | `OVR#<studentId>#<moduleId>` | instructor unlock override |
 | `STU#<id>` | `META` | classId, `credHmac`, `credVersion` |
 | `USR#<sub>` | `META` | role, `canAuthor`, orgId (Cognito holds name and email) |
-| `KEY#<keyId>` | `META` | secret hash, scopes, label, createdBy, lastUsedAt, revokedAt |
+| `KEY#<keyId>` | `META` | `secretHash` (sha256 hex of the secret), `scopes` (list), `label`, `createdBy`, `createdAt`, `lastUsedAt`, `revokedAt`. `keyId` is 8 to 32 letters and digits, with no underscore. |
 | `SES#<sha256(token)>` | `META` | `studentId`, `classId`, `credVersion` (copied from the student at login), `ttl` (epoch seconds). Written by the login endpoint, read by `authorizer-student`. Tokens look like `ses_<random>`. |
 
 **Student identity.** A student is identified by `studentId`, a system-generated UUID v4, never by name.

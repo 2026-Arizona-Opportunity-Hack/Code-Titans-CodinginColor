@@ -279,7 +279,12 @@ Key auth, scope `read:cohorts`. Read-only. All responses are aggregates with the
 | GET | `/read/concepts/gain?cohortId=` | Gain by concept ("students gained 32 points on loops") |
 | GET | `/read/progress?groupBy=cohort\|class\|module\|org&from=&to=` | Completion over a period, grouped |
 
-Query parameters: `from` and `to` (dates), `orgId`, `cohortId`, `classId`, `groupBy`. Any report can be filtered by cohort or by class.
+Query parameters: `from` and `to` (dates like `2026-11-15`, UTC, both inclusive), `orgId`, `cohortId`, `classId`, `groupBy` (`cohort`, `class`, `module`, `org`; default `cohort`).
+
+- With a period, a module counts as started or completed only if that happened inside it, and a (pre, post) pair counts only if the post-test was taken inside it. Enrollment is always the current roster.
+- `/read/modules/{moduleId}/gain` and `/read/concepts/gain` accept `cohortId`, `classId` or `orgId` to narrow the scope. With none, they cover every class.
+- Auth: send `X-Api-Key: cic_<keyId>_<secret>`. The key item in the core table is `KEY#<keyId>` / `META` with `secretHash` (sha256 hex of the secret), `scopes` (list, needs `read:cohorts`), `label`, `createdBy`, `createdAt`, and `revokedAt` when revoked. The admin endpoint that creates keys must store exactly these fields.
+- Every route is throttled to 5 requests per second (burst 10). Any report can be filtered by cohort or by class.
 
 `GET /read/cohorts/{cohortId}/summary`:
 

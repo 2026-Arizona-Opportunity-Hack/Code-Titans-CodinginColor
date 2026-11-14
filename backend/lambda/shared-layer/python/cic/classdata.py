@@ -89,3 +89,31 @@ def classes_in_cohort(cohort_id: str) -> List[str]:
     core = db.get_table(db.CORE)
     items = db.query_all(core, IndexName="gsi2", KeyConditionExpression=Key("gsi2pk").eq(keys.coh_pk(cohort_id)))
     return sorted(i["pk"][len("CLS#"):] for i in items if i["sk"] == "META")
+
+
+def _scan_core(filter_expression, values, names=None):
+    """Scan the core table with a filter. The table is small (hundreds of items), so a scan is cheap."""
+    table = db.get_table(db.CORE)
+    kwargs = {"FilterExpression": filter_expression, "ExpressionAttributeValues": values}
+    if names:
+        kwargs["ExpressionAttributeNames"] = names
+    while True:
+        resp = table.scan(**kwargs)
+        yield from resp.get("Items", [])
+        if not resp.get("LastEvaluatedKey"):
+            return
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+
+
+def class_metas() -> List[dict]:
+    """META items for every class."""
+    return list(_scan_core("begins_with(pk, :c) AND sk = :m", {":c": "CLS#", ":m": "META"}))
+
+
+def cohort_metas() -> List[dict]:
+    return list(_scan_core("begins_with(pk, :c) AND sk = :m", {":c": "COH#", ":m": "META"}))
+
+
+def name_of(pk: str) -> str:
+    item = db.get_table(db.CORE).get_item(Key={"pk": pk, "sk": "META"}).get("Item") or {}
+    return item.get("name")
