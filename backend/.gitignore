@@ -1,0 +1,8 @@
+# CDK and TypeScript build output
+cdk.out/
+*.js
+!jest.config.js
+*.d.ts
+# Python
+__pycache__/
+.pytest_cache/

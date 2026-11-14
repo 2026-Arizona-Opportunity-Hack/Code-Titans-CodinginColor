@@ -1,0 +1,33 @@
+{
+  "name": "cic-curriculum-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CDK app and Lambda handlers for the CIC curriculum and student progress platform",
+  "license": "MIT",
+  "bin": {
+    "cic-curriculum": "bin/app.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "test:py": "PYTHONPATH=lambda/shared-layer/python python3 -m pytest test -q",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy --all"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.19.2",
+    "aws-cdk": "^2.1148.1",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.15",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.9.3"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.277.0",
+    "constructs": "^10.8.1"
+  }
+}
