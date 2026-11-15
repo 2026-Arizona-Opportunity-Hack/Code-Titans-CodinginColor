@@ -85,7 +85,7 @@ export const moduleSeconds = (studentId: string, moduleId: string) =>
   [...activeSeconds].filter(([k]) => k.startsWith(`${studentId}/${moduleId}/`)).reduce((sum, [, s]) => sum + s, 0);
 // Demo students on the Period 3 roster who are at different points, so the teacher's views have something to show.
 const INTRO = ["a-vid", "a-chk", "a-exit"].map((a) => ["py-intro", a]);
-const LOOPS = ["a-pre", "a-vid", "a-chk", "a-ws", "a-exit", "a-post"].map((a) => ["py-loops", a]);
+const LOOPS = ["a-pre", "a-code", "a-vid", "a-chk", "a-ws", "a-exit", "a-post"].map((a) => ["py-loops", a]);
 const demoProgress: [string, string[][], number][] = [
   ["stu_cls_01_1", [...INTRO, ...LOOPS.slice(0, 2)], 18 * 60], // Ana: part way through Loops
   ["stu_cls_01_2", [...INTRO, ...LOOPS.slice(0, 1)], 25 * 60], // Ben: just started Loops
