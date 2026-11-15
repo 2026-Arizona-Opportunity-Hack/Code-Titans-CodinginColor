@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { BrandMark } from "./BrandMark";
 import { Footer } from "./Footer";
 import { Icon } from "./Icon";
+import { StudentMenu } from "./StudentMenu";
 
 /**
  * Page frame for students: a sticky header and one centered column. It is designed
@@ -28,9 +29,10 @@ export function StudentShell({
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-x-4 gap-y-1 px-4 py-2.5">
           <BrandMark />
           <div className="flex items-center gap-2 text-sm">
+            {onSignOut ? <StudentMenu /> : null}
             {className ? <span className="hidden text-muted sm:inline">{className}</span> : null}
             <span className="inline-flex items-center gap-2 font-bold">
-              <span aria-hidden="true" className="avatar !size-9">
+              <span aria-hidden="true" className="avatar !size-9 max-sm:hidden">
                 {initial}
               </span>
               <span>
