@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { ClassSummary, Org, StaffMe, StaffRole } from "../lib/api/staff";
+import { getRoster } from "./rosterStore";
 
 // Fake staff API. Demo accounts use the token "staff_mock_<role>". Shapes follow the
 // backend's GET /me and docs/api.md sections 2 and 4. Created classes live in memory,
@@ -12,18 +13,30 @@ const ORGS: Org[] = [
   { orgId: "org_old_school", name: "Old Partner School", status: "archived" }, // hidden from the picker
 ];
 
+// Same shape as the real class object (backend/lambda/class-api/classes.py).
+function newClass(fields: Pick<ClassSummary, "classId" | "name" | "orgId" | "joinCode"> & Partial<ClassSummary>): ClassSummary {
+  return {
+    cohortId: null,
+    status: "active",
+    termStart: null,
+    termEnd: null,
+    currentModuleId: null,
+    settings: { stuckFailedAttempts: 3, stuckTimeMultiplier: 2, notStartedDays: 1, inactiveSchoolDays: 3 },
+    createdAt: "2026-08-01T00:00:00Z",
+    ...fields,
+  };
+}
+
 const classes: ClassSummary[] = [
-  {
+  newClass({
     classId: "cls_01",
     name: "Period 3",
     orgId: "org_maryvale",
-    status: "active",
     joinCode: "K7M4QX",
-    enrolled: 28,
     termStart: "2026-08-17",
     termEnd: "2026-12-18",
-  },
-  { classId: "cls_02", name: "Period 5", orgId: "org_maryvale", status: "active", joinCode: "R2D9TW", enrolled: 24 },
+  }),
+  newClass({ classId: "cls_02", name: "Period 5", orgId: "org_maryvale", joinCode: "R2D9TW" }),
 ];
 
 export function apiError(status: number, code: string, error: string) {
@@ -70,16 +83,15 @@ export const staffHandlers = [
     const body = (await request.json().catch(() => ({}))) as Partial<ClassSummary>;
     if (!body.name?.trim()) return apiError(400, "VALIDATION_ERROR", "name is required.");
     if (!body.orgId) return apiError(400, "VALIDATION_ERROR", "orgId is required.");
-    const created: ClassSummary = {
+    const created = newClass({
       classId: `cls_${String(classes.length + 1).padStart(2, "0")}`,
       name: body.name.trim(),
       orgId: body.orgId,
-      status: "active",
       joinCode: randomCode(),
-      enrolled: 0,
-      ...(body.termStart ? { termStart: body.termStart } : {}),
-      ...(body.termEnd ? { termEnd: body.termEnd } : {}),
-    };
+      termStart: body.termStart ?? null,
+      termEnd: body.termEnd ?? null,
+      createdAt: new Date().toISOString(),
+    });
     classes.push(created);
     return HttpResponse.json({ data: created }, { status: 201 });
   }),
@@ -89,7 +101,9 @@ export const staffHandlers = [
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
     if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
     const found = classes.find((c) => c.classId === params.classId);
-    return found ? HttpResponse.json({ data: found }) : apiError(404, "NOT_FOUND", "Class not found.");
+    if (!found) return apiError(404, "NOT_FOUND", "Class not found.");
+    // The detail call adds the student count and assignments (the list call does not).
+    return HttpResponse.json({ data: { ...found, assignments: [], counts: { students: getRoster(found.classId).length } } });
   }),
 
   http.get(`${env.apiUrl}/admin/orgs`, ({ request }) => {

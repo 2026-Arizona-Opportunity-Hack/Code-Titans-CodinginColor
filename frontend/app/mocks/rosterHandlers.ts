@@ -2,28 +2,28 @@ import Papa from "papaparse";
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { PossibleDuplicate, RosterImportPreview, RosterImportRequest, RowProblem } from "../lib/api/roster";
+import { addStudent, getRoster, normalizeName } from "./rosterStore";
 import { apiError, roleOf } from "./staffHandlers";
 
-// Fake roster import, behaving as docs/api.md section 4 describes. The class's existing
-// students are fixed (nothing is stored), so the same file always gives the same preview.
-// Try: a blank name (row error), "Alex Kim" (repeated name), externalId 1042 (update).
+// Fake roster API, behaving like the backend's roster.py and roster_import.py. An import
+// changes the in-memory roster, so imported students show up on the class page.
+// Try: a blank name (row error), "Sam Lee" (repeated name), externalId 1042 (update).
 
-const EXISTING = [
-  { studentId: "stu_01", displayName: "Ana R.", externalId: "" },
-  { studentId: "stu_03", displayName: "Alex Kim", externalId: "1042" },
-];
+type Plan = RosterImportPreview & { skipped: number; creates: { name: string; externalId: string }[] };
 
-function analyze(body: RosterImportRequest): RosterImportPreview | null {
+function plan(classId: string, body: RosterImportRequest): Plan | null {
   const rows = Papa.parse<string[]>(body.csv ?? "", { skipEmptyLines: "greedy" }).data;
   const header = (rows[0] ?? []).map((h) => h.trim());
   const nameIndex = header.indexOf("displayName");
   if (nameIndex === -1) return null;
   const idIndex = header.indexOf("externalId");
+  const roster = getRoster(classId);
 
   const errors: RowProblem[] = [];
   const possibleDuplicates: PossibleDuplicate[] = [];
-  let toCreate = 0;
+  const creates: Plan["creates"] = [];
   let toUpdate = 0;
+  let skipped = 0;
 
   rows.slice(1).forEach((cells, i) => {
     const row = i + 1;
@@ -34,41 +34,77 @@ function analyze(body: RosterImportRequest): RosterImportPreview | null {
       return;
     }
     // A row whose externalId already exists updates that student; no new student is made.
-    if (externalId && EXISTING.some((s) => s.externalId === externalId)) {
+    if (externalId && roster.some((s) => s.externalId === externalId)) {
       toUpdate += 1;
       return;
     }
-    const sameName = EXISTING.find((s) => s.displayName.toLowerCase() === name.toLowerCase());
+    const sameName = roster.find((s) => s.status === "active" && normalizeName(s.displayName) === normalizeName(name));
     if (sameName) {
-      if (body.duplicateNames === "skip") return;
+      if (body.duplicateNames === "skip") {
+        skipped += 1;
+        return;
+      }
       possibleDuplicates.push({ row, displayName: name, matchesStudentId: sameName.studentId });
     }
-    toCreate += 1;
+    creates.push({ name, externalId });
   });
 
   const ignoredColumns = header.filter((h, i) => h && i !== nameIndex && i !== idIndex);
-  return { toCreate, toUpdate, ignoredColumns, possibleDuplicates, errors };
+  return { toCreate: creates.length, toUpdate, ignoredColumns, possibleDuplicates, errors, skipped, creates };
 }
 
 export const rosterHandlers = [
-  http.post(`${env.apiUrl}/classes/:classId/roster/import`, async ({ request }) => {
+  http.get(`${env.apiUrl}/classes/:classId/roster`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
+    const status = new URL(request.url).searchParams.get("status");
+    const rows = getRoster(String(params.classId)).filter((s) => !status || s.status === status);
+    return HttpResponse.json({ data: rows, meta: { nextCursor: null } });
+  }),
+
+  http.get(`${env.apiUrl}/classes/:classId/roster/duplicates`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
+    const groups = new Map<string, ReturnType<typeof getRoster>>();
+    for (const s of getRoster(String(params.classId)).filter((x) => x.status === "active")) {
+      groups.set(normalizeName(s.displayName), [...(groups.get(normalizeName(s.displayName)) ?? []), s]);
+    }
+    const data = [...groups.values()]
+      .filter((g) => g.length > 1)
+      .map((g) => ({
+        displayName: g[0].displayName,
+        students: g.map((s) => ({ studentId: s.studentId, rosterNumber: s.rosterNumber })),
+      }));
+    return HttpResponse.json({ data });
+  }),
+
+  http.post(`${env.apiUrl}/classes/:classId/roster/import`, async ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
     if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't import rosters.");
 
+    const classId = String(params.classId);
     const body = (await request.json().catch(() => ({}))) as RosterImportRequest;
-    const preview = analyze(body);
-    if (!preview) return apiError(400, "INVALID_CSV", "The CSV needs a displayName column.");
+    const result = plan(classId, body);
+    if (!result) return apiError(400, "INVALID_CSV", "The CSV needs a displayName column.");
 
     if (new URL(request.url).searchParams.get("dryRun") === "true") {
-      return HttpResponse.json({ data: preview });
+      const { toCreate, toUpdate, ignoredColumns, possibleDuplicates, errors } = result;
+      return HttpResponse.json({ data: { toCreate, toUpdate, ignoredColumns, possibleDuplicates, errors } });
     }
-    // Commit: errors are never imported. (The real response shape is not defined in api.md.)
+    // Commit: valid rows are imported, rows with problems are skipped and reported.
+    result.creates.forEach((c) => addStudent(classId, c.name, c.externalId));
     return HttpResponse.json({
       data: {
-        created: preview.toCreate,
-        updated: preview.toUpdate,
-        possibleDuplicates: preview.possibleDuplicates,
+        created: result.toCreate,
+        updated: result.toUpdate,
+        skipped: result.skipped,
+        possibleDuplicates: result.possibleDuplicates,
+        errors: result.errors,
+        ignoredColumns: result.ignoredColumns,
+        credentialsNeeded: result.toCreate,
       },
     });
   }),

@@ -62,3 +62,37 @@ export function commitRosterImport(
 ): Promise<RosterImportResult> {
   return apiFetch<RosterImportResult>(importPath(classId), { method: "POST", token, body });
 }
+
+/** A student on a class roster (backend/lambda/class-api/roster.py). */
+export type RosterStudent = {
+  studentId: string;
+  classId: string;
+  displayName: string;
+  /** Per-class number, never reused, so two students with the same name can be told apart. */
+  rosterNumber: number;
+  externalId: string | null;
+  status: "active" | "inactive";
+  startModuleId: string | null;
+  /** False until login words have been issued for the student. */
+  hasCredential: boolean;
+};
+
+/** Active students in a class who share a display name (GET .../roster/duplicates). */
+export type DuplicateGroup = {
+  displayName: string;
+  students: { studentId: string; rosterNumber: number }[];
+};
+
+export function listRoster(
+  token: string,
+  classId: string,
+  status?: RosterStudent["status"],
+  signal?: AbortSignal,
+): Promise<RosterStudent[]> {
+  const query = status ? `?status=${status}` : "";
+  return apiFetch<RosterStudent[]>(`/classes/${encodeURIComponent(classId)}/roster${query}`, { token, signal });
+}
+
+export function listDuplicates(token: string, classId: string, signal?: AbortSignal): Promise<DuplicateGroup[]> {
+  return apiFetch<DuplicateGroup[]>(`/classes/${encodeURIComponent(classId)}/roster/duplicates`, { token, signal });
+}

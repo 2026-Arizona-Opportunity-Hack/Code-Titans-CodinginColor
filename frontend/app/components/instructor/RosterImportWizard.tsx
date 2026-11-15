@@ -79,7 +79,9 @@ function ImportBody({ token, classId }: { token: string; classId: string }) {
     setError(null);
     try {
       setResult(await commitRosterImport(token, classId, { csv: prepared.csv, duplicateNames }));
-      await queryClient.invalidateQueries({ queryKey: ["class"] });
+      await Promise.all(
+        ["class", "roster", "classes"].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+      );
       setStep("done");
     } catch (err) {
       setError(messageFor(err));
