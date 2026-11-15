@@ -36,10 +36,34 @@ export type ClassSummary = {
   termEnd?: string;
 };
 
+export type CreateClassInput = {
+  name: string;
+  orgId: string;
+  cohortId?: string;
+  termStart?: string;
+  termEnd?: string;
+};
+
+// Matches the backend's GET /v1/admin/orgs (backend/lambda/admin-api/admin_orgs.py).
+export type Org = { orgId: string; name: string; status?: "active" | "archived"; createdAt?: string };
+
 export function getMe(token: string, signal?: AbortSignal): Promise<StaffMe> {
   return apiFetch<StaffMe>("/me", { token, signal });
 }
 
 export function listClasses(token: string, signal?: AbortSignal): Promise<ClassSummary[]> {
   return apiFetch<ClassSummary[]>("/classes", { token, signal });
+}
+
+export function getClass(token: string, classId: string, signal?: AbortSignal): Promise<ClassSummary> {
+  return apiFetch<ClassSummary>(`/classes/${encodeURIComponent(classId)}`, { token, signal });
+}
+
+export function createClass(token: string, input: CreateClassInput): Promise<ClassSummary> {
+  return apiFetch<ClassSummary>("/classes", { method: "POST", token, body: input });
+}
+
+/** Admin only (api.md section 2). */
+export function listOrgs(token: string, signal?: AbortSignal): Promise<Org[]> {
+  return apiFetch<Org[]>("/admin/orgs", { token, signal });
 }
