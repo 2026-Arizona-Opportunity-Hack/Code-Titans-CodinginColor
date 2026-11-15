@@ -3,7 +3,7 @@
 // `process.env.NEXT_PUBLIC_NAME` expression. Nothing secret belongs here.
 
 export const env = {
-  /** Serve fake data with MSW instead of calling the real API. */
+  /** Development switch: answer API calls in the browser with MSW instead of calling the API. Keep it off in any published build. */
   useMocks: process.env.NEXT_PUBLIC_USE_MOCKS === "true",
 
   /** API base URL including /v1, without a trailing slash. */

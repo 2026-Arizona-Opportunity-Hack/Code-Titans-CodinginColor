@@ -1,6 +1,6 @@
 # REST API: Curriculum & Student Progress Platform
 
-Status: design draft. See [architecture.md](architecture.md) for the model and rules behind these endpoints.
+Status: built and deployed. This page lists the routes in the CDK stacks. See [architecture.md](architecture.md) for the model and rules behind these endpoints.
 
 Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 
@@ -35,7 +35,7 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` |
 | 403 | `FORBIDDEN`, `MODULE_LOCKED`, `ACTIVITY_LOCKED`, `ASSESSMENT_ALREADY_SUBMITTED` |
 | 404 | `NOT_FOUND` |
-| 409 | `REVISION_CONFLICT`, `DUPLICATE_SUBMISSION`, `ALREADY_PUBLISHED`, `TOO_EARLY` |
+| 409 | `REVISION_CONFLICT`, `DUPLICATE_SUBMISSION`, `ALREADY_PUBLISHED`, `MODULE_IN_USE`, `TOO_EARLY` |
 | 429 | `LOGIN_THROTTLED` (with `Retry-After`), `RATE_LIMITED`, `HINT_LIMIT_REACHED`, `AI_QUOTA_EXCEEDED` |
 | 503 | `HINTS_UNAVAILABLE` |
 | 500 | `INTERNAL_ERROR` (generic message, details only in logs) |
@@ -104,11 +104,15 @@ All `A` only.
 | POST | `/curriculum/modules` | A, Au | Create a draft `{title, template: "standard"}` (the template seeds the pre, video, check, worksheet, exit, post structure) |
 | GET | `/curriculum/modules/{moduleId}` | A, I, R | Latest published module. Instructors use this to browse modules before assigning them. A and Au can pass `?draft=true`. Includes answer keys (staff only). |
 | PUT | `/curriculum/modules/{moduleId}/draft` | A, Au | Save the whole draft. Requires `If-Match: <revision>`. 409 `REVISION_CONFLICT` if stale. |
-| POST | `/curriculum/modules/{moduleId}/publish` | A, Au | Validate and create the next immutable version |
+| POST | `/curriculum/modules/{moduleId}/publish` | A, Au | Validate and create the next immutable version. Optional body `{updateClasses?: boolean}` (default `true`): the caller's own classes that use the module move to the new version, and other teachers' classes stay where they are. Returns `{moduleId, version, publishedAt, classesUpdated}`. 409 `ALREADY_PUBLISHED` if nothing changed. |
+| DELETE | `/curriculum/modules/{moduleId}` | A, Au | Delete a module with its draft and versions. Admins can delete any module, authors only their own. 409 `MODULE_IN_USE` if any class has it assigned. |
+| GET | `/curriculum/modules/{moduleId}/classes` | A, I, X | The caller's classes that use this module, with the version each is on and how many students have started it: `{latestVersion, classes: [{classId, name, moduleVersion, startedCount}]}` |
+| POST | `/curriculum/modules/from-file` | A, Au | Draft a module from an uploaded worksheet or deck. Body `{fileUrl, title?}`, where `fileUrl` is the `assetUrl` of a PDF or `.pptx` from `upload-url`. Returns 202 `{jobId}`. Details below. |
+| GET | `/curriculum/conversions/{jobId}` | A, Au | `{status: "working"\|"done"\|"failed", moduleId?, error?}`. Only the person who started the job can read it (404 for anyone else). |
 | GET | `/curriculum/modules/{moduleId}/versions` | A, Au | Version list with publish dates |
 | GET | `/curriculum/modules/{moduleId}/versions/{version}` | A, I, R | A specific version |
 | GET | `/curriculum/concepts` | A, I, R | Concept tags in use (for the tag picker and reports) |
-| POST | `/curriculum/assets/upload-url` | A, Au | Presigned S3 PUT for an image `{contentType, size}`. PNG, JPEG, or WebP, max 5 MB. |
+| POST | `/curriculum/assets/upload-url` | A, Au | A signed S3 upload form for one file `{contentType, size}`. PNG, JPEG or WebP images (5 MB), PDF (20 MB) or `.pptx` (10 MB). Returns `{uploadUrl, fields, key, assetUrl, expiresInSeconds, maxBytes}`. S3 itself enforces the type and size. |
 
 **Who can write.** Only curriculum authors: CIC admins, and instructors an admin has made authors (`canAuthor`). An author sees and can update **every** module CIC has made, drafts included, not only their own. Instructors who are not authors, external teachers and reviewers can browse and assign published modules but get 403 on every write. If they ask `GET /curriculum/modules?status=draft` or `all`, they still get the published list (no error). Deleting a module is for admins and the author who created it.
 
@@ -116,6 +120,7 @@ All `A` only.
 
 `PUT .../draft` body is the module document shown in architecture.md section 6. A coding exercise is `{type: "code", title, body (the instructions), language: "python", starterCode?, tests, solution?, passPct?}`. Each test is `{testId, label, kind: "output"|"call", stdin?, expression?, expected}`: an `output` test runs the program with `stdin` and compares what it prints, and a `call` test evaluates `expression` (for example `add(2, 3)`) after the program has run and compares the result. Publishing needs instructions and at least one test, each with a label and an expected value.
 
+**Drafting from a file.** `from-file` starts a background job and replies at once, because the AI takes 20 to 60 seconds and API Gateway allows 30. The client polls `GET /curriculum/conversions/{jobId}` until `status` is `done`, then opens `moduleId`. The AI is Claude Haiku 4.5 on Bedrock with Amazon Nova Pro as the fallback. A PDF over 4.5 MB is refused (Bedrock's limit for one document), and text taken from a deck is cut at 60,000 characters. The result is an ordinary unpublished draft marked `aiDrafted: true`, with a pretest and post-test on the same concepts, check questions, worksheet prompts and an exit question. It is written to the audit log as `module_converted`. Jobs expire after 24 hours.
 **Reviewer preview.** Reviewers use `GET /curriculum/modules/{id}` and render it in a read-only preview. No progress or submission endpoint is reachable with a reviewer token.
 
 ---
@@ -138,7 +143,7 @@ All `A` only.
 | POST | `/classes/{classId}/roster/import?dryRun=true` | I, A | Preview a CSV import. No writes. |
 | POST | `/classes/{classId}/roster/import` | I, A | Commit the import |
 | POST | `/classes/{classId}/roster` | I, A | Add one student `{displayName, externalId?, startModuleId?}` (late joiner). `startModuleId` defaults to the class's `currentModuleId`. Returns that student's credential once. It cannot be shown again; use `/credentials` to reissue. A repeated name is created as a new student and returned with `possibleDuplicateOf`. |
-| PATCH | `/classes/{classId}/roster/{studentId}` | I, A | Rename or deactivate (deactivate is how a duplicate is retired for the demo) |
+| PATCH | `/classes/{classId}/roster/{studentId}` | I, A | Rename or deactivate (deactivating retires a duplicate without deleting it) |
 | POST | `/classes/{classId}/roster/{studentId}/merge` | I, A | Merge this duplicate into `{intoStudentId}` (same class) and remove it. Activities keep the better result (complete wins, highest score, attempts and time add up). Pretest and post-test keep the earlier submission, so gain is not inflated. Submissions and unlock overrides move over. The kept student's name and login words do not change. Safe to retry. |
 | DELETE | `/classes/{classId}/roster/{studentId}` | A | Delete a student and their progress |
 | POST | `/classes/{classId}/credentials` | I, A | Generate or reset credentials `{studentIds?}` (all if omitted). Old words stop working and those students' sessions are revoked. The words are returned in this response only. |
@@ -351,7 +356,6 @@ Query parameters: `from` and `to` (dates like `2026-11-15`, UTC, both inclusive)
 - Groups with fewer than 5 students return `suppressed: true` and null metrics.
 - No student names, IDs, codes, or free-text answers appear anywhere in this API.
 - 401 for a missing, unknown, or revoked key. 403 if the scope is missing. Throttling is per route (see section 8), not per key.
-- An MCP wrapper over these same functions is possible later. It would add no new data access.
 
 ---
 
@@ -366,7 +370,7 @@ Generated from the synthesized CDK stack, so it shows what is deployed, not what
 | `POST /auth/student/logout` | `auth-student` | student session | same as login |
 | `GET /me`, `/admin/orgs`, `/admin/cohorts`, `/admin/users`, `/admin/api-keys`, `/admin/audit`, `/admin/access-requests` | `admin-api` | Cognito JWT | core rw, events rw, Cognito admin actions |
 | `POST /auth/external/request-access` | `access-request` | none (public, throttled to 2 per second) | core PutItem and Query only |
-| `/curriculum/*` | `curriculum-api` | Cognito JWT | content rw, core r, assets bucket (write) |
+| `/curriculum/*` | `curriculum-api` | Cognito JWT | content rw, core r, assets bucket (read and signed upload), `InvokeModel` on Claude Haiku 4.5 and Nova Pro (inference profiles), and it may invoke itself for the background drafting job |
 | `/classes` (create, list, update, members, roster, import, credentials, join code, assignments, unlock) and `GET /students`, `GET /students/{id}` | `class-api` | Cognito JWT | core rw, content r, progress (query and delete, to remove a deleted student), pepper secret (read), Cognito (group check) |
 | `/classes/{id}/progress`, `students/{id}/progress`, `attention`, `modules/{id}/gain`, `concepts`, `review-queue`, `submissions/{id}/review`, `export`, `hints`, `gradebook`, `/admin/cohorts/{id}/summary`, and `GET /admin/usage` | `reports-api` | Cognito JWT | core r, content r, progress rw (review updates), events w (export audit) |
 | `/student/*` (including `POST /student/hints`) | `student-api` | student session | core r, content r, progress rw, events rw (hint counters and log), Bedrock `InvokeModel` on one named model |

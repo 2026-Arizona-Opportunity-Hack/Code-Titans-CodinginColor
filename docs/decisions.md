@@ -33,8 +33,8 @@ The choices that shape this project, with the reasons and what was turned down. 
 **Why.** The less we hold, the less can leak, and the easier it is for a school to say yes.
 
 ## 7. Curriculum authoring is a permission, not a role
-**Decision.** Authors are CIC admins and instructors an admin has flagged `canAuthor`. An author can see and edit every module CIC has made, drafts included. Deleting stays with admins and the module's creator. Publishing creates an immutable version, and a class keeps the version it was given until its teacher moves it.
-**Why.** CIC instructors are part of the organization, so one author's module should be fixable by another. Immutable versions mean a lesson never changes under a student part-way through it.
+**Decision.** Authors are CIC admins and instructors an admin has flagged `canAuthor`. An author can see and edit every module CIC has made, drafts included. Deleting stays with admins and the module's creator. Publishing creates an immutable version. By default the publisher's own classes move to it, with each student's finished steps kept. Classes taught by other teachers stay on the version they have until their teacher moves them.
+**Why.** CIC instructors are part of the organization, so one author's module should be fixable by another. Immutable versions mean a published lesson is never edited in place, so progress never points at changed content. Other teachers' classes only change version when their own teacher chooses.
 **Turned down.** Every instructor can create modules (too easy to change shared content by accident).
 
 ## 8. Teachers outside CIC are a separate kind of user
@@ -50,7 +50,7 @@ The choices that shape this project, with the reasons and what was turned down. 
 ## 10. Student code runs in the student's browser
 **Decision.** Python runs with Pyodide in a Web Worker on the student's device. The browser runs the tests and reports the result. The server stores the code and a score computed from the module's own test list, marked `selfReported`. The server never executes student code.
 **Why.** Running arbitrary student code on our servers is a security risk, needs a sandbox and costs money. In the browser it is sandboxed by WebAssembly and costs nothing.
-**Consequence.** A student could fake a pass, and tests are visible to students. So exercises are practice, never a replacement for the pretest and post-test, and teachers can read the submitted code. Submitting always finishes the step, so no student gets stuck.
+**Consequence.** A student could tamper with a result, and tests are visible to students. So exercises are practice, never a replacement for the pretest and post-test, and teachers can read the submitted code. Submitting always finishes the step, so no student gets stuck.
 **Turned down.** A server-side sandbox (a project of its own). Revisit if CIC needs graded code assignments.
 
 ## 11. Learning is measured with paired pretest and post-test questions
@@ -66,11 +66,12 @@ The choices that shape this project, with the reasons and what was turned down. 
 **Decision.** CIC's dashboard reads aggregated cohort results through an API protected by keys. A key is shown once and only its SHA-256 hash is stored. Keys have scopes, can be revoked, and key changes are audited.
 **Why.** CIC wants its own dashboard without staff accounts. Aggregates only means no student names or IDs leave the system.
 
-## 14. The whole interface also runs on fake data
-**Decision.** With `NEXT_PUBLIC_USE_MOCKS=true`, Mock Service Worker answers every API call with sample data.
-**Why.** Frontend work and demos do not wait on the backend, and anyone can run the app with no AWS account.
-**Rule.** A production build must have mocks off, or the site would show sample data.
-
+## 14. Drafting a module from a worksheet is AI-assisted, and always a draft
+**Decision.** An author uploads a PDF or PowerPoint, and Bedrock (Claude Haiku 4.5, with Amazon Nova Pro as the fallback) returns a module through a forced tool call with a fixed schema. It is saved as an unpublished draft marked `aiDrafted`. An author must review and publish it. It runs as a background job that the Lambda starts by invoking itself, and the client polls for the result.
+**Why.** CIC's lessons exist as printed worksheets and slide decks, and retyping each one is the slowest part of authoring. The AI only produces a first draft in the module's normal format. The author stays responsible for what students see, and the existing publish checks still apply.
+**Why a background job.** The model takes 20 to 60 seconds and API Gateway cuts a request off at 30. A self-invoking Lambda needs no queue or Step Functions workflow.
+**Consequence.** Only authors can use it. The prompt treats the file as content to convert, never as instructions. The fallback model keeps the feature working if Haiku is not enabled in the account (see operations.md).
+**Turned down.** Publishing AI output directly. Running the model inside the API request.
 ## 15. How the team works
 **Decision.** Every change is a small pull request into `main`. No stacked pull requests, and no PR based on another feature branch.
 **Why.** Early on, several PRs were merged into their parent branches and never reached `main`, so parts of the API were missing from the default branch until they were restored. Small PRs into `main` keep the history readable and the default branch complete. See [AGENTS.md](../AGENTS.md).
