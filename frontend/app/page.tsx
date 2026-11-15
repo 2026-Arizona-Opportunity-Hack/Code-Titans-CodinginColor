@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ApiStatus } from "./components/common/ApiStatus";
 import { BrandMark } from "./components/common/BrandMark";
 import { Footer } from "./components/common/Footer";
+import { env } from "./config/env";
 
 // Temporary home page. The real landing and student/staff entry screens replace it
 // in the next phases. The links below open the layout previews.
@@ -41,6 +42,30 @@ export default function Home() {
             </li>
           </ul>
         </section>
+
+        {env.useMocks ? (
+          <section aria-labelledby="demo-heading" className="rounded-xl border border-line bg-surface p-5">
+            <h2 id="demo-heading" className="text-xl">
+              Try the student flow (fake data)
+            </h2>
+            <p className="mt-1 text-muted">
+              Opens Maya&apos;s personal link. Or open the entry page and type class code K7M4QX with secret words
+              maple-tiger-blue.
+            </p>
+            <ul className="mt-4 flex flex-wrap gap-3">
+              <li>
+                <Link href="/s/#K7M4QX.maple-tiger-blue" className="btn btn-primary">
+                  Open Maya&apos;s link
+                </Link>
+              </li>
+              <li>
+                <Link href="/s/" className="btn btn-secondary">
+                  Student entry page
+                </Link>
+              </li>
+            </ul>
+          </section>
+        ) : null}
 
         <section aria-labelledby="status-heading" className="rounded-xl border border-line bg-surface p-5">
           <h2 id="status-heading" className="mb-3 text-xl">
