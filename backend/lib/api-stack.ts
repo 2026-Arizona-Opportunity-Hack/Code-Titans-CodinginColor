@@ -75,6 +75,7 @@ export class ApiStack extends cdk.Stack {
         progress: data.progressTable,
         events: data.eventsTable,
       },
+      userPool: props.userPool,
       staffAuthorizer,
     };
 

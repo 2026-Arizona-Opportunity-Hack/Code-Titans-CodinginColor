@@ -75,7 +75,16 @@ describe("AdminDomain", () => {
     "GET /v1/admin/cohorts",
     "POST /v1/admin/cohorts",
     "PATCH /v1/admin/cohorts/{cohortId}",
+    "GET /v1/admin/users",
+    "POST /v1/admin/users",
+    "PATCH /v1/admin/users/{userId}",
   ])("%s requires the Cognito JWT authorizer", (routeKey) => {
     t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
+  });
+
+  test("the admin function can manage users but not delete the pool or change its settings", () => {
+    const policies = JSON.stringify(t.findResources("AWS::IAM::Policy"));
+    expect(policies).toContain("cognito-idp:AdminCreateUser");
+    expect(policies).not.toMatch(/cognito-idp:(DeleteUserPool|UpdateUserPool|\*)/);
   });
 });

@@ -14,9 +14,24 @@ export class AdminDomain extends Construct {
       dir: "admin-api",
       description: "Staff identity and admin routes",
       timeout: cdk.Duration.seconds(10),
-      environment: { CORE_TABLE: ctx.tables.core.tableName },
+      environment: { CORE_TABLE: ctx.tables.core.tableName, USER_POOL_ID: ctx.userPool.userPoolId },
     });
     ctx.tables.core.grantReadWriteData(fn);
+    // Only the Cognito calls the user routes make, on this pool only.
+    ctx.userPool.grant(
+      fn,
+      "cognito-idp:AdminCreateUser",
+      "cognito-idp:AdminDeleteUser",
+      "cognito-idp:AdminGetUser",
+      "cognito-idp:AdminAddUserToGroup",
+      "cognito-idp:AdminRemoveUserFromGroup",
+      "cognito-idp:AdminListGroupsForUser",
+      "cognito-idp:AdminDisableUser",
+      "cognito-idp:AdminEnableUser",
+      "cognito-idp:AdminUserGlobalSignOut",
+      "cognito-idp:ListUsers",
+      "cognito-idp:ListUsersInGroup",
+    );
     addRoutes(
       ctx,
       fn,
@@ -28,6 +43,9 @@ export class AdminDomain extends Construct {
         "GET /v1/admin/cohorts",
         "POST /v1/admin/cohorts",
         "PATCH /v1/admin/cohorts/{cohortId}",
+        "GET /v1/admin/users",
+        "POST /v1/admin/users",
+        "PATCH /v1/admin/users/{userId}",
       ],
       ctx.staffAuthorizer,
     );
