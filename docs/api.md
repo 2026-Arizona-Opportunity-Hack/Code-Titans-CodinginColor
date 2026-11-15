@@ -103,6 +103,8 @@ All `A` only.
 | GET | `/curriculum/concepts` | A, I, R | Concept tags in use (for the tag picker and reports) |
 | POST | `/curriculum/assets/upload-url` | A, Au | Presigned S3 PUT for an image `{contentType, size}`. PNG, JPEG, or WebP, max 5 MB. |
 
+**Who can write.** Only curriculum authors: CIC admins, and instructors an admin has made authors (`canAuthor`). An author sees and can update **every** module CIC has made, drafts included, not only their own. Instructors who are not authors, external teachers and reviewers can browse and assign published modules but get 403 on every write. If they ask `GET /curriculum/modules?status=draft` or `all`, they still get the published list (no error). Deleting a module is for admins and the author who created it.
+
 **Publish validation** (400 `VALIDATION_ERROR` with a list of problems): at least one pretest and one post-test; every assessment question has a `concept`, an answer key, and points; pre and post cover the same concepts; video IDs match the allowlist; no empty prompts.
 
 `PUT .../draft` body is the module document shown in architecture.md section 6.

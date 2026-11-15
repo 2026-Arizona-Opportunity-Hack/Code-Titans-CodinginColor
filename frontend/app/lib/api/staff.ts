@@ -10,8 +10,8 @@ export type StaffMe = {
   userId: string;
   role: StaffRole;
   displayName: string;
-  /** canAuthor: may create modules and edit their own (admins and every instructor).
-   *  canEditAll: may edit anyone's module (admins, or instructors with the admin-set flag). */
+  /** canAuthor: may create and edit every module (admins, and instructors an admin made curriculum authors).
+   *  canEditAll is the old name for the same thing. */
   permissions: { canAuthor: boolean; canEditAll?: boolean };
   classes: { classId: string }[];
   /**
