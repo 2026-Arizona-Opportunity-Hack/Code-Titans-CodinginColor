@@ -16,10 +16,10 @@ export const ROLE_HOME: Record<StaffRole, string> = {
 
 /**
  * Sidebar items per role (docs/architecture.md section 5). Items without `ready`
- * show as disabled "Soon" until their screens are built. The Author item appears
- * for everyone who can author: admins and every instructor.
+ * show as disabled "Soon" until their screens are built. Curriculum covers browsing
+ * and authoring for admins and instructors.
  */
-export function navFor(role: StaffRole, canAuthor: boolean): NavItem[] {
+export function navFor(role: StaffRole): NavItem[] {
   if (role === "reviewer") {
     return [{ label: "Curriculum", href: "/reviewer/", ready: true }];
   }
@@ -28,7 +28,6 @@ export function navFor(role: StaffRole, canAuthor: boolean): NavItem[] {
     { label: "Students", href: "/instructor/students/", ready: true },
     { label: "Curriculum", href: "/instructor/curriculum/", ready: true },
   ];
-  if (canAuthor) items.push({ label: "Author", href: "/author/", ready: true });
   if (role === "cic_admin") {
     items.push(
       { label: "Cohorts", href: "/admin/cohorts/", ready: true },

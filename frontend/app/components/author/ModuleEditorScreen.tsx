@@ -72,7 +72,7 @@ function Editor({ token, moduleId, initial, onReload }: { token: string; moduleI
   const busy = save.isPending || publish.isPending;
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-4 text-sm"><Link href="/author/">← Back to modules</Link></nav>
+      <nav aria-label="Breadcrumb" className="mb-4 text-sm"><Link href="/instructor/curriculum/">← Back to Curriculum</Link></nav>
       {doc ? (
         <>
           <datalist id="concept-options">{concepts.data?.map((c) => <option key={c.concept} value={c.concept} />)}</datalist>

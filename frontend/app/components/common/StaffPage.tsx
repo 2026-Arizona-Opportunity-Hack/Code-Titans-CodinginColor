@@ -87,7 +87,7 @@ export function StaffPage({
   const me = meQuery.data;
   return (
     <StaffShell
-      items={navFor(me.role, me.permissions.canAuthor)}
+      items={navFor(me.role)}
       userName={me.displayName || "Staff"}
       roleLabel={ROLE_LABEL[me.role]}
       schoolName={me.role === "instructor" || me.orgId ? (me.orgName ?? null) : undefined}
