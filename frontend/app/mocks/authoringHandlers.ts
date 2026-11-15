@@ -79,6 +79,14 @@ function authorOnly(request: Request) {
 const withDetails = (status: number, code: string, error: string, details: unknown) => HttpResponse.json({ error, code, requestId: "req_mock", details }, { status });
 
 export const authoringHandlers = [
+  http.delete(`${env.apiUrl}/curriculum/modules/:moduleId`, ({ request, params }) => {
+    const denied = authorOnly(request);
+    if (denied) return denied;
+    const at = MODULES.findIndex((m) => m.moduleId === params.moduleId);
+    if (at === -1) return apiError(404, "NOT_FOUND", "Module not found");
+    MODULES.splice(at, 1);
+    return HttpResponse.json({ data: { moduleId: params.moduleId, deleted: true } });
+  }),
   http.post(`${env.apiUrl}/curriculum/modules`, async ({ request }) => {
     const denied = authorOnly(request);
     if (denied) return denied;

@@ -13,7 +13,7 @@ from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 from access import can_author, require_author
-from cic import db, paging, validate
+from cic import audit, db, paging, validate
 from cic.authz import require_staff
 from cic.errors import Conflict, Forbidden, NotFound, ValidationError
 from cic.http import Reply, Request
@@ -51,6 +51,7 @@ def public_meta(item: dict, authoring: bool) -> dict:
     if authoring:
         out["status"] = "published" if int(item["latestVersion"]) > 0 else "draft"
         out["hasUnpublishedChanges"] = int(item["revision"]) != int(item.get("publishedRevision", 0))
+        out["createdBy"] = item.get("createdBy")  # who may delete it: its creator or an admin
     return out
 
 
@@ -232,7 +233,40 @@ def list_concepts(req: Request):
     return [{"concept": c, "moduleCount": n} for c, n in sorted(counts.items())]
 
 
+def delete_module(req: Request):
+    """Delete a module with all its drafts and versions, if no class uses it.
+
+    Admins can delete any module. Authoring instructors can delete only modules they
+    created. A module assigned to a class is refused with 409 MODULE_IN_USE: unassign it
+    from those classes first, so no student loses work they are part-way through.
+    """
+    staff = require_author(req.auth)
+    module_id = module_id_from(req)
+    table = db.get_table(db.CONTENT)
+    meta = table.get_item(Key=meta_key(module_id)).get("Item")
+    if not meta:
+        raise NotFound("Module not found")
+    if not staff.is_admin and meta.get("createdBy") != staff.user_id:
+        raise Forbidden("You can only delete modules you created. Ask a CIC admin to delete this one")
+    in_use = set()
+    for item in db.scan_all(db.get_table(db.CORE), FilterExpression=Attr("sk").begins_with("ASG#") & Attr("moduleId").eq(module_id),
+                            ProjectionExpression="pk"):
+        in_use.add(item["pk"].split("#", 1)[1])
+    if in_use:
+        raise Conflict(f"This module is assigned to {len(in_use)} class{'es' if len(in_use) != 1 else ''}. "
+                       "Unassign it from every class before deleting it",
+                       code="MODULE_IN_USE", details={"classCount": len(in_use)})
+    items = list(db.query_all(table, KeyConditionExpression=Key("pk").eq(f"MOD#{module_id}"), ProjectionExpression="pk, sk"))
+    with table.batch_writer() as batch:
+        for item in items:
+            batch.delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
+    audit.record(staff.user_id, "module_deleted", {"moduleId": module_id, "title": meta["title"],
+                                                   "versions": int(meta["latestVersion"])})
+    return {"moduleId": module_id, "deleted": True}
+
+
 ROUTES = {
+    "DELETE /v1/curriculum/modules/{moduleId}": delete_module,
     "POST /v1/curriculum/modules/{moduleId}/publish": publish,
     "GET /v1/curriculum/modules/{moduleId}/versions": list_versions,
     "GET /v1/curriculum/modules/{moduleId}/versions/{version}": get_version,

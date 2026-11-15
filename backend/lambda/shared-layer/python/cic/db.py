@@ -42,6 +42,17 @@ def query_all(table: Any, **kwargs: Any) -> Iterator[dict]:
         kwargs["ExclusiveStartKey"] = last
 
 
+def scan_all(table: Any, **kwargs: Any) -> Iterator[dict]:
+    """Yield every item from a scan, following pagination. For rare admin actions only."""
+    while True:
+        resp = table.scan(**kwargs)
+        yield from resp.get("Items", [])
+        last = resp.get("LastEvaluatedKey")
+        if not last:
+            return
+        kwargs["ExclusiveStartKey"] = last
+
+
 def to_dynamo(value: Any) -> Any:
     """Convert floats to Decimal (DynamoDB rejects floats) and drop None values from dicts."""
     if isinstance(value, float):

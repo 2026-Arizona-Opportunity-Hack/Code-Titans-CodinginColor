@@ -14,6 +14,8 @@ export type ModuleSummary = {
   /** Authors only. */
   status?: "draft" | "published";
   hasUnpublishedChanges?: boolean;
+  /** Authors only: the user who created it. Only they or an admin can delete it. */
+  createdBy?: string;
 };
 
 export function listModules(token: string, signal?: AbortSignal): Promise<ModuleSummary[]> {
@@ -101,3 +103,7 @@ export const listVersions = (token: string, moduleId: string, signal?: AbortSign
 /** GET /curriculum/modules/{id}/versions/{version}: one published version, with answer keys. */
 export const getVersionDoc = (token: string, moduleId: string, version: number, signal?: AbortSignal) =>
   apiFetch<ModuleDoc>(`/curriculum/modules/${encodeURIComponent(moduleId)}/versions/${version}`, { token, signal });
+
+/** DELETE /curriculum/modules/{id}: removes every draft and version. 409 MODULE_IN_USE while a class has it assigned. */
+export const deleteModule = (token: string, moduleId: string) =>
+  apiFetch<{ moduleId: string; deleted: boolean }>(`/curriculum/modules/${encodeURIComponent(moduleId)}`, { method: "DELETE", token });
