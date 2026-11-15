@@ -11,14 +11,14 @@ export function StatGrid({ items, className = "" }: { items: StatItem[]; classNa
       {items.map((s) => (
         <div key={s.label} className={`card grid gap-x-3 !p-4 ${s.icon ? "grid-cols-[auto_1fr]" : "grid-cols-1"}`}>
           {s.icon ? (
-            <span className="icon-tile row-span-2 !size-10" aria-hidden="true">
+            <span className="icon-tile col-start-1 row-span-2 row-start-1 !size-10" aria-hidden="true">
               <Icon name={s.icon} className="size-5" />
             </span>
           ) : null}
           {/* The value is read after its label but shown above it. */}
-          <dt className="stat-label row-start-2">{s.label}</dt>
-          <dd className="stat-value row-start-1">{s.value}</dd>
-          {s.hint ? <dd className={`row-start-3 text-xs text-muted ${s.icon ? "col-start-2" : ""}`}>{s.hint}</dd> : null}
+          <dt className={`stat-label row-start-2 ${s.icon ? "col-start-2" : "col-start-1"}`}>{s.label}</dt>
+          <dd className={`stat-value row-start-1 ${s.icon ? "col-start-2" : "col-start-1"}`}>{s.value}</dd>
+          {s.hint ? <dd className={`row-start-3 text-xs text-muted ${s.icon ? "col-start-2" : "col-start-1"}`}>{s.hint}</dd> : null}
         </div>
       ))}
     </dl>

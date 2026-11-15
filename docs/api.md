@@ -210,7 +210,9 @@ Roles `I` (member) and `A` unless noted.
 | GET | `/classes/{classId}/concepts` | Gain and mastery per concept across modules |
 | GET | `/classes/{classId}/review-queue` | Worksheet submissions waiting for review |
 | PUT | `/classes/{classId}/submissions/{submissionId}/review` | `{score, comment}` and mark reviewed |
-| GET | `/classes/{classId}/export?type=gain\|progress` | CSV download (formula-safe) |
+| GET | `/classes/{classId}/export?type=gain\|progress\|gradebook` | CSV download (formula-safe) |
+| GET | `/classes/{classId}/hints` | Where the class asked the AI tutor for help: by concept, by step and by student, the concept to reteach first, and the latest hints with what the student asked (to review) |
+| GET | `/classes/{classId}/gradebook` | One row per student: per module the state, percent, score on check and coding steps, pretest, post-test, gain and hints, plus overall completion, score, gain and where they needed most help. The same table downloads with `export?type=gradebook` |
 | GET | `/admin/cohorts/{cohortId}/summary` | `A` only. Completion and gain across the cohort's classes. |
 
 Notes for the other section 5 endpoints:
@@ -278,7 +280,7 @@ Student session only. `studentId` and `classId` always come from the session, ne
 - `heartbeat` takes `{"seconds": 1-120}` and credits at most 45 seconds per call.
 - An assessment can be submitted once. A second try returns 403 `ASSESSMENT_ALREADY_SUBMITTED`.
 - When the last required activity completes, the response includes `moduleUnlocked: "<nextModuleId>"`.
-- **Coding exercises** (`type: "code"`). The student writes Python and the browser runs it (Pyodide) against the exercise's `tests`. The server never runs student code. Submit sends `{clientSubmissionId, code, results: [{testId, passed}]}` (code up to 6000 characters). The server keeps the code, works the score out from the module's own test list (unknown IDs are rejected, a test with no result counts as not passed), and returns `{recorded, scorePct, passed, testsPassed, testsTotal, activityState, next}`. The activity completes when `scorePct >= passPct` (default 100). A later worse try never undoes a completion. The result is the student's own report, stored as `selfReported: true`, so it is practice feedback and not a measurement. A student can submit an exercise at most 100 times (403 `SUBMISSION_LIMIT`).
+- **Coding exercises** (`type: "code"`). The student writes Python and the browser runs it (Pyodide) against the exercise's `tests`. The server never runs student code. Submit sends `{clientSubmissionId, code, results: [{testId, passed}]}` (code up to 6000 characters). The server keeps the code, works the score out from the module's own test list (unknown IDs are rejected, a test with no result counts as not passed), and returns `{recorded, scorePct, passed, testsPassed, testsTotal, activityState, next}`. Submitting finishes the step even when some tests fail, so a student is never stuck on one exercise. The score, and whether it reached `passPct` (default 100, returned as `passed`), are kept for the teacher. The student can submit again to improve it, and the best score is kept. The result is the student's own report, stored as `selfReported: true`, so it is practice feedback and not a measurement. A student can submit an exercise at most 100 times (403 `SUBMISSION_LIMIT`).
 - The student's copy of a coding exercise includes `starterCode`, `tests` and, once saved, `draftCode`. It never includes `solution`. Tests are sent to the browser so they can run there, so a student can read them.
 - Grading uses the `answerKey` stored server-side. Worksheet fields without a key go to the instructor review queue and show as "submitted".
 
@@ -366,7 +368,7 @@ Generated from the synthesized CDK stack, so it shows what is deployed, not what
 | `POST /auth/external/request-access` | `access-request` | none (public, throttled to 2 per second) | core PutItem and Query only |
 | `/curriculum/*` | `curriculum-api` | Cognito JWT | content rw, core r, assets bucket (write) |
 | `/classes` (create, list, update, members, roster, import, credentials, join code, assignments, unlock) and `GET /students`, `GET /students/{id}` | `class-api` | Cognito JWT | core rw, content r, progress (query and delete, to remove a deleted student), pepper secret (read), Cognito (group check) |
-| `/classes/{id}/progress`, `students/{id}/progress`, `attention`, `modules/{id}/gain`, `concepts`, `review-queue`, `submissions/{id}/review`, `export`, `/admin/cohorts/{id}/summary`, and `GET /admin/usage` | `reports-api` | Cognito JWT | core r, content r, progress rw (review updates), events w (export audit) |
+| `/classes/{id}/progress`, `students/{id}/progress`, `attention`, `modules/{id}/gain`, `concepts`, `review-queue`, `submissions/{id}/review`, `export`, `hints`, `gradebook`, `/admin/cohorts/{id}/summary`, and `GET /admin/usage` | `reports-api` | Cognito JWT | core r, content r, progress rw (review updates), events w (export audit) |
 | `/student/*` (including `POST /student/hints`) | `student-api` | student session | core r, content r, progress rw, events rw (hint counters and log), Bedrock `InvokeModel` on one named model |
 | `/read/*` | `read-api` | API key | core r, content r, progress r |
 

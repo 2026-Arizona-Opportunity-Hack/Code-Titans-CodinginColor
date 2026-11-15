@@ -11,6 +11,7 @@ CDK (TypeScript) app plus Python 3.12 Lambdas for the curriculum platform. Desig
 | `lib/domains/` | One construct per API domain. Add a domain here, then add one line to `ApiStack` |
 | `lambda/<name>/index.py` | One Lambda per directory (kebab-case) with `lambda_handler` |
 | `lambda/shared-layer/python/cic/` | Shared code (Lambda layer): http, errors, authz, db, logging |
+| `seed/` | The sample "Python Practice" module and `seed_module.py`, which loads a module file through the real save and publish code |
 | `test/` | Mirrors the source layout. `*.test.ts` run with jest, `test_*.py` with pytest |
 
 ## Commands
