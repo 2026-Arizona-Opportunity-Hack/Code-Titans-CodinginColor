@@ -81,6 +81,9 @@ npm run dev                  # http://localhost:3000
 With fake data on, the demo student is class code `K7M4QX` with secret words `maple-tiger-blue`. Open
 `http://localhost:3000/s/#K7M4QX.maple-tiger-blue` to land signed in as Maya (students use a personal link, not an account).
 
+Staff screens: open `http://localhost:3000/login/` and pick a demo role (instructor, CIC admin or reviewer). Real staff
+sign-in uses Cognito and is not connected yet.
+
 Other commands: `npm run lint`, `npm run typecheck`, `npm run build` (static export to `frontend/out/`).
 Only `NEXT_PUBLIC_` values are exposed to the browser, so never put a secret in them.
 
