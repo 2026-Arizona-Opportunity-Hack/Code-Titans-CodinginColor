@@ -78,9 +78,9 @@ export const adminHandlers = [
 import type { StaffUser } from "../lib/api/admin";
 
 const users: StaffUser[] = [
-  { userId: "u-admin-0001", email: "admin@example.org", name: "Demo Admin", role: "cic_admin", canAuthor: true, enabled: true, status: "CONFIRMED" },
-  { userId: "u-inst-00001", email: "teacher@example.org", name: "Demo Teacher", role: "instructor", canAuthor: false, enabled: true, status: "CONFIRMED" },
-  { userId: "u-rev-000001", email: "reviewer@example.org", name: "Demo Reviewer", role: "reviewer", canAuthor: false, enabled: true, status: "CONFIRMED" },
+  { userId: "u-admin-0001", email: "admin@example.org", name: "Demo Admin", role: "cic_admin", canAuthor: true, enabled: true, status: "CONFIRMED", orgId: null },
+  { userId: "u-inst-00001", email: "teacher@example.org", name: "Demo Teacher", role: "instructor", canAuthor: false, enabled: true, status: "CONFIRMED", orgId: "org_maryvale" },
+  { userId: "u-rev-000001", email: "reviewer@example.org", name: "Demo Reviewer", role: "reviewer", canAuthor: false, enabled: true, status: "CONFIRMED", orgId: null },
 ];
 register({ key: "adminUsers", snapshot: () => users, restore: (d: StaffUser[]) => users.splice(0, users.length, ...d) });
 const ROLES = ["cic_admin", "instructor", "reviewer"];
@@ -91,14 +91,14 @@ export const userHandlers = [
   http.post(`${env.apiUrl}/admin/users`, async ({ request }) => {
     const denied = adminOnly(request);
     if (denied) return denied;
-    const b = (await request.json().catch(() => ({}))) as { email?: string; name?: string; role?: string; canAuthor?: boolean };
+    const b = (await request.json().catch(() => ({}))) as { email?: string; name?: string; role?: string; canAuthor?: boolean; orgId?: string };
     const email = (b.email ?? "").trim().toLowerCase();
     if (!/^[^@\s]{1,64}@[^@\s]{1,189}$/.test(email)) return apiError(400, "VALIDATION_ERROR", "email is not valid");
     if (!b.name?.trim()) return apiError(400, "VALIDATION_ERROR", "name is required");
     if (!b.role || !ROLES.includes(b.role)) return apiError(400, "VALIDATION_ERROR", "role is required");
     if (b.canAuthor && b.role !== "instructor") return apiError(400, "VALIDATION_ERROR", "canAuthor can only be set for instructors");
     if (users.some((u) => u.email === email)) return apiError(409, "CONFLICT", "A user with this email already exists");
-    const user: StaffUser = { userId: `u-${rand(10, "abcdef0123456789")}`, email, name: b.name.trim(), role: b.role as StaffUser["role"], canAuthor: b.role === "cic_admin" || Boolean(b.canAuthor), enabled: true, status: "FORCE_CHANGE_PASSWORD" };
+    const user: StaffUser = { userId: `u-${rand(10, "abcdef0123456789")}`, email, name: b.name.trim(), role: b.role as StaffUser["role"], canAuthor: b.role === "cic_admin" || Boolean(b.canAuthor), enabled: true, status: "FORCE_CHANGE_PASSWORD", orgId: b.orgId ?? null };
     users.push(user);
     return HttpResponse.json({ data: user }, { status: 201 });
   }),
@@ -108,8 +108,8 @@ export const userHandlers = [
     if (denied) return denied;
     const user = users.find((u) => u.userId === params.userId);
     if (!user) return apiError(404, "NOT_FOUND", "User not found");
-    const b = (await request.json().catch(() => ({}))) as { role?: string; canAuthor?: boolean; enabled?: boolean };
-    if (b.role === undefined && b.canAuthor === undefined && b.enabled === undefined) return apiError(400, "VALIDATION_ERROR", "Nothing to update");
+    const b = (await request.json().catch(() => ({}))) as { role?: string; canAuthor?: boolean; enabled?: boolean; orgId?: string | null };
+    if (b.role === undefined && b.canAuthor === undefined && b.enabled === undefined && b.orgId === undefined) return apiError(400, "VALIDATION_ERROR", "Nothing to update");
     if (b.role && !ROLES.includes(b.role)) return apiError(400, "VALIDATION_ERROR", "role is not valid");
     if (user.userId === "u-admin-0001" && (b.enabled === false || (b.role && b.role !== "cic_admin"))) return apiError(400, "VALIDATION_ERROR", "You cannot demote or disable your own account");
     const role = (b.role ?? user.role) as StaffUser["role"];
@@ -117,6 +117,7 @@ export const userHandlers = [
     user.role = role;
     user.canAuthor = role === "cic_admin" ? true : role === "instructor" ? (b.canAuthor ?? user.canAuthor) : false;
     if (b.enabled !== undefined) user.enabled = b.enabled;
+    if (b.orgId !== undefined) user.orgId = b.orgId;
     return HttpResponse.json({ data: user });
   }),
 ];

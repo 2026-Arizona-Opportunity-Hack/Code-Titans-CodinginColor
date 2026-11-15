@@ -13,11 +13,10 @@ export type StaffMe = {
   permissions: { canAuthor: boolean };
   classes: { classId: string }[];
   /**
-   * ASSUMPTION, NOT IN THE BACKEND YET: the instructor's school. POST /classes requires
-   * orgId, but instructors cannot list schools (GET /admin/orgs is admin only), so /me
-   * (or the class API) must supply it. Until it does, instructors cannot create classes.
+   * The school an admin assigned to this person (Users screen). Instructors create classes
+   * only in this school, so an instructor without one cannot create classes. null when unset.
    */
-  orgId?: string;
+  orgId?: string | null;
 };
 
 /** A class, as returned by the backend's class API (backend/lambda/class-api/classes.py). */

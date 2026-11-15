@@ -25,6 +25,8 @@ def api(table):
     table.put_item(Item={"pk": "ORG#org_1", "sk": "META", "status": "active"})
     table.put_item(Item={"pk": "ORG#org_old", "sk": "META", "status": "archived"})
     table.put_item(Item={"pk": "COH#coh_1", "sk": "META"})
+    for sub in ("ins-1", "ins-2"):  # instructors create classes in the school an admin gave them
+        table.put_item(Item={"pk": f"USR#{sub}", "sk": "META", "orgId": "org_1"})
     module = load_lambda("class-api")
     import classes
     classes._cognito = None
