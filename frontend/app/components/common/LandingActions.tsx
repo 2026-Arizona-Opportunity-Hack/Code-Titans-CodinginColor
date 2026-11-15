@@ -23,10 +23,10 @@ export function LandingNav() {
   }
   return (
     <>
-      <Link href="/login/" className="btn btn-ghost btn-sm">
+      <Link href="/login/" className="btn btn-ghost btn-sm max-sm:hidden">
         Teacher sign in
       </Link>
-      <Link href="/s/" className="btn btn-primary btn-sm">
+      <Link href="/s/" className="btn btn-primary btn-sm whitespace-nowrap">
         Open my lesson
       </Link>
     </>
