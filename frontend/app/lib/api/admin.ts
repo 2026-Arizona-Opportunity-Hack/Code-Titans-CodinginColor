@@ -31,3 +31,24 @@ export const listAudit = (token: string, range: { from?: string; to?: string; li
   q.set("limit", String(range.limit ?? 50));
   return apiFetch<AuditEntry[]>(`/admin/audit?${q}`, { token, signal });
 };
+
+export type StaffUser = {
+  userId: string;
+  email: string;
+  name: string;
+  role: "cic_admin" | "instructor" | "reviewer" | null;
+  canAuthor: boolean;
+  enabled: boolean;
+  status: string;
+};
+
+/** GET /admin/users */
+export const listUsers = (token: string, signal?: AbortSignal) => apiFetch<StaffUser[]>("/admin/users?limit=60", { token, signal });
+
+/** POST /admin/users: Cognito emails the person a temporary password. canAuthor is for instructors only. */
+export const inviteUser = (token: string, body: { email: string; name: string; role: "cic_admin" | "instructor" | "reviewer"; canAuthor?: boolean }) =>
+  apiFetch<StaffUser>("/admin/users", { method: "POST", token, body });
+
+/** PATCH /admin/users/{userId}: change role, canAuthor, or disable/enable. */
+export const updateUser = (token: string, userId: string, body: { role?: StaffUser["role"]; canAuthor?: boolean; enabled?: boolean }) =>
+  apiFetch<StaffUser>(`/admin/users/${encodeURIComponent(userId)}`, { method: "PATCH", token, body });
