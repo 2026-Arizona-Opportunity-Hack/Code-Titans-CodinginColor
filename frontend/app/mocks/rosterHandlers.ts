@@ -4,7 +4,7 @@ import { env } from "../config/env";
 import type { PossibleDuplicate, RosterImportPreview, RosterImportRequest, RowProblem } from "../lib/api/roster";
 import { addStudent, getRoster, issueWords, normalizeName } from "./rosterStore";
 import { apiError, findClass, roleOf } from "./staffHandlers";
-import { registerLogins } from "./studentStore";
+import { registerLogins, setStart } from "./studentStore";
 
 // Fake roster API, behaving like the backend's roster.py and roster_import.py. An import
 // changes the in-memory roster, so imported students show up on the class page.
@@ -55,6 +55,32 @@ function plan(classId: string, body: RosterImportRequest): Plan | null {
 }
 
 export const rosterHandlers = [
+  http.post(`${env.apiUrl}/classes/:classId/roster`, async ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't add students.");
+    const found = findClass(String(params.classId));
+    if (!found) return apiError(404, "NOT_FOUND", "Class not found.");
+    const body = (await request.json().catch(() => ({}))) as { displayName?: string; externalId?: string; startModuleId?: string };
+    const name = (body.displayName ?? "").trim();
+    if (!name) return apiError(400, "VALIDATION_ERROR", "displayName is required.");
+    if (name.length > 100) return apiError(400, "VALIDATION_ERROR", "displayName must be at most 100 characters.");
+    const roster = getRoster(found.classId);
+    if (body.externalId && roster.some((s) => s.externalId === body.externalId)) {
+      return apiError(409, "CONFLICT", "A student with this externalId is already in the class");
+    }
+    const duplicate = roster.find((s) => s.status === "active" && normalizeName(s.displayName) === normalizeName(name));
+    const created = addStudent(found.classId, name, body.externalId ?? "");
+    created.startModuleId = body.startModuleId ?? found.currentModuleId;
+    if (created.startModuleId) setStart(created.studentId, created.startModuleId);
+    const [issued] = issueWords(found.classId, [created.studentId]);
+    registerLogins(found.joinCode, found.classId, [issued]);
+    return HttpResponse.json(
+      { data: { ...created, studentCode: issued.studentCode, ...(duplicate ? { possibleDuplicateOf: duplicate.studentId } : {}) } },
+      { status: 201 },
+    );
+  }),
+
   http.post(`${env.apiUrl}/classes/:classId/credentials`, async ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");

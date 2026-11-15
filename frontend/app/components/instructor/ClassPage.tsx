@@ -50,6 +50,9 @@ function ClassPageBody({ token, classId }: { token: string; classId: string }) {
             <Link href={`/instructor/class/import/?id=${encodeURIComponent(classId)}`} className="btn btn-primary">
               Add students from a CSV
             </Link>
+            <Link href={`/instructor/class/add-student/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
+              Add a student
+            </Link>
             <Link href={`/instructor/class/login-sheet/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
               Login sheet
             </Link>

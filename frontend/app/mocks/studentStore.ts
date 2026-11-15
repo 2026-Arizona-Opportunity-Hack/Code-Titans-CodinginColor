@@ -107,9 +107,12 @@ export function activityStates(m: StudentModule, st: Map<string, Status>): Recor
 const isComplete = (m: StudentModule, st: Map<string, Status>) =>
   flat(m).filter((a) => a.required !== false).every((a) => st.get(`${m.moduleId}/${a.activityId}`) === "complete");
 
+const starts = new Map<string, string>(); // students a teacher dropped at a particular module
+export const setStart = (studentId: string, moduleId: string) => starts.set(studentId, moduleId);
+
 export function moduleViews(studentId: string) {
   const st = statusMap(studentId);
-  const start = ORDER.indexOf(START_MODULE);
+  const start = ORDER.indexOf(starts.get(studentId) ?? START_MODULE);
   let previousComplete = true;
   let resume: { moduleId: string; activityId: string } | null = null;
   const views = ORDER.map((id, i) => {
@@ -172,8 +175,9 @@ register({
     logins: [...logins],
     people: [...people],
     scores: [...assessments],
+    starts: [...starts],
   }),
-  restore: (d: { progress: Entries<Entries<Status>>; seconds: Entries<number>; logins: Entries<Person>; people: Entries<Person>; scores: Entries<number> }) => {
+  restore: (d: { progress: Entries<Entries<Status>>; seconds: Entries<number>; logins: Entries<Person>; people: Entries<Person>; scores: Entries<number>; starts: Entries<string> }) => {
     progress.clear();
     d.progress.forEach(([id, entries]) => progress.set(id, new Map(entries)));
     activeSeconds.clear();
@@ -184,6 +188,8 @@ register({
     d.people.forEach(([k, v]) => people.set(k, v));
     assessments.clear();
     d.scores.forEach(([k, v]) => assessments.set(k, v));
+    starts.clear();
+    d.starts.forEach(([k, v]) => starts.set(k, v));
   },
 });
 
