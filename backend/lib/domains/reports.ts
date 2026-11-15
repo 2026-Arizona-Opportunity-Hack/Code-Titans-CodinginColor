@@ -13,6 +13,8 @@ export const REPORTS_ROUTES = [
   "GET /v1/classes/{classId}/review-queue",
   "PUT /v1/classes/{classId}/submissions/{submissionId}/review",
   "GET /v1/classes/{classId}/export",
+  "GET /v1/classes/{classId}/hints",
+  "GET /v1/classes/{classId}/gradebook",
   "GET /v1/admin/cohorts/{cohortId}/summary",
   "GET /v1/admin/usage",
 ];
@@ -39,7 +41,7 @@ export class ReportsApi extends Construct {
     ctx.tables.content.grantReadData(fn);
     ctx.tables.core.grantReadData(fn);
     ctx.tables.progress.grantReadWriteData(fn); // submission review updates a progress item
-    ctx.tables.events.grantWriteData(fn); // audit entries for exports
+    ctx.tables.events.grantReadWriteData(fn); // audit entries for exports; reads the class hint log
     addRoutes(ctx, fn, REPORTS_ROUTES, ctx.staffAuthorizer);
   }
 }

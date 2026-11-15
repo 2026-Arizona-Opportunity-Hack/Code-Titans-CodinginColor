@@ -26,6 +26,8 @@ const INSIGHTS: Tool[] = [
   { label: "Learning gain", description: "Pretest to post-test improvement.", path: "gain", icon: "trending" },
   { label: "Concepts", description: "Which ideas the class has and hasn't got.", path: "concepts", icon: "target" },
   { label: "Worksheets to review", description: "Written answers waiting for your feedback.", path: "review", icon: "review" },
+  { label: "Hints and struggles", description: "What students asked the AI tutor about, and what to reteach.", path: "hints", icon: "info" },
+  { label: "Gradebook", description: "Every student's scores, gain and hints. Download as CSV.", path: "gradebook", icon: "spreadsheet" },
 ];
 
 function ToolGrid({ title, tools, classId, wide }: { title: string; tools: Tool[]; classId: string; wide?: boolean }) {
