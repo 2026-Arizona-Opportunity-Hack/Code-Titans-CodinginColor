@@ -2,8 +2,8 @@ import Papa from "papaparse";
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { PossibleDuplicate, RosterImportPreview, RosterImportRequest, RowProblem } from "../lib/api/roster";
-import { addStudent, getRoster, normalizeName } from "./rosterStore";
-import { apiError, roleOf } from "./staffHandlers";
+import { addStudent, getRoster, issueWords, normalizeName } from "./rosterStore";
+import { apiError, findClass, roleOf } from "./staffHandlers";
 
 // Fake roster API, behaving like the backend's roster.py and roster_import.py. An import
 // changes the in-memory roster, so imported students show up on the class page.
@@ -54,6 +54,18 @@ function plan(classId: string, body: RosterImportRequest): Plan | null {
 }
 
 export const rosterHandlers = [
+  http.post(`${env.apiUrl}/classes/:classId/credentials`, async ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't issue login words.");
+    const found = findClass(String(params.classId));
+    if (!found) return apiError(404, "NOT_FOUND", "Class not found.");
+    const body = (await request.json().catch(() => ({}))) as { studentIds?: string[] };
+    // As the real server does: no list means EVERY active student gets new words.
+    const students = issueWords(found.classId, body.studentIds);
+    return HttpResponse.json({ data: { classCode: found.joinCode, loginUrlBase: `${window.location.origin}/s`, students } });
+  }),
+
   http.get(`${env.apiUrl}/classes/:classId/roster`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");

@@ -46,9 +46,12 @@ function ClassPageBody({ token, classId }: { token: string; classId: string }) {
               {item.data.counts.students} {item.data.counts.students === 1 ? "student" : "students"}
             </span>
           </p>
-          <p className="mt-6">
+          <p className="mt-6 flex flex-wrap gap-3">
             <Link href={`/instructor/class/import/?id=${encodeURIComponent(classId)}`} className="btn btn-primary">
               Add students from a CSV
+            </Link>
+            <Link href={`/instructor/class/login-sheet/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
+              Login sheet
             </Link>
           </p>
           <RosterSection token={token} classId={classId} />
