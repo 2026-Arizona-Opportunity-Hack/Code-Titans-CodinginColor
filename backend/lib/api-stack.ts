@@ -102,6 +102,12 @@ export class ApiStack extends cdk.Stack {
     new ClassesDomain(this, "Classes", ctx, studentAuth.pepper);
     new CurriculumDomain(this, "Curriculum", ctx);
 
+    // The stage has per-route throttle settings, and API Gateway rejects a setting for a route
+    // that does not exist yet. CloudFormation would otherwise create the stage first.
+    const stage = this.api.defaultStage?.node.defaultChild as apigwv2.CfnStage;
+    for (const child of this.node.findAll()) {
+      if (child instanceof apigwv2.CfnRoute) stage.addDependency(child);
+    }
     new cdk.CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint, description: "HTTP API base URL (append /v1)" });
   }
 

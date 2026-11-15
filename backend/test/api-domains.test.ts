@@ -204,3 +204,13 @@ describe("Curriculum assets", () => {
     expect(JSON.stringify(s3Statements)).toContain("/curriculum/*");
   });
 });
+
+describe("ApiStack stage", () => {
+  test("the stage is created after every route, because it has per-route throttle settings", () => {
+    const t = apiTemplate();
+    const stage = Object.values(t.findResources("AWS::ApiGatewayV2::Stage"))[0] as any;
+    const routes = Object.keys(t.findResources("AWS::ApiGatewayV2::Route"));
+    expect(routes.length).toBeGreaterThan(50);
+    for (const id of routes) expect(stage.DependsOn).toContain(id);
+  });
+});
