@@ -30,16 +30,19 @@ export type RosterImportPreview = {
 };
 
 /**
- * ASSUMPTION: api.md says "Commit the import" but does not describe the response,
- * and it does not say whether the commit also issues login credentials (the login
- * sheet comes from POST /classes/{classId}/credentials). All fields are optional so
- * the UI works with whatever the backend returns.
+ * The commit response (docs/api.md section 4). Valid rows are imported and rows with
+ * problems are skipped. Imported students have no login words yet.
  */
 export type RosterImportResult = {
-  created?: number;
-  updated?: number;
-  skipped?: number;
-  possibleDuplicates?: PossibleDuplicate[];
+  created: number;
+  updated: number;
+  /** Rows skipped because of the "skip repeated names" choice. */
+  skipped: number;
+  possibleDuplicates: PossibleDuplicate[];
+  errors: RowProblem[];
+  ignoredColumns: string[];
+  /** New students who still need login words (POST /classes/{classId}/credentials). */
+  credentialsNeeded: number;
 };
 
 function importPath(classId: string) {

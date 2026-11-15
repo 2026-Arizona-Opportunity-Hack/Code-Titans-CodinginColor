@@ -5,9 +5,15 @@ import Papa from "papaparse";
 // birthdate in a school export, for example) is removed here, so data the platform
 // does not need never leaves the instructor's computer. The server also ignores
 // extra columns, but it is better that they are never sent.
+//
+// Rows that cannot be imported are left OUT of the file that is sent and reported here
+// instead, with their position in the instructor's file. The server skips blank lines,
+// so a row with no name (a blank line in a one-column file) could never be reported by it.
+// The checks below match the server's own (backend/lambda/class-api/roster_import.py).
 
 export const MAX_ROWS = 500;
 export const MAX_NAME_LENGTH = 100;
+export const MAX_EXTERNAL_ID_LENGTH = 64;
 export const MAX_BYTES = 256 * 1024; // request bodies are capped at 256 KB (api.md)
 
 /** A file the instructor can download and fill in. displayName is the only required column. */
@@ -16,13 +22,14 @@ export const TEMPLATE_CSV = "displayName\nAna R.\nBen T.\n";
 export type CsvProblem = { row: number; reason: string };
 
 export type PreparedRoster = {
-  /** The cleaned CSV to send. Empty when `fatal` is set. */
+  /** The cleaned CSV to send, containing only the rows that can be imported. */
   csv: string;
+  /** How many rows will be sent (the rows without problems). */
   rowCount: number;
   hasExternalId: boolean;
   /** Column names that were removed. */
   strippedColumns: string[];
-  /** Problems with individual rows. Row 1 is the first student, below the header row. */
+  /** Rows that will be skipped. Row 1 is the first student, below the header row. */
   problems: CsvProblem[];
   /** A problem that stops the import entirely, in plain words. Null when the file is usable. */
   fatal: string | null;
@@ -30,6 +37,8 @@ export type PreparedRoster = {
 
 // "displayName", "Display Name" and "display_name" are the same column.
 const canon = (header: string) => header.trim().toLowerCase().replace(/[\s_-]+/g, "");
+
+const hasControlCharacter = (text: string) => [...text].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127);
 
 function failed(fatal: string): PreparedRoster {
   return { csv: "", rowCount: 0, hasExternalId: false, strippedColumns: [], problems: [], fatal };
@@ -54,13 +63,27 @@ export function prepareRosterCsv(text: string): PreparedRoster {
   }
 
   const problems: CsvProblem[] = [];
-  const data = students.map((cells, i) => {
+  const seenIds = new Set<string>();
+  const data: string[][] = [];
+  students.forEach((cells, i) => {
+    const row = i + 1;
     const name = (cells[nameIndex] ?? "").trim();
-    if (!name) problems.push({ row: i + 1, reason: "displayName is empty" });
-    else if (name.length > MAX_NAME_LENGTH) {
-      problems.push({ row: i + 1, reason: `displayName is longer than ${MAX_NAME_LENGTH} characters` });
+    const externalId = idIndex === -1 ? "" : (cells[idIndex] ?? "").trim();
+    let reason: string | null = null;
+    if (!name) reason = "displayName is empty";
+    else if (name.length > MAX_NAME_LENGTH || hasControlCharacter(name)) {
+      reason = `displayName must be plain text up to ${MAX_NAME_LENGTH} characters`;
+    } else if (externalId.length > MAX_EXTERNAL_ID_LENGTH || hasControlCharacter(externalId)) {
+      reason = `externalId must be plain text up to ${MAX_EXTERNAL_ID_LENGTH} characters`;
+    } else if (externalId && seenIds.has(externalId)) {
+      reason = "externalId appears more than once in the file";
     }
-    return idIndex === -1 ? [name] : [name, (cells[idIndex] ?? "").trim()];
+    if (reason) {
+      problems.push({ row, reason });
+      return;
+    }
+    if (externalId) seenIds.add(externalId);
+    data.push(idIndex === -1 ? [name] : [name, externalId]);
   });
 
   const fields = idIndex === -1 ? ["displayName"] : ["displayName", "externalId"];
@@ -69,5 +92,5 @@ export function prepareRosterCsv(text: string): PreparedRoster {
     return failed("The file is too large. Split it into smaller files.");
   }
 
-  return { csv, rowCount: students.length, hasExternalId: idIndex !== -1, strippedColumns, problems, fatal: null };
+  return { csv, rowCount: data.length, hasExternalId: idIndex !== -1, strippedColumns, problems, fatal: null };
 }
