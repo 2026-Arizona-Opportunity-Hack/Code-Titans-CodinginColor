@@ -162,7 +162,33 @@ function reviewQueue(classId: string) {
     }));
 }
 
+function conceptRows(classId: string): ConceptGain[] {
+  const rows = assignedFor(classId).flatMap((a) => moduleGain(classId, a.moduleId)?.byConcept ?? []);
+  const weighted = (list: ConceptGain[], f: (r: ConceptGain) => number | null, w: (r: ConceptGain) => number) => {
+    const used = list.filter((r) => f(r) !== null && w(r) > 0);
+    const total = used.reduce((s, r) => s + w(r), 0);
+    return total ? used.reduce((s, r) => s + f(r)! * w(r), 0) / total : null;
+  };
+  return [...new Set(rows.map((r) => r.concept))].sort().map((concept) => {
+    const list = rows.filter((r) => r.concept === concept);
+    const [pre, post] = [weighted(list, (r) => r.meanPre, (r) => r.n), weighted(list, (r) => r.meanPost, (r) => r.n)];
+    const mastery = weighted(list, (r) => r.masteryPct, (r) => r.postN);
+    return {
+      concept, nEnrolled: null, n: list.reduce((s, r) => s + r.n, 0), postN: list.reduce((s, r) => s + r.postN, 0), lowItemCount: list.some((r) => r.lowItemCount),
+      meanPre: pre === null ? null : round(pre), meanPost: post === null ? null : round(post), meanGain: pre === null || post === null ? null : round(post - pre),
+      normalizedGain: pre === null || post === null || pre >= 100 ? null : round((post - pre) / (100 - pre), 2), masteryPct: mastery === null ? null : Math.round(mastery),
+    };
+  });
+}
+
 export const reportHandlers = [
+  http.get(`${env.apiUrl}/classes/:classId/concepts`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
+    return HttpResponse.json({ data: { definitions: DEFINITIONS, concepts: conceptRows(String(params.classId)) } });
+  }),
+
   http.get(`${env.apiUrl}/classes/:classId/review-queue`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
