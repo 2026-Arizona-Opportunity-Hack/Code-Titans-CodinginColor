@@ -39,6 +39,8 @@ const classes: ClassSummary[] = [
   newClass({ classId: "cls_02", name: "Period 5", orgId: "org_maryvale", joinCode: "R2D9TW" }),
 ];
 
+export const findClass = (classId: string) => classes.find((c) => c.classId === classId);
+
 export function apiError(status: number, code: string, error: string) {
   return HttpResponse.json({ error, code, requestId: "req_mock" }, { status });
 }

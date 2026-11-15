@@ -36,6 +36,7 @@ export function RosterSection({ token, classId }: { token: string; classId: stri
     );
   }, [roster.data, search, status]);
 
+  const needLogin = (roster.data ?? []).filter((s) => s.status === "active" && !s.hasCredential).length;
   const showSchoolId = (roster.data ?? []).some((s) => s.externalId);
   const importHref = `/instructor/class/import/?id=${encodeURIComponent(classId)}`;
 
@@ -71,6 +72,18 @@ export function RosterSection({ token, classId }: { token: string; classId: stri
 
       {roster.data && roster.data.length > 0 ? (
         <>
+          {needLogin > 0 ? (
+            <div className="callout mt-4">
+              <p className="font-bold text-brand">
+                {needLogin} {needLogin === 1 ? "student needs" : "students need"} login words
+              </p>
+              <p className="text-sm text-muted">
+                They can&apos;t open their lessons yet.{" "}
+                <Link href={`/instructor/class/login-sheet/?id=${encodeURIComponent(classId)}`}>Create login words</Link>
+              </p>
+            </div>
+          ) : null}
+
           {sameName.size > 0 ? (
             <div className="mt-4 rounded-xl border-l-8 border-accent bg-tint p-4">
               <p className="font-bold text-brand">Some students share a name</p>

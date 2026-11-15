@@ -364,6 +364,25 @@ body {
   top: 1rem;
 }
 
+/* Printing (the login sheet): hide navigation and controls, keep each card on one page. */
+@media print {
+  .no-print,
+  .site-header,
+  aside,
+  footer,
+  .skip-link {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .print-card {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+  }
+}
+
 /* Respect the user's reduced-motion preference everywhere. */
 @media (prefers-reduced-motion: reduce) {
   *,

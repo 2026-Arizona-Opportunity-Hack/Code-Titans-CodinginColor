@@ -54,4 +54,21 @@ export function addStudent(classId: string, displayName: string, externalId: str
   return created;
 }
 
+const WORDS = ["maple", "tiger", "blue", "river", "lemon", "ten", "cloud", "fox", "amber", "pine", "comet", "olive", "wave", "drum"];
+const usedWords = new Set<string>();
+
+/** Gives the chosen students (or every active student) new secret words, as the real server does. */
+export function issueWords(classId: string, studentIds?: string[]) {
+  const targets = getRoster(classId).filter((s) => s.status === "active" && (!studentIds || studentIds.includes(s.studentId)));
+  return targets.map((s) => {
+    let words = "";
+    do {
+      words = Array.from({ length: 3 }, () => WORDS[Math.floor(Math.random() * WORDS.length)]).join("-");
+    } while (usedWords.has(words));
+    usedWords.add(words);
+    s.hasCredential = true;
+    return { studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, studentCode: words };
+  });
+}
+
 export const normalizeName = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
