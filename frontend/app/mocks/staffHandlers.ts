@@ -85,7 +85,9 @@ export const staffHandlers = [
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
     if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
-    return HttpResponse.json({ data: classes, meta: { nextCursor: null } });
+    const q = new URL(request.url).searchParams;
+    const mine = role === "cic_admin" ? classes.filter((c) => (!q.get("orgId") || c.orgId === q.get("orgId")) && (!q.get("cohortId") || c.cohortId === q.get("cohortId"))) : classes;
+    return HttpResponse.json({ data: mine, meta: { nextCursor: null } });
   }),
 
   http.post(`${env.apiUrl}/classes`, async ({ request }) => {
@@ -127,6 +129,16 @@ export const staffHandlers = [
       found.settings = { ...found.settings, ...body.settings };
     }
     return HttpResponse.json({ data: found });
+  }),
+
+  http.post(`${env.apiUrl}/classes/:classId/members`, async ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role !== "cic_admin") return apiError(403, "FORBIDDEN", "Admins only.");
+    if (!classes.some((c) => c.classId === params.classId)) return apiError(404, "NOT_FOUND", "Class not found.");
+    const userId = ((await request.json().catch(() => ({}))) as { userId?: string }).userId;
+    if (!userId) return apiError(400, "VALIDATION_ERROR", "userId must be an id");
+    return HttpResponse.json({ data: { classId: params.classId, userId } }, { status: 201 });
   }),
 
   http.post(`${env.apiUrl}/classes/:classId/join-code/rotate`, ({ request, params }) => {

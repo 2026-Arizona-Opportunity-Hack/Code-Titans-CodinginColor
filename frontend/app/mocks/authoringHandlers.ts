@@ -128,6 +128,12 @@ export const authoringHandlers = [
     return HttpResponse.json({ data: { moduleId: id, version, publishedAt: now() } }, { status: 201 });
   }),
 
+  http.get(`${env.apiUrl}/curriculum/modules/:moduleId/versions/:version`, ({ request, params }) => {
+    if (!roleOf(request)) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    const found = draftOf(String(params.moduleId))?.versions.find((v) => v.version === Number(params.version));
+    return found ? HttpResponse.json({ data: { ...found.doc, version: found.version } }) : apiError(404, "NOT_FOUND", "Version not found");
+  }),
+
   http.get(`${env.apiUrl}/curriculum/modules/:moduleId/versions`, ({ request, params }) => {
     const denied = authorOnly(request);
     if (denied) return denied;

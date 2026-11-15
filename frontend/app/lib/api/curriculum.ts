@@ -97,3 +97,7 @@ export const publishModule = (token: string, moduleId: string) =>
 
 export const listVersions = (token: string, moduleId: string, signal?: AbortSignal) =>
   apiFetch<{ version: number; publishedAt: string; publishedBy: string }[]>(`/curriculum/modules/${encodeURIComponent(moduleId)}/versions`, { token, signal });
+
+/** GET /curriculum/modules/{id}/versions/{version}: one published version, with answer keys. */
+export const getVersionDoc = (token: string, moduleId: string, version: number, signal?: AbortSignal) =>
+  apiFetch<ModuleDoc>(`/curriculum/modules/${encodeURIComponent(moduleId)}/versions/${version}`, { token, signal });

@@ -129,6 +129,17 @@ export const rosterHandlers = [
     return HttpResponse.json({ data: s });
   }),
 
+  http.delete(`${env.apiUrl}/classes/:classId/roster/:studentId`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role !== "cic_admin") return apiError(403, "FORBIDDEN", "Only administrators can delete a student.");
+    const roster = getRoster(String(params.classId));
+    const index = roster.findIndex((x) => x.studentId === params.studentId);
+    if (index === -1) return apiError(404, "NOT_FOUND", "Student not found");
+    roster.splice(index, 1);
+    return HttpResponse.json({ data: { deleted: true } });
+  }),
+
   http.post(`${env.apiUrl}/classes/:classId/roster/:studentId/merge`, async ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
