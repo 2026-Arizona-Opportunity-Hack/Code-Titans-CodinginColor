@@ -1,5 +1,6 @@
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { FunctionDefaults } from "../lambda-factory";
@@ -20,6 +21,8 @@ export interface DomainContext {
     progress: dynamodb.ITable;
     events: dynamodb.ITable;
   };
+  /** Staff user pool, for domains that manage staff users. */
+  userPool: cognito.IUserPool;
   /** Cognito JWT authorizer for staff routes. */
   staffAuthorizer: apigwv2.IHttpRouteAuthorizer;
 }
