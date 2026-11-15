@@ -28,8 +28,8 @@ def _class_ids(staff, table, class_id, cohort_id) -> list:
 
 def search(req: Request):
     staff = require_staff(req.auth)
-    if not (staff.is_admin or staff.is_instructor):
-        raise Forbidden("Only instructors and administrators can search students")
+    if not (staff.is_admin or staff.is_teacher):
+        raise Forbidden("Only instructors, external teachers and administrators can search students")
     q = normalize_name(req.query.get("q", ""))
     limit = paging.parse_limit(req)
     class_id = validate.safe_id(req.query["classId"], "classId") if req.query.get("classId") else None

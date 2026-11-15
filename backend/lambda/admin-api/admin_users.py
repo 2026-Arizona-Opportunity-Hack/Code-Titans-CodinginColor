@@ -12,12 +12,12 @@ import boto3
 from botocore.exceptions import ClientError
 
 from cic import db, validate
-from cic.authz import ADMIN, INSTRUCTOR, REVIEWER, require_admin
+from cic.authz import ADMIN, EXTERNAL, INSTRUCTOR, REVIEWER, require_admin
 from cic.errors import Conflict, NotFound, ValidationError
 from cic.http import Reply, Request
 from cic.log import log
 
-ROLES = (ADMIN, INSTRUCTOR, REVIEWER)
+ROLES = (ADMIN, INSTRUCTOR, EXTERNAL, REVIEWER)
 EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,189}$")
 USER_ID = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 MAX_PAGE = 60  # Cognito ListUsers maximum
@@ -72,6 +72,21 @@ def _school(body: dict):
 
 
 _MISSING = object()
+
+
+def check_school_for_role(role, org_id) -> None:
+    """External teachers belong to an external school and everyone else to a CIC school, so an
+    admin can never be given a way into an external school's classes by a wrong assignment."""
+    if role == EXTERNAL and not org_id:
+        raise ValidationError("External teachers need an external school (orgId)")
+    if not org_id:
+        return
+    org = db.get_table(db.CORE).get_item(Key={"pk": f"ORG#{org_id}", "sk": "META"}).get("Item") or {}
+    external_school = org.get("kind", "cic") == "external"
+    if external_school and role != EXTERNAL:
+        raise ValidationError("An external school can only have external teachers")
+    if role == EXTERNAL and not external_school:
+        raise ValidationError("External teachers must belong to an external school")
 
 
 def _roles_by_sub() -> dict:
@@ -138,7 +153,7 @@ def create_user(req: Request):
         raise ValidationError("canAuthor can only be set for instructors")
     org_id = _school(body)
     org_id = None if org_id is _MISSING else org_id
-
+    check_school_for_role(role, org_id)
     try:
         created = cognito().admin_create_user(
             UserPoolId=pool_id(), Username=email, DesiredDeliveryMediums=["EMAIL"],
@@ -206,6 +221,7 @@ def update_user(req: Request):
             raise ValidationError("canAuthor can only be set for instructors")
         new_flag = False  # a role change away from instructor clears it
 
+    check_school_for_role(new_role, new_org)
     if role and role != old_role:
         cognito().admin_add_user_to_group(UserPoolId=pool_id(), Username=sub, GroupName=role)
         if old_role:

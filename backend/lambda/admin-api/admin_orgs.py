@@ -13,10 +13,11 @@ from cic.ids import utc_now_iso
 
 ORG_ID = re.compile(r"^org_[a-z0-9]{12}$")
 STATUSES = ("active", "archived")
+KINDS = ("cic", "external")  # "external" is a partner school's own space: CIC sees usage only
 
 
 def public(item: dict) -> dict:
-    return {"orgId": item["pk"].split("#", 1)[1], "name": item["name"],
+    return {"orgId": item["pk"].split("#", 1)[1], "name": item["name"], "kind": item.get("kind", "cic"),
             "status": item["status"], "createdAt": item["createdAt"]}
 
 
@@ -31,10 +32,10 @@ def list_orgs(req: Request):
 def create_org(req: Request):
     require_admin(req.auth)
     body = req.json()
-    validate.reject_unknown(body, ("name",))
+    validate.reject_unknown(body, ("name", "kind"))
     org_id = f"org_{uuid.uuid4().hex[:12]}"
     item = {"pk": f"ORG#{org_id}", "sk": "META", "name": validate.text(body, "name"),
-            "status": "active", "createdAt": utc_now_iso(),
+            "kind": validate.choice(body, "kind", KINDS) or "cic", "status": "active", "createdAt": utc_now_iso(),
             "gsi2pk": "LIST#ORG", "gsi2sk": f"ORG#{org_id}"}
     db.get_table(db.CORE).put_item(Item=item)
     return Reply(data=public(item), status=201)

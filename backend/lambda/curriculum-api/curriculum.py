@@ -169,6 +169,15 @@ def save_draft(req: Request):
     return {"revision": new_revision, "updatedAt": now}
 
 
+def _may_see_class(core, staff, class_pk: str) -> bool:
+    """Admins act on CIC classes only. An external teacher's class is theirs: CIC does not move it
+    to a new module version or list it here. Everyone else needs to teach the class."""
+    if staff.is_admin:
+        meta = core.get_item(Key={"pk": class_pk, "sk": "META"}).get("Item") or {}
+        return meta.get("ownerKind") != "external"
+    return bool(core.get_item(Key={"pk": class_pk, "sk": f"INS#{staff.user_id}"}).get("Item"))
+
+
 def _move_classes(staff, module_id: str, version: int) -> list:
     """Move every class the caller teaches (or every class, for admins) that uses this module
     to `version`. Returns the class IDs moved. Progress is kept per activity, so students keep
@@ -178,7 +187,7 @@ def _move_classes(staff, module_id: str, version: int) -> list:
     for asg in db.scan_all(core, FilterExpression=Attr("sk").begins_with("ASG#") & Attr("moduleId").eq(module_id)):
         if int(asg["moduleVersion"]) >= version:
             continue
-        if not staff.is_admin and not core.get_item(Key={"pk": asg["pk"], "sk": f"INS#{staff.user_id}"}).get("Item"):
+        if not _may_see_class(core, staff, asg["pk"]):
             continue
         try:
             core.update_item(Key={"pk": asg["pk"], "sk": asg["sk"]}, UpdateExpression="SET moduleVersion = :v",
@@ -309,8 +318,8 @@ def module_classes(req: Request):
     """GET /v1/curriculum/modules/{moduleId}/classes: the caller's classes that use this module,
     with the version each is pinned to, so an author can move them to a new version."""
     staff = require_staff(req.auth)
-    if not (staff.is_admin or staff.is_instructor):
-        raise Forbidden("Only instructors and administrators can see which classes use a module")
+    if not (staff.is_admin or staff.is_teacher):
+        raise Forbidden("Only instructors, external teachers and administrators can see which classes use a module")
     module_id = module_id_from(req)
     meta = db.get_table(db.CONTENT).get_item(Key=meta_key(module_id)).get("Item")
     if not meta:
@@ -319,8 +328,8 @@ def module_classes(req: Request):
     rows = []
     for asg in db.scan_all(core, FilterExpression=Attr("sk").begins_with("ASG#") & Attr("moduleId").eq(module_id)):
         class_id = asg["pk"].split("#", 1)[1]
-        if not staff.is_admin and not core.get_item(Key={"pk": asg["pk"], "sk": f"INS#{staff.user_id}"}).get("Item"):
-            continue  # instructors only see their own classes
+        if not _may_see_class(core, staff, asg["pk"]):
+            continue  # teachers see their own classes; admins see CIC classes
         cls = core.get_item(Key={"pk": asg["pk"], "sk": "META"}).get("Item") or {}
         started = progress.query(IndexName="gsi1", Select="COUNT",
                                  KeyConditionExpression=Key("gsi1pk").eq(f"CLS#{class_id}#MOD#{module_id}"))["Count"]

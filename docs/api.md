@@ -15,7 +15,7 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 | Student | `Authorization: Bearer <session token>` | `/student/*` | `authorizer-student` Lambda |
 | Key | `X-Api-Key: cic_<keyId>_<secret>` | `/read/*` | `authorizer-apikey` Lambda |
 
-**Roles in tables below:** `A` = cic_admin, `I` = instructor (member of that class), `R` = reviewer, `S` = student, `Au` = staff user with the `canAuthor` flag.
+**Roles in tables below:** `A` = cic_admin, `I` = instructor (member of that class), `X` = external teacher (member of that class), `R` = reviewer, `S` = student, `Au` = staff user with the `canAuthor` flag.
 
 **Response envelope**
 
@@ -76,9 +76,10 @@ All `A` only.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/admin/users` | List staff users |
-| POST | `/admin/users` | Invite a user `{email, name, role: instructor\|reviewer\|cic_admin, canAuthor?}` (Cognito admin-create-user) |
+| POST | `/admin/users` | Invite a user `{email, name, role: instructor\|external_teacher\|reviewer\|cic_admin, canAuthor?, orgId?}` (Cognito admin-create-user). `external_teacher` needs an `orgId` of an external school. Everyone else must be in a CIC school. |
 | PATCH | `/admin/users/{userId}` | Change role, set `canAuthor`, or disable |
-| GET, POST | `/admin/orgs` | List or create partner schools |
+| GET, POST | `/admin/orgs` | List or create schools `{name, kind?: cic\|external}`. `kind` defaults to `cic` and cannot be changed later. An `external` school belongs to an external teacher. CIC sees its usage only. |
+| GET | `/admin/usage` | How much external teachers use CIC's curriculum. Counts and dates only, see below. |
 | PATCH | `/admin/orgs/{orgId}` | Rename or archive |
 | GET, POST | `/admin/cohorts` | List or create cohorts `{name, orgId?}` |
 | PATCH | `/admin/cohorts/{cohortId}` | Rename, archive, or set its classes `{name?, status?, classIds?}`. `classIds` is the full list: classes missing from it are removed, and a class listed here moves out of any other cohort. |
@@ -115,12 +116,12 @@ All `A` only.
 
 ## 4. Classes, roster, assignments
 
-`I` means the caller must be a member of that class. `A` can access every class.
+`I` and `X` mean the caller must be a member of that class. `A` can access every CIC class. An external teacher's class belongs to their school, so `A` gets 403 on every route that takes its `classId` (class, roster, progress, export, assignments), and external classes do not appear in `A`'s class lists, student search, cohorts, or read API.
 
 | Method | Path | Roles | Purpose |
 |---|---|---|---|
-| POST | `/classes` | I, A | Create `{name, orgId, cohortId?, termStart?, termEnd?}`. The creator becomes a member. |
-| GET | `/classes` | I, A | My classes. A can pass `orgId`, `cohortId`. |
+| POST | `/classes` | I, X, A | Create `{name, orgId, cohortId?, termStart?, termEnd?}`. The creator becomes a member. |
+| GET | `/classes` | I, X, A | My classes. A can pass `orgId`, `cohortId`. |
 | GET | `/classes/{classId}` | I, A | Class detail, assignments, counts |
 | PATCH | `/classes/{classId}` | I, A | Rename, settings (stuck thresholds), `currentModuleId` (where late joiners start by default), archive |
 | POST | `/classes/{classId}/members` | A | Add an instructor `{userId}` |
@@ -175,6 +176,20 @@ The dry run (`?dryRun=true`) writes nothing and returns:
 ```
 
 ---
+
+**External teachers.** `POST /classes` by an external teacher creates the class in their own school (`ownerKind: "external"`). It cannot take a `cohortId`. An admin cannot create a class in an external school, add members to an external class, or put one in a cohort. Instructors and external teachers use the same student login. `GET /classes` returns `ownerKind` (`cic` or `external`) for each class.
+
+### `GET /admin/usage`
+`A` only. What CIC can see about external teachers, and all of it. No student names, IDs, scores, codes or per-student rows.
+```json
+{"generatedAt": "...", "activeWindowDays": 7,
+ "totals": {"schools": 1, "classes": 2, "students": 48, "studentsActiveLast7Days": 31},
+ "schools": [{"orgId": "...", "name": "Desert Prep", "status": "active", "teachers": ["Pat Lee"], "classes": 2, "students": 48,
+              "studentsActiveLast7Days": 31, "lastActivityAt": "2026-11-14T17:02:11Z",
+              "classList": [{"name": "Intro CS", "status": "active", "createdAt": "...", "teachers": ["Pat Lee"], "students": 24,
+                             "modulesAssigned": 3, "studentsActiveLast7Days": 17, "lastActivityAt": "..."}]}]}
+```
+`students` counts active roster entries. A student is active when they did anything in the last 7 days.
 
 ## 5. Instructor dashboards and reports
 
@@ -341,7 +356,7 @@ Generated from the synthesized CDK stack, so it shows what is deployed, not what
 | `GET /me`, `/admin/orgs`, `/admin/cohorts`, `/admin/users`, `/admin/api-keys`, `/admin/audit` | `admin-api` | Cognito JWT | core rw, events rw, Cognito admin actions |
 | `/curriculum/*` | `curriculum-api` | Cognito JWT | content rw, core r, assets bucket (write) |
 | `/classes` (create, list, update, members, roster, import, credentials, join code, assignments, unlock) and `GET /students`, `GET /students/{id}` | `class-api` | Cognito JWT | core rw, content r, progress (query and delete, to remove a deleted student), pepper secret (read), Cognito (group check) |
-| `/classes/{id}/progress`, `students/{id}/progress`, `attention`, `modules/{id}/gain`, `concepts`, `review-queue`, `submissions/{id}/review`, `export`, and `/admin/cohorts/{id}/summary` | `reports-api` | Cognito JWT | core r, content r, progress rw (review updates), events w (export audit) |
+| `/classes/{id}/progress`, `students/{id}/progress`, `attention`, `modules/{id}/gain`, `concepts`, `review-queue`, `submissions/{id}/review`, `export`, `/admin/cohorts/{id}/summary`, and `GET /admin/usage` | `reports-api` | Cognito JWT | core r, content r, progress rw (review updates), events w (export audit) |
 | `/student/*` (including `POST /student/hints`) | `student-api` | student session | core r, content r, progress rw, events rw (hint counters and log), Bedrock `InvokeModel` on one named model |
 | `/read/*` | `read-api` | API key | core r, content r, progress r |
 

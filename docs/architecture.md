@@ -77,7 +77,7 @@ flowchart LR
 | API | API Gateway **HTTP API**, `/v1` | $1 per million calls. Native Cognito JWT authorizer. |
 | Compute | Python 3.12 Lambdas, one per domain | Handler per domain with a small internal router. |
 | Database | DynamoDB on-demand, PITR, AWS-managed encryption | Four tables (section 6). |
-| Staff auth | Cognito user pool, groups `cic_admin`, `instructor`, `reviewer` | Invite-only, no self sign-up. TOTP MFA. Cognito applies MFA per pool, not per group, so it is required for all staff (open decision 10). Managed Login is used for the staff sign-in screens. |
+| Staff auth | Cognito user pool, groups `cic_admin`, `instructor`, `external_teacher`, `reviewer` | Invite-only, no self sign-up. TOTP MFA. Cognito applies MFA per pool, not per group, so it is required for all staff (open decision 10). Managed Login is used for the staff sign-in screens. |
 | Student auth | Custom: class code + per-student secret words, opaque session, behind a small identity interface | Deviation from the "use Cognito" standard (section 11). SSO can be added later without changing the API. |
 | Files | S3 behind CloudFront (OAC) for curriculum images | Roster CSVs are posted as JSON text, so no upload bucket is needed. |
 | Video | Unlisted YouTube embeds (`youtube-nocookie.com`) | Free bandwidth and captions. |
@@ -94,6 +94,7 @@ flowchart LR
 | `student` | Class code + own secret words | Own progress only. Take assigned modules. |
 | `instructor` | Cognito, group `instructor` | Manage classes they are a member of: roster, assignments, dashboards. Read published curriculum. |
 | `cic_admin` | Cognito, group `cic_admin` | Everything: all classes, authoring and publishing, users, cohorts, API keys. |
+| `external_teacher` | Cognito, group `external_teacher` | A teacher at a partner school who is not part of CIC. Creates classes on CIC's curriculum with their own roster, and manages only those. Reads and assigns published curriculum. Cannot author. **CIC cannot see their students**: admins get 403 on their class, roster, progress and exports, and see usage counts only (`GET /admin/usage`). |
 | `reviewer` | Cognito, group `reviewer` | Read published curriculum only. **No student data. No class data.** |
 
 Authorization is enforced in the Lambda, using the verified identity from the authorizer:
@@ -102,6 +103,7 @@ Authorization is enforced in the Lambda, using the verified identity from the au
 - Student endpoints take `studentId` and `classId` from the authorizer context, never from the request body or path.
 - Only `cic_admin` can manage users, cohorts, schools, and API keys.
 - **Curriculum writes** (create, edit draft, publish, images) are allowed for `cic_admin` and for instructors with the **`canAuthor`** flag, who are called **curriculum authors**. An admin sets the flag per user (default off). An author can see and update every module CIC has made, not only their own. Instructors without the flag only assign published modules. It is a permission, not a fifth role. `GET /me` returns it so the UI can show or hide authoring. Every publish is written to the audit log. Reviewers can never write.
+- **External teachers.** A school has a `kind`: `cic` (default) or `external`. An external teacher belongs to an external school, and everyone else to a CIC school (checked when a user is invited or changed). Their classes get `ownerKind: "external"`, and sit in a separate list (`gsi1pk = LIST#XCLS`) that only the usage report reads, so no admin list, student search, cohort or read API aggregate includes them. `require_class_access` refuses admins on an external class, which covers every class, roster, report and export route. External classes cannot be in cohorts, and CIC cannot add members to them.
 - Student-facing module payloads are sanitized: answer keys and explanations are removed server-side.
 
 ### Student access
@@ -169,9 +171,9 @@ Publishing validates the module and creates the next `V#` item. Published versio
 
 | pk | sk | Contents |
 |---|---|---|
-| `ORG#<id>` | `META` | partner school or organization name |
+| `ORG#<id>` | `META` | school name, `kind` (`cic` or `external`, default `cic`), status |
 | `COH#<id>` | `META` | cohort name, e.g. "Maryvale". Hierarchy is Cohort, then one or more Classes, then Students. A cohort can hold a single class, and `cohortId` on a class is optional. |
-| `CLS#<id>` | `META` | name, orgId, cohortId, status, `currentModuleId` (optional), `joinCode`, login failure counter and window |
+| `CLS#<id>` | `META` | name, orgId, `ownerKind` (`cic` or `external`), cohortId, status, `currentModuleId` (optional), `joinCode`, login failure counter and window |
 | `CLS#<id>` | `INS#<userId>` | instructor membership |
 | `CLS#<id>` | `STU#<studentId>` | roster entry: `displayName`, `rosterNumber`, optional `externalId`, `startModuleId`, status |
 | `CLS#<id>` | `ASG#<order>#<moduleId>` | assignment: pinned `moduleVersion`, order, open/target dates |

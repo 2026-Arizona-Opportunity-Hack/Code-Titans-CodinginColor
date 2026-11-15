@@ -14,6 +14,7 @@ export const REPORTS_ROUTES = [
   "PUT /v1/classes/{classId}/submissions/{submissionId}/review",
   "GET /v1/classes/{classId}/export",
   "GET /v1/admin/cohorts/{cohortId}/summary",
+  "GET /v1/admin/usage",
 ];
 
 /**

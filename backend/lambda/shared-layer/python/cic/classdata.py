@@ -106,8 +106,17 @@ def _scan_core(filter_expression, values, names=None):
 
 
 def class_metas() -> List[dict]:
-    """META items for every class."""
-    return list(_scan_core("begins_with(pk, :c) AND sk = :m", {":c": "CLS#", ":m": "META"}))
+    """META items for every CIC class. External teachers' classes are left out: CIC sees only
+    their usage (see usage_report), never their progress or learning gain."""
+    return list(_scan_core("begins_with(pk, :c) AND sk = :m AND (attribute_not_exists(ownerKind) OR ownerKind <> :x)",
+                           {":c": "CLS#", ":m": "META", ":x": "external"}))
+
+
+def require_cic_class(class_id: str) -> None:
+    """404 unless the class exists and is a CIC class. For aggregate readers that act for CIC itself."""
+    meta = db.get_table(db.CORE).get_item(Key={"pk": keys.cls_pk(class_id), "sk": "META"}).get("Item")
+    if not meta or meta.get("ownerKind") == "external":
+        raise NotFound("Class not found")
 
 
 def cohort_metas() -> List[dict]:

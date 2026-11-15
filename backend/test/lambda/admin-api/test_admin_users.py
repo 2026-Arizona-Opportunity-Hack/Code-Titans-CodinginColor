@@ -12,7 +12,7 @@ def pool():
     with mock_aws():
         client = boto3.client("cognito-idp")
         pid = client.create_user_pool(PoolName="staff", UsernameAttributes=["email"])["UserPool"]["Id"]
-        for group in ("cic_admin", "instructor", "reviewer"):
+        for group in ("cic_admin", "instructor", "external_teacher", "reviewer"):
             client.create_group(UserPoolId=pid, GroupName=group)
         os.environ["USER_POOL_ID"] = pid
         yield client, pid
@@ -180,3 +180,26 @@ def test_change_and_clear_school_keeps_can_author(admin, table, schools):
 def test_changing_can_author_keeps_the_school(admin, table, schools):
     user = invite(admin, orgId="org_1")[1]["data"]
     assert patch(admin, user["userId"], {"canAuthor": True})[1]["data"]["orgId"] == "org_1"
+def _school(table, org_id, kind):
+    table.put_item(Item={"pk": f"ORG#{org_id}", "sk": "META", "name": org_id, "status": "active", "kind": kind})
+def test_external_teacher_needs_an_external_school(admin, table):
+    _school(table, "org_ext", "external")
+    _school(table, "org_cic", "cic")
+    assert invite(admin, "e1@school.org", "external_teacher")[0] == 400  # no school
+    assert invite(admin, "e2@school.org", "external_teacher", orgId="org_cic")[0] == 400
+    status, body = invite(admin, "e3@school.org", "external_teacher", orgId="org_ext")
+    assert status == 201 and body["data"]["role"] == "external_teacher" and body["data"]["canAuthor"] is False
+    assert invite(admin, "e4@school.org", "external_teacher", orgId="org_ext", canAuthor=True)[0] == 400
+def test_nobody_else_can_join_an_external_school(admin, table):
+    _school(table, "org_ext", "external")
+    _school(table, "org_cic", "cic")
+    assert invite(admin, "i1@school.org", "instructor", orgId="org_ext")[0] == 400
+    assert invite(admin, "i2@school.org", "instructor", orgId="org_cic")[0] == 201
+    sub = call(admin, "GET /v1/admin/users")[1]["data"][0]["userId"]
+    status, _ = call(admin, "PATCH /v1/admin/users/{userId}", {"orgId": "org_ext"}, path={"userId": sub})
+    assert status == 400
+    status, _ = call(admin, "PATCH /v1/admin/users/{userId}", {"role": "external_teacher"}, path={"userId": sub})
+    assert status == 400  # still in a CIC school
+def test_org_kind_is_listed_and_defaults_to_cic(admin, table):
+    assert call(admin, "POST /v1/admin/orgs", {"name": "Plain"})[1]["data"]["kind"] == "cic"
+    assert call(admin, "POST /v1/admin/orgs", {"name": "X", "kind": "private"})[0] == 400

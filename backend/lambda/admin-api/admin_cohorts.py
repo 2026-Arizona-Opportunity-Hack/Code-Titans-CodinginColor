@@ -63,8 +63,11 @@ def _class_ids(table, cohort_id: str) -> list:
 def _set_membership(table, cohort_id: str, wanted: list) -> None:
     """Make `wanted` the exact set of classes in the cohort. Classes move if elsewhere."""
     for class_id in wanted:
-        if not table.get_item(Key={"pk": f"CLS#{class_id}", "sk": "META"}).get("Item"):
+        meta = table.get_item(Key={"pk": f"CLS#{class_id}", "sk": "META"}).get("Item")
+        if not meta:
             raise ValidationError(f"classIds contains an unknown class: {class_id}")
+        if meta.get("ownerKind") == "external":
+            raise ValidationError(f"External classes cannot join a cohort: {class_id}")
     current = _class_ids(table, cohort_id)
     for class_id in wanted:
         table.update_item(

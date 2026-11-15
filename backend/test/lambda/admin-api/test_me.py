@@ -70,3 +70,9 @@ def test_me_returns_the_school_name_for_the_header(admin, table):
     assert (data["orgId"], data["orgName"]) == ("org_1", "Maryvale High School")
     table.delete_item(Key={"pk": "ORG#org_1", "sk": "META"})  # a school that no longer exists
     assert call(admin, "[instructor]")[1]["data"]["orgName"] is None
+def test_external_teacher_lists_own_classes_and_never_authors(admin, table):
+    table.put_item(Item={"pk": "CLS#cls_x", "sk": "INS#u1", "gsi1pk": "USR#u1", "gsi1sk": "CLS#cls_x"})
+    table.put_item(Item={"pk": "USR#u1", "sk": "META", "canAuthor": True})  # a stray flag does not help
+    _, body = call(admin, "[external_teacher]")
+    assert body["data"]["role"] == "external_teacher" and body["data"]["classes"] == [{"classId": "cls_x"}]
+    assert body["data"]["permissions"] == {"canAuthor": False, "canEditAll": False}

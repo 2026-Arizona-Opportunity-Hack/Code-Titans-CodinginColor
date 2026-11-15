@@ -1,12 +1,14 @@
 """Instructor reports (api.md section 5) and the admin cohort summary.
 
 Every class route authorizes with require_class_access: admins for any class, instructors
-only for classes they belong to, and reviewers never.
+only for classes they belong to, and reviewers never. External teachers' classes are
+reachable by their own teachers only; CIC admins get counts from GET /v1/admin/usage.
 """
 import base64
 import json
 
 import reports_service as svc
+from usage import usage
 from cic import audit, classdata, db, gain, keys, summaries
 from cic.authz import require_admin, require_class_access
 from cic.classdata import ClassData
@@ -164,6 +166,7 @@ ROUTES = {
     "PUT /v1/classes/{classId}/submissions/{submissionId}/review": review_submission,
     "GET /v1/classes/{classId}/export": export,
     "GET /v1/admin/cohorts/{cohortId}/summary": cohort_summary,
+    "GET /v1/admin/usage": usage,
 }
 
 lambda_handler = make_handler(ROUTES)

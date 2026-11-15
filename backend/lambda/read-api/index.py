@@ -57,11 +57,16 @@ def cohort_summary(req):
 
 def class_summary(req):
     _auth(req)
-    return summaries.class_summary(keys.safe_id(req.path.get("classId"), "classId"), suppress=True)
+    class_id = keys.safe_id(req.path.get("classId"), "classId")
+    classdata.require_cic_class(class_id)
+    return summaries.class_summary(class_id, suppress=True)
 
 
 def _scope(req):
-    return summaries.scope_class_ids(_opt_id(req, "classId"), _opt_id(req, "cohortId"), _opt_id(req, "orgId"))
+    class_id = _opt_id(req, "classId")
+    if class_id:
+        classdata.require_cic_class(class_id)
+    return summaries.scope_class_ids(class_id, _opt_id(req, "cohortId"), _opt_id(req, "orgId"))
 
 
 def module_gain(req):

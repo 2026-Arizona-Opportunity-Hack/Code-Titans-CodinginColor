@@ -3,14 +3,14 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import { Construct } from "constructs";
 import { AppConfig } from "./config";
 
-export const STAFF_GROUPS = ["cic_admin", "instructor", "reviewer"] as const;
+export const STAFF_GROUPS = ["cic_admin", "instructor", "external_teacher", "reviewer"] as const;
 
 export interface AuthStackProps extends cdk.StackProps {
   config: AppConfig;
 }
 
 /**
- * Cognito for staff only (admins, instructors, reviewers). Students never have
+ * Cognito for staff only (admins, instructors, external teachers, reviewers). Students never have
  * Cognito accounts; they sign in with a class code and secret words.
  * Managed Login and the OAuth callback URLs are added once the frontend host exists.
  */
