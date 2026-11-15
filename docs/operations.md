@@ -1,6 +1,6 @@
 # Operations runbook
 
-How to deploy, run and maintain CIC Learn. It is written so that someone who did not build it can follow it. Commands assume a Mac or Linux terminal and the AWS CLI.
+How to run and maintain CIC Learn once it is deployed. For the first deployment, start with [setup.md](setup.md); settings are listed in [configuration.md](configuration.md). It is written so that someone who did not build it can follow it. Commands assume a Mac or Linux terminal and the AWS CLI.
 
 Contents: [Prerequisites](#prerequisites) · [First deploy](#first-deploy) · [Create the first admin](#create-the-first-admin) · [Host the frontend](#host-the-frontend) · [Everyday tasks](#everyday-tasks) · [Updating](#updating) · [Monitoring and cost](#monitoring-and-cost) · [Backups and teardown](#backups-and-teardown) · [Troubleshooting](#troubleshooting)
 
@@ -46,7 +46,7 @@ When it finishes, copy the outputs. You need them for the frontend and the first
 | `ApiUrl` | `NEXT_PUBLIC_API_URL` is this value plus `/v1` |
 | `UserPoolId`, `UserPoolClientId` | `NEXT_PUBLIC_COGNITO_USER_POOL_ID` and `..._CLIENT_ID`, and the admin commands below |
 
-Check the API is up: `curl <ApiUrl>/v1/health` returns `{"data":{"status":"ok"}}`.
+Check the API is up: `curl <ApiUrl>/v1/health` returns `{"data": {"status": "ok"}}`.
 
 ## Create the first admin
 

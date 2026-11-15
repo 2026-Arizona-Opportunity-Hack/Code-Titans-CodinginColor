@@ -29,7 +29,7 @@ The choices that shape this project, with the reasons and what was turned down. 
 **Why.** Real classes have two students with the same name, and names change. Using names as keys would merge or lose data.
 
 ## 6. Collect as little student data as possible
-**Decision.** Name, school and class. Nothing else about a student. No email, birthdate or address. Student names are never sent to the AI model, and are not written to logs.
+**Decision.** Name, school and class. Two optional extras: a school-issued student ID, and a grade level (6 to 12) that a teacher can enter so the gradebook can show it for credit records. No email, birthdate or address. Student names are never sent to the AI model, and are not written to logs.
 **Why.** The less we hold, the less can leak, and the easier it is for a school to say yes.
 
 ## 7. Curriculum authoring is a permission, not a role

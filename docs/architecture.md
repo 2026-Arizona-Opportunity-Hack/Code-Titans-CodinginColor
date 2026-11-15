@@ -29,7 +29,7 @@ Why: it reuses P0 data (pre/post pairs) and only adds concept tags on questions,
 - **Stack** (CIC standards): Next.js + TypeScript on Amplify, CDK in TypeScript, Python 3.12 Lambdas, DynamoDB, Cognito, HTTP API.
 - **No student accounts.** CIC chose CodeHS at camp to avoid them. Students sign in with a class code plus their own secret words (section 5).
 - **The server decides.** Grading, unlocking, and authorization happen in Lambdas. The browser is never trusted for those.
-- **Minimize student data.** Display name, school (org) and class. An optional school-issued student ID is stored only if the school supplies one (section 6). No email, birthdate, or address.
+- **Minimize student data.** Display name, school (org) and class. Two optional fields: a school-issued student ID, stored only if the school supplies one, and a grade level (6 to 12) that a teacher can enter, which the gradebook export shows (section 6). No email, birthdate, or address.
 - **Simplest thing the nonprofit can run after the weekend.** No scheduler, no queues, no VPC.
 
 ## 3. System diagram
@@ -178,7 +178,7 @@ Publishing validates the module and creates the next `V#` item. Published versio
 | `COH#<id>` | `META` | cohort name, e.g. "Maryvale". Hierarchy is Cohort, then one or more Classes, then Students. A cohort can hold a single class, and `cohortId` on a class is optional. |
 | `CLS#<id>` | `META` | name, orgId, `ownerKind` (`cic` or `external`), cohortId, status, `currentModuleId` (optional), `joinCode`, login failure counter and window |
 | `CLS#<id>` | `INS#<userId>` | instructor membership |
-| `CLS#<id>` | `STU#<studentId>` | roster entry: `displayName`, `rosterNumber`, optional `externalId`, `startModuleId`, status |
+| `CLS#<id>` | `STU#<studentId>` | roster entry: `displayName`, `rosterNumber`, optional `externalId`, optional `gradeLevel` (6 to 12), `startModuleId`, status |
 | `CLS#<id>` | `ASG#<order>#<moduleId>` | assignment: pinned `moduleVersion`, order, open/target dates |
 | `CLS#<id>` | `OVR#<studentId>#<moduleId>` | instructor unlock override |
 | `STU#<id>` | `META` | classId, `credHmac`, `credVersion` |
@@ -189,7 +189,8 @@ Publishing validates the module and creates the next `V#` item. Published versio
 **Student identity.** A student is identified by `studentId`, a system-generated UUID v4, never by name.
 - `displayName` is a plain display field with **no uniqueness constraint**. Two students named "Alex Kim" are two rows with two IDs, two credentials, and two separate progress records. Login and every API path use the ID, so duplicate names cannot cause a mix-up.
 - `rosterNumber` is assigned by the system per class (1, 2, 3, ...), never reused, and is not personal data. Instructor lists show name plus roster number so same-name students are distinguishable. Credentials are stored hashed, so we cannot show part of a student's secret words as a disambiguator.
-- `externalId` is an optional school-issued student ID. If a roster CSV includes it, a re-import matches rows on it and updates instead of duplicating. It is stored only when provided. This is the one field beyond name, school, and class, so it needs CIC's confirmation (section 13).
+- `externalId` is an optional school-issued student ID. If a roster CSV includes it, a re-import matches rows on it and updates instead of duplicating. It is stored only when provided. It is beyond name, school, and class, so it needs CIC's confirmation (section 13).
+- `gradeLevel` is an optional whole number from 6 to 12, set by a teacher when adding a student or on the student's page. It exists so the gradebook export can show a grade for high school credit records. It is never sent to the AI model or the read API.
 - Without an `externalId`, a repeated name becomes a new student by default and is flagged as a possible duplicate for the instructor to review (deactivate or merge). Nothing else (such as a birthdate) is collected to tell students apart.
 - Search and filters (by cohort, class, and name) run server-side over the roster. With classes of about 30 students this is a small query and needs no extra index. Every result links to the student's detail by ID.
 
@@ -359,5 +360,5 @@ Decided:
 Open with CIC:
 
 - Does any partner school require SSO for students?
-- Does CIC have school student IDs, and may the platform store them (`externalId`)?
+- Does CIC have school student IDs, and may the platform store them (`externalId`)? May it store a grade level (`gradeLevel`)?
 - Claude Haiku 4.5 is not enabled in the deployed AWS account until the Anthropic use-case form is submitted, so drafting uses the Nova Pro fallback (see [operations.md](operations.md)).
