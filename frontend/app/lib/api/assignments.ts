@@ -40,3 +40,8 @@ export function updateAssignment(
 export function unassignModule(token: string, classId: string, moduleId: string): Promise<unknown> {
   return apiFetch(`${base(classId)}/${encodeURIComponent(moduleId)}`, { method: "DELETE", token });
 }
+
+/** POST /classes/{classId}/students/{studentId}/unlock: lets one student open a module early. */
+export function unlockModule(token: string, classId: string, studentId: string, moduleId: string): Promise<{ studentId: string; moduleId: string; unlocked: boolean }> {
+  return apiFetch(`/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/unlock`, { method: "POST", token, body: { moduleId } });
+}

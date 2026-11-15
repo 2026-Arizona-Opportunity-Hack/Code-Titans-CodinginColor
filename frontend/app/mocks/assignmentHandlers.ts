@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { Assignment } from "../lib/api/assignments";
 import { MODULES } from "./curriculumStore";
+import { setStart } from "./studentStore";
 import { register } from "./persist";
 import { apiError, roleOf } from "./staffHandlers";
 
@@ -36,6 +37,16 @@ const sorted = (list: Assignment[]) => [...list].sort((a, b) => a.order - b.orde
 export const assignedFor = (classId: string) => sorted(forClass(classId));
 
 export const assignmentHandlers = [
+  http.post(`${env.apiUrl}/classes/:classId/students/:studentId/unlock`, async ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't change students.");
+    const moduleId = ((await request.json().catch(() => ({}))) as { moduleId?: string }).moduleId ?? "";
+    if (!forClass(String(params.classId)).some((a) => a.moduleId === moduleId)) return apiError(404, "NOT_FOUND", "Module is not assigned to this class");
+    setStart(String(params.studentId), moduleId); // in the demo, unlocking makes it the student's start module
+    return HttpResponse.json({ data: { studentId: params.studentId, moduleId, unlocked: true } });
+  }),
+
   http.get(`${env.apiUrl}/classes/:classId/assignments`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
