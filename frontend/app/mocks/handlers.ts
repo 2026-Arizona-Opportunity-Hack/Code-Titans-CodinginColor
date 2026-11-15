@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { StudentHome } from "../lib/api/student";
+import { staffHandlers } from "./staffHandlers";
 
 // Fake API responses, shaped like docs/api.md (success: { data, meta }, errors: { error, code, requestId }).
 // Demo student: class code K7M4QX, secret words maple-tiger-blue (signs in as Maya R.).
@@ -33,6 +34,8 @@ const home: StudentHome = {
 };
 
 export const handlers = [
+  ...staffHandlers,
+
   http.get(`${env.apiUrl}/health`, () => HttpResponse.json({ data: { status: "ok" } })),
 
   http.post(`${env.apiUrl}/auth/student/login`, async ({ request }) => {
