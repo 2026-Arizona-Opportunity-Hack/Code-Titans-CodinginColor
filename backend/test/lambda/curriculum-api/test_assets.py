@@ -12,7 +12,10 @@ ROUTE = "POST /v1/curriculum/assets/upload-url"
 
 
 @pytest.fixture(autouse=True)
-def setup(table):
+def setup(api, table, monkeypatch):
+    import assets
+    assets._s3 = None
+    monkeypatch.setenv("AWS_REGION", "us-west-2")
     table.put_item(Item={"pk": "USR#ins-author", "sk": "META", "canAuthor": True})
     os.environ.update(ASSETS_BUCKET="assets-bucket", ASSETS_URL="https://cdn.example.org/")
 
@@ -29,7 +32,7 @@ def test_returns_a_signed_form_for_one_image_under_the_curriculum_prefix(api):
     assert status == 200
     assert data["key"].startswith("curriculum/") and data["key"].endswith(".png")
     assert data["assetUrl"] == f"https://cdn.example.org/{data['key']}"
-    assert data["uploadUrl"].startswith("https://") and "assets-bucket" in data["uploadUrl"]
+    assert data["uploadUrl"] == "https://assets-bucket.s3.us-west-2.amazonaws.com/"  # regional, never the global endpoint
     assert data["fields"]["Content-Type"] == "image/png" and data["fields"]["key"] == data["key"]
     assert "policy" in data["fields"] and "x-amz-signature" in data["fields"]  # S3 verifies this form
 

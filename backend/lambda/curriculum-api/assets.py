@@ -23,7 +23,11 @@ _s3 = None
 def s3():
     global _s3
     if _s3 is None:
-        _s3 = boto3.client("s3", config=Config(signature_version="s3v4"))
+        # The regional endpoint: the global one (bucket.s3.amazonaws.com) answers a new
+        # bucket with a 307 redirect for hours, which a browser upload does not survive.
+        region = os.environ.get("AWS_REGION", "us-west-2")
+        _s3 = boto3.client("s3", region_name=region, endpoint_url=f"https://s3.{region}.amazonaws.com",
+                           config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
     return _s3
 
 

@@ -1,0 +1,31 @@
+{
+  "CicCurriculumDataStack": {
+    "ExportsOutputRefEventsTableD24865E55C5ECA9E": "CicCurriculumDataStack-EventsTableD24865E5-JQWW55P8AIUQ",
+    "ContentTableName": "CicCurriculumDataStack-ContentTableA82027C3-AWQFJY1Q4DD2",
+    "ExportsOutputRefProgressTableAA2111E945E3D76D": "CicCurriculumDataStack-ProgressTableAA2111E9-1A3P4NSG6RG0Z",
+    "ExportsOutputFnGetAttAssetsBucket5CB76180ArnBF60D959": "arn:aws:s3:::ciccurriculumdatastack-assetsbucket5cb76180-rbdcdbugqqa6",
+    "ExportsOutputFnGetAttProgressTableAA2111E9Arn5278D1CB": "arn:aws:dynamodb:us-west-2:494492165958:table/CicCurriculumDataStack-ProgressTableAA2111E9-1A3P4NSG6RG0Z",
+    "EventsTableName": "CicCurriculumDataStack-EventsTableD24865E5-JQWW55P8AIUQ",
+    "ExportsOutputRefCoreTable97EB8292DFE1E6FC": "CicCurriculumDataStack-CoreTable97EB8292-13G8MALUWVLDI",
+    "ExportsOutputRefContentTableA82027C3DB33D377": "CicCurriculumDataStack-ContentTableA82027C3-AWQFJY1Q4DD2",
+    "ExportsOutputFnGetAttContentTableA82027C3ArnFF2218DC": "arn:aws:dynamodb:us-west-2:494492165958:table/CicCurriculumDataStack-ContentTableA82027C3-AWQFJY1Q4DD2",
+    "ExportsOutputFnGetAttAssetsCdn15A39127DomainName2DAF400F": "da8tns6seispr.cloudfront.net",
+    "CoreTableName": "CicCurriculumDataStack-CoreTable97EB8292-13G8MALUWVLDI",
+    "ExportsOutputFnGetAttEventsTableD24865E5Arn2808B4A2": "arn:aws:dynamodb:us-west-2:494492165958:table/CicCurriculumDataStack-EventsTableD24865E5-JQWW55P8AIUQ",
+    "AssetsBucketName": "ciccurriculumdatastack-assetsbucket5cb76180-rbdcdbugqqa6",
+    "AssetsCdnUrl": "https://da8tns6seispr.cloudfront.net",
+    "ProgressTableName": "CicCurriculumDataStack-ProgressTableAA2111E9-1A3P4NSG6RG0Z",
+    "ExportsOutputFnGetAttCoreTable97EB8292Arn0DE736BD": "arn:aws:dynamodb:us-west-2:494492165958:table/CicCurriculumDataStack-CoreTable97EB8292-13G8MALUWVLDI",
+    "ExportsOutputRefAssetsBucket5CB761808BF2E271": "ciccurriculumdatastack-assetsbucket5cb76180-rbdcdbugqqa6"
+  },
+  "CicCurriculumAuthStack": {
+    "UserPoolClientId": "619nar229kuip5pf831qo7d5t8",
+    "UserPoolId": "us-west-2_en1rsV6EK",
+    "ExportsOutputFnGetAttStaffUserPool2EF92F57Arn1B136B6A": "arn:aws:cognito-idp:us-west-2:494492165958:userpool/us-west-2_en1rsV6EK",
+    "ExportsOutputRefStaffUserPoolWebClientFCB65C487114DBE6": "619nar229kuip5pf831qo7d5t8",
+    "ExportsOutputRefStaffUserPool2EF92F57C53DFF6C": "us-west-2_en1rsV6EK"
+  },
+  "CicCurriculumApiStack": {
+    "ApiUrl": "https://k9bct1w42c.execute-api.us-west-2.amazonaws.com"
+  }
+}
