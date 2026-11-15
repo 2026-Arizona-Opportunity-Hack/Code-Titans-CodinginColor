@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { StudentHome } from "../lib/api/student";
+import { rosterHandlers } from "./rosterHandlers";
 import { staffHandlers } from "./staffHandlers";
 
 // Fake API responses, shaped like docs/api.md (success: { data, meta }, errors: { error, code, requestId }).
@@ -35,6 +36,7 @@ const home: StudentHome = {
 
 export const handlers = [
   ...staffHandlers,
+  ...rosterHandlers,
 
   http.get(`${env.apiUrl}/health`, () => HttpResponse.json({ data: { status: "ok" } })),
 
