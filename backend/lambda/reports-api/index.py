@@ -8,6 +8,7 @@ import base64
 import json
 
 import reports_service as svc
+from hints_gradebook import gradebook, gradebook_csv_rows, hints_report
 from usage import usage
 from cic import audit, classdata, db, gain, keys, summaries
 from cic.authz import require_admin, require_class_access
@@ -143,12 +144,26 @@ def export(req):
         header = ["rosterNumber", "student"] + [f"{m['title']} percent" for m in matrix["modules"]] + [f"{m['title']} minutes" for m in matrix["modules"]]
         rows = [[s["rosterNumber"], s["displayName"]] + [s["modules"][m["moduleId"]]["percent"] for m in matrix["modules"]]
                 + [s["modules"][m["moduleId"]]["activeMinutes"] for m in matrix["modules"]] for s in matrix["students"]]
+    elif kind == "gradebook":
+        header, rows = gradebook_csv_rows(gradebook(data))
     else:
-        raise ValidationError("type must be gain or progress")
+        raise ValidationError("type must be gain, progress or gradebook")
     audit.record(staff.user_id, "export", {"classId": data.class_id, "type": kind})
     log("export", classId=data.class_id, type=kind, rows=len(rows))
     return Reply(raw=to_csv(header, rows), content_type="text/csv; charset=utf-8",
                  headers={"Content-Disposition": f'attachment; filename="{kind}-{data.class_id}.csv"'})
+
+
+def hints(req):
+    """GET /v1/classes/{classId}/hints: what the class asked for help with, to know what to reteach."""
+    _, data = _class(req)
+    return hints_report(data)
+
+
+def class_gradebook(req):
+    """GET /v1/classes/{classId}/gradebook: the table behind export?type=gradebook."""
+    _, data = _class(req)
+    return gradebook(data)
 
 
 def cohort_summary(req):
@@ -165,6 +180,8 @@ ROUTES = {
     "GET /v1/classes/{classId}/review-queue": review_queue,
     "PUT /v1/classes/{classId}/submissions/{submissionId}/review": review_submission,
     "GET /v1/classes/{classId}/export": export,
+    "GET /v1/classes/{classId}/hints": hints,
+    "GET /v1/classes/{classId}/gradebook": class_gradebook,
     "GET /v1/admin/cohorts/{cohortId}/summary": cohort_summary,
     "GET /v1/admin/usage": usage,
 }

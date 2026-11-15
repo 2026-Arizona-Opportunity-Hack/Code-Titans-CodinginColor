@@ -167,3 +167,32 @@ export const reviewSubmission = (token: string, classId: string, submissionId: s
 export type ConceptsReport = { definitions: Record<string, string>; concepts: ConceptGain[] };
 export const getConcepts = (token: string, classId: string, signal?: AbortSignal) =>
   apiFetch<ConceptsReport>(`/classes/${encodeURIComponent(classId)}/concepts`, { token, signal });
+
+// ---- Hint struggles and gradebook (GET /classes/{classId}/hints and /gradebook) ----
+export type HintReport = {
+  totals: { hints: number; studentsWhoAsked: number; enrolled: number };
+  /** The concept most students asked for help on, or null. */
+  reteachFirst: string | null;
+  /** True when reteachFirst names a step ("Module: step") because the hints had no concept tags. */
+  reteachFirstIsStep?: boolean;
+  concepts: { concept: string; hints: number; students: number; studentPct: number | null }[];
+  activities: { moduleId: string; moduleTitle: string; activityId: string; activityTitle: string; hints: number; students: number }[];
+  students: { studentId: string; displayName: string | null; rosterNumber: number | null; hints: number; topConcepts: string[] }[];
+  recent: { at: number; studentId: string; displayName: string | null; moduleTitle: string; activityTitle: string; concepts: string[]; level: number; question: string; hint: string; filtered: boolean }[];
+};
+export const getHintReport = (token: string, classId: string, signal?: AbortSignal) =>
+  apiFetch<HintReport>(`/classes/${encodeURIComponent(classId)}/hints`, { token, signal });
+
+export type GradebookCell = { state: string; percent: number; score: number | null; pre: number | null; post: number | null; gain: number | null; hints: number };
+export type Gradebook = {
+  modules: { moduleId: string; title: string }[];
+  students: {
+    studentId: string; displayName: string; rosterNumber: number; gradeLevel?: number | null;
+    modules: Record<string, GradebookCell>;
+    overall: { completion: number | null; score: number | null; gain: number | null; hints: number; mostHelpOn: string | null };
+  }[];
+  definitions: Record<string, string>;
+};
+export const getGradebook = (token: string, classId: string, signal?: AbortSignal) =>
+  apiFetch<Gradebook>(`/classes/${encodeURIComponent(classId)}/gradebook`, { token, signal });
+

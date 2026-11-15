@@ -112,12 +112,23 @@ export function CodeActivity({ activity, moduleId, token, onDone }: { activity: 
   const failedIds = (outcomes ?? []).filter((o) => !o.passed).map((o) => o.testId);
   const current = outcomes !== null && checkedCode === code;
   async function submit() {
-    if (!outcomes) return;
+    // Check the current code first if it hasn't been checked, so the score matches what is sent.
+    let found = current ? outcomes : null;
+    if (!found) {
+      const text = code;
+      found = await guard("checking", async () => {
+        const r = await checkTests(text, activity.tests, (c, s, e) => sharedRunner().run(c, s, e));
+        setOutcomes(r);
+        setCheckedCode(text);
+        return r;
+      });
+      if (!found) return;
+    }
     setSubmitting(true);
     setProblem(null);
     try {
       window.clearTimeout(timer.current);
-      const r = await submitCode(token, moduleId, activity.activityId, submissionId, code, outcomes.map((o) => ({ testId: o.testId, passed: o.passed })));
+      const r = await submitCode(token, moduleId, activity.activityId, submissionId, code, found.map((o) => ({ testId: o.testId, passed: o.passed })));
       setResult(r);
       setSubmissionId(crypto.randomUUID()); // a later try is a new submission
     } catch (err) {
@@ -217,17 +228,22 @@ export function CodeActivity({ activity, moduleId, token, onDone }: { activity: 
         </section>
       ) : null}
 
-      {outcomes && current ? (
+      {code.trim() ? (
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={submit}>{submitting ? "Submitting…" : passedCount === activity.tests.length ? "Submit my code" : "Submit what I have"}</button>
-          {passedCount < activity.tests.length ? <p className="text-sm text-muted">You can keep working. Submitting saves your code for your teacher to see.</p> : null}
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={submit}>
+            {submitting ? "Submitting…" : outcomes && current && passedCount === activity.tests.length ? "Submit my code" : "Submit what I have"}
+          </button>
+          {!(outcomes && current && passedCount === activity.tests.length) ? (
+            <p className="text-sm text-muted">You can submit even if some tests fail. Your teacher sees your code and score, and you can submit again later.</p>
+          ) : null}
         </div>
       ) : null}
 
       {result ? (
-        <div role="status" className={`callout mt-5 ${result.passed ? "" : "callout-danger"}`}>
-          <p className="font-bold">{result.passed ? "Well done! Every test you needed is passing." : `Saved. ${result.testsPassed} of ${result.testsTotal} tests passing. Keep going, you can submit again.`}</p>
-          {result.passed ? <button type="button" className="btn btn-primary mt-3" onClick={() => onDone(result)}>Continue <Icon name="arrowRight" /></button> : null}
+        <div role="status" className="callout mt-5">
+          <p className="font-bold">{result.passed ? "Well done! Every test you needed is passing." : `Submitted. ${result.testsPassed} of ${result.testsTotal} tests passing.`}</p>
+          {!result.passed ? <p className="mt-1 text-sm">You can move on now, or keep fixing your code and submit again. Your best score is kept.</p> : null}
+          <button type="button" className="btn btn-primary mt-3" onClick={() => onDone(result)}>Continue <Icon name="arrowRight" /></button>
         </div>
       ) : null}
 
