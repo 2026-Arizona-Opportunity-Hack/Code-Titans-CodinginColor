@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { Assignment } from "../lib/api/assignments";
 import type { ModuleSummary } from "../lib/api/curriculum";
+import { register } from "./persist";
 import { apiError, roleOf } from "./staffHandlers";
 
 // Fake curriculum list and class assignments, behaving like the backend's curriculum.py and
@@ -28,6 +29,14 @@ const assignments = new Map<string, Assignment[]>([
     ],
   ],
 ]);
+register({
+  key: "assignments",
+  snapshot: () => Object.fromEntries(assignments),
+  restore: (data: Record<string, Assignment[]>) => {
+    assignments.clear();
+    Object.entries(data).forEach(([classId, list]) => assignments.set(classId, list));
+  },
+});
 const forClass = (classId: string) => {
   if (!assignments.has(classId)) assignments.set(classId, []);
   return assignments.get(classId)!;

@@ -23,7 +23,8 @@ export function moduleHref(moduleId: string) {
 function ModuleCard({ module }: { module: HomeModule }) {
   const info = STATE[module.state];
   const open = module.state !== "locked";
-  const showProgress = module.state === "in_progress" || module.state === "complete";
+  // A catch-up module stays "catch up" until it is finished, so show its progress once it has been started.
+  const showProgress = module.state === "in_progress" || module.state === "complete" || (module.state === "catch_up" && module.percent > 0);
 
   return (
     <li className={`card relative flex items-center gap-4 ${open ? "card-interactive" : "bg-canvas shadow-none"}`}>

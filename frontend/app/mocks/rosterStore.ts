@@ -1,4 +1,5 @@
 import type { RosterStudent } from "../lib/api/roster";
+import { register } from "./persist";
 
 // In-memory rosters for the fake API, so an import adds students you can then see.
 // Everything resets when the page is reloaded. Mirrors backend/lambda/class-api/roster.py.
@@ -70,5 +71,16 @@ export function issueWords(classId: string, studentIds?: string[]) {
     return { studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, studentCode: words };
   });
 }
+
+register({
+  key: "rosters",
+  snapshot: () => ({ rosters: Object.fromEntries(rosters), used: [...usedWords] }),
+  restore: (data: { rosters: Record<string, RosterStudent[]>; used: string[] }) => {
+    rosters.clear();
+    Object.entries(data.rosters).forEach(([classId, list]) => rosters.set(classId, list));
+    usedWords.clear();
+    data.used.forEach((w) => usedWords.add(w));
+  },
+});
 
 export const normalizeName = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
