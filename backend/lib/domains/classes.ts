@@ -38,6 +38,8 @@ export class ClassesDomain extends Construct {
         "PATCH /v1/classes/{classId}/roster/{studentId}",
         "DELETE /v1/classes/{classId}/roster/{studentId}",
         "GET /v1/students/{studentId}",
+        "GET /v1/students",
+        "POST /v1/classes/{classId}/roster/import",
       ],
       ctx.staffAuthorizer,
     );

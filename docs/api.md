@@ -150,6 +150,9 @@ All `A` only.
 - **Matching.** A row with an `externalId` that already exists in the class updates that student (no new credential is created). A row without a match is added as a new student.
 - **Repeated names.** Names are not unique. By default a repeated name is created as a new student and flagged as a possible duplicate. Set `duplicateNames` to `"skip"` to ignore rows whose name already exists, which is useful when re-importing a file that has no `externalId` column.
 - Limits: 500 rows, 100 characters per name.
+- Row numbers count data rows from 1: the header is not a row and blank lines are skipped.
+- The commit imports every valid row, skips rows with problems, and returns `{created, updated, skipped, possibleDuplicates, errors, ignoredColumns, credentialsNeeded}`. Imported students have no login words yet: call `POST /classes/{classId}/credentials` to issue them.
+- `GET /students` returns up to `limit` matches (default 50). `meta.truncated` is true when more exist.
 
 The dry run (`?dryRun=true`) writes nothing and returns:
 

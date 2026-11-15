@@ -69,3 +69,8 @@ class LoginThrottled(ApiError):
             "Too many failed attempts. Try again later",
             headers={"Retry-After": str(max(1, int(retry_after)))},
         )
+
+
+class InvalidCsv(ApiError):
+    status_code = 400
+    code = "INVALID_CSV"
