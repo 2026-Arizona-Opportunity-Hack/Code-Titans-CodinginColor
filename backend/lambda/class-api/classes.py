@@ -55,7 +55,16 @@ def create_class(req: Request):
     body = req.json()
     validate.reject_unknown(body, ("name", "orgId", "cohortId", "termStart", "termEnd"))
     name = validate.text(body, "name")
-    org_id = validate.safe_id(body.get("orgId"), "orgId")
+    if staff.is_admin:
+        org_id = validate.safe_id(body.get("orgId"), "orgId")
+    else:
+        # Instructors create classes only in the school an admin assigned to them.
+        profile = db.get_table(db.CORE).get_item(Key={"pk": f"USR#{staff.user_id}", "sk": "META"}).get("Item", {})
+        org_id = profile.get("orgId")
+        if not org_id:
+            raise Forbidden("Your account has no school yet. Ask a CIC admin to assign one")
+        if body.get("orgId") not in (None, org_id):
+            raise Forbidden("Instructors can only create classes in their own school")
     cohort_id = body.get("cohortId")
     if cohort_id is not None:
         validate.safe_id(cohort_id, "cohortId")

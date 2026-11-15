@@ -1,7 +1,8 @@
 """Staff users: GET/POST /v1/admin/users, PATCH /v1/admin/users/{userId}. Admin only.
 
 Cognito holds identity (email, name, role as a group). The core table holds only
-`USR#<sub>` with the `canAuthor` flag. Roles are Cognito groups, so a role change
+`USR#<sub>` with the `canAuthor` flag and the user's school (`orgId`), which is
+where an instructor's classes are created. Roles are Cognito groups, so a role change
 takes effect when the user's token is next refreshed (within the 1 hour token life).
 """
 import os
@@ -38,11 +39,11 @@ def _attrs(user: dict) -> dict:
     return {a["Name"]: a["Value"] for a in user.get("Attributes") or user.get("UserAttributes") or []}
 
 
-def _public(user: dict, role, can_author: bool) -> dict:
+def _public(user: dict, role, can_author: bool, org_id=None) -> dict:
     a = _attrs(user)
     return {"userId": a["sub"], "email": a.get("email", ""), "name": a.get("name", ""),
             "role": role, "canAuthor": can_author, "enabled": user.get("Enabled", True),
-            "status": user.get("UserStatus", "")}
+            "status": user.get("UserStatus", ""), "orgId": org_id}
 
 
 def _can_author(role, flag: bool) -> bool:
@@ -50,15 +51,27 @@ def _can_author(role, flag: bool) -> bool:
     return role == ADMIN or (role == INSTRUCTOR and flag)
 
 
-def _flags(sub_ids: list) -> dict:
-    if not sub_ids:
-        return {}
+def _profiles(sub_ids: list) -> dict:
+    """{sub: USR#<sub> META item, or {} when there is none}."""
     table = db.get_table(db.CORE)
-    flags = {}
-    for sub in sub_ids:
-        item = table.get_item(Key={"pk": f"USR#{sub}", "sk": "META"}).get("Item", {})
-        flags[sub] = bool(item.get("canAuthor", False))
-    return flags
+    return {sub: table.get_item(Key={"pk": f"USR#{sub}", "sk": "META"}).get("Item", {}) for sub in sub_ids}
+
+
+def _school(body: dict):
+    """orgId from a request body: an active school, None to clear it, or _MISSING if absent."""
+    if "orgId" not in body:
+        return _MISSING
+    org_id = body["orgId"]
+    if org_id is None:
+        return None
+    org_id = validate.safe_id(org_id, "orgId")
+    org = db.get_table(db.CORE).get_item(Key={"pk": f"ORG#{org_id}", "sk": "META"}).get("Item")
+    if not org or org.get("status") != "active":
+        raise ValidationError("orgId does not match an active school")
+    return org_id
+
+
+_MISSING = object()
 
 
 def _roles_by_sub() -> dict:
@@ -97,19 +110,20 @@ def list_users(req: Request):
         raise
     users = page["Users"]
     roles = _roles_by_sub()
-    flags = _flags([_attrs(u)["sub"] for u in users])
+    profiles = _profiles([_attrs(u)["sub"] for u in users])
     data = []
     for u in users:
         sub = _attrs(u)["sub"]
         role = roles.get(sub)
-        data.append(_public(u, role, _can_author(role, flags[sub])))
+        profile = profiles[sub]
+        data.append(_public(u, role, _can_author(role, bool(profile.get("canAuthor", False))), profile.get("orgId")))
     return Reply(data=data, meta={"nextCursor": page.get("PaginationToken")})
 
 
 def create_user(req: Request):
     admin = require_admin(req.auth)
     body = req.json()
-    validate.reject_unknown(body, ("email", "name", "role", "canAuthor"))
+    validate.reject_unknown(body, ("email", "name", "role", "canAuthor", "orgId"))
     email = (validate.text(body, "email", 254) or "").lower()
     if not EMAIL.match(email):
         raise ValidationError("email is not valid")
@@ -122,6 +136,8 @@ def create_user(req: Request):
         raise ValidationError("canAuthor must be true or false")
     if flag and role != INSTRUCTOR:
         raise ValidationError("canAuthor can only be set for instructors")
+    org_id = _school(body)
+    org_id = None if org_id is _MISSING else org_id
 
     try:
         created = cognito().admin_create_user(
@@ -135,12 +151,15 @@ def create_user(req: Request):
     sub = _attrs(created)["sub"]
     try:
         cognito().admin_add_user_to_group(UserPoolId=pool_id(), Username=email, GroupName=role)
-        db.get_table(db.CORE).put_item(Item={"pk": f"USR#{sub}", "sk": "META", "canAuthor": flag})
+        profile = {"pk": f"USR#{sub}", "sk": "META", "canAuthor": flag}
+        if org_id:
+            profile["orgId"] = org_id
+        db.get_table(db.CORE).put_item(Item=profile)
     except Exception:
         cognito().admin_delete_user(UserPoolId=pool_id(), Username=email)  # no half-created users
         raise
     log("staff_user_invited", userId=sub, role=role, by=admin.user_id)
-    return Reply(data=_public(created, role, _can_author(role, flag)), status=201)
+    return Reply(data=_public(created, role, _can_author(role, flag), org_id), status=201)
 
 
 def _current_role(sub: str):
@@ -155,14 +174,15 @@ def update_user(req: Request):
     if not USER_ID.match(sub):
         raise NotFound("User not found")
     body = req.json()
-    validate.reject_unknown(body, ("role", "canAuthor", "enabled"))
+    validate.reject_unknown(body, ("role", "canAuthor", "enabled", "orgId"))
     role = validate.choice(body, "role", ROLES)
     flag = body.get("canAuthor")
     enabled = body.get("enabled")
     for field, value in (("canAuthor", flag), ("enabled", enabled)):
         if value is not None and not isinstance(value, bool):
             raise ValidationError(f"{field} must be true or false")
-    if role is None and flag is None and enabled is None:
+    org_id = _school(body)
+    if role is None and flag is None and enabled is None and org_id is _MISSING:
         raise ValidationError("Nothing to update")
     if sub == admin.user_id and (enabled is False or (role and role != ADMIN)):
         raise ValidationError("You cannot demote or disable your own account")
@@ -177,7 +197,9 @@ def update_user(req: Request):
     new_role = role or old_role
     table = db.get_table(db.CORE)
     key = {"pk": f"USR#{sub}", "sk": "META"}
-    stored = bool(table.get_item(Key=key).get("Item", {}).get("canAuthor", False))
+    profile = table.get_item(Key=key).get("Item", {})
+    stored = bool(profile.get("canAuthor", False))
+    new_org = profile.get("orgId") if org_id is _MISSING else org_id
     new_flag = stored if flag is None else flag
     if new_flag and new_role != INSTRUCTOR:
         if flag:  # explicitly asked for something that cannot apply
@@ -188,8 +210,11 @@ def update_user(req: Request):
         cognito().admin_add_user_to_group(UserPoolId=pool_id(), Username=sub, GroupName=role)
         if old_role:
             cognito().admin_remove_user_from_group(UserPoolId=pool_id(), Username=sub, GroupName=old_role)
-    if new_flag != stored:
-        table.put_item(Item={**key, "canAuthor": new_flag})
+    if new_flag != stored or new_org != profile.get("orgId"):
+        item = {**key, "canAuthor": new_flag}
+        if new_org:
+            item["orgId"] = new_org
+        table.put_item(Item=item)
     if enabled is False:
         cognito().admin_disable_user(UserPoolId=pool_id(), Username=sub)
         cognito().admin_user_global_sign_out(UserPoolId=pool_id(), Username=sub)  # end live sessions
@@ -197,7 +222,7 @@ def update_user(req: Request):
         cognito().admin_enable_user(UserPoolId=pool_id(), Username=sub)
     log("staff_user_updated", userId=sub, by=admin.user_id)
     user = cognito().admin_get_user(UserPoolId=pool_id(), Username=sub)
-    return _public(user, new_role, _can_author(new_role, new_flag))
+    return _public(user, new_role, _can_author(new_role, new_flag), new_org)
 
 
 ROUTES = {

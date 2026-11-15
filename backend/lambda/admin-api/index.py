@@ -35,6 +35,7 @@ def me(req: Request):
         "displayName": claims.get("name") or claims.get("email") or "",
         "permissions": {"canAuthor": can_author},
         "classes": classes,
+        "orgId": profile.get("orgId"),  # the school an instructor's classes are created in
     }
 
 

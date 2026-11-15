@@ -45,7 +45,7 @@ def test_create_class_with_cohort_and_term(api, table):
     {"termStart": "2026-13-01"}, {"termStart": "2026-12-01", "termEnd": "2026-09-01"},
     {"name": ""}, {"surprise": 1}])
 def test_create_validation(api, extra):
-    assert make(api, **extra)[0] == 400
+    assert make(api, who=ADMIN, **extra)[0] == 400  # admins pick the school, so its checks apply
 
 
 def test_reviewer_cannot_create_or_list(api):
@@ -142,3 +142,24 @@ def test_add_member_rules(api, pool):
     assert add({"userId": "x#y"})[0] == 400
     assert add({"userId": reviewer}, who=INS)[0] == 403              # admin only
     assert add({"userId": reviewer}, p={"classId": "cls_nope"})[0] == 404
+
+
+def test_instructor_classes_go_in_their_assigned_school(api, table):
+    status, body = call(api, "POST /v1/classes", {"name": "Period 5"}, who=INS)  # no orgId sent
+    assert status == 201 and body["data"]["orgId"] == "org_1"
+    assert make(api, who=INS)[0] == 201  # sending their own school is fine too
+    table.put_item(Item={"pk": "ORG#org_2", "sk": "META", "status": "active"})
+    status, body = call(api, "POST /v1/classes", {"name": "x", "orgId": "org_2"}, who=INS)
+    assert status == 403 and "own school" in body["error"]
+
+
+def test_instructor_without_a_school_cannot_create_classes(api, table):
+    who = ("[instructor]", "ins-new")
+    status, body = call(api, "POST /v1/classes", {"name": "x", "orgId": "org_1"}, who=who)
+    assert status == 403 and "no school" in body["error"]
+
+
+def test_admins_still_choose_any_school(api, table):
+    table.put_item(Item={"pk": "ORG#org_2", "sk": "META", "status": "active"})
+    assert make(api, who=ADMIN, orgId="org_2")[1]["data"]["orgId"] == "org_2"
+    assert call(api, "POST /v1/classes", {"name": "x"}, who=ADMIN)[0] == 400  # admins must say which school

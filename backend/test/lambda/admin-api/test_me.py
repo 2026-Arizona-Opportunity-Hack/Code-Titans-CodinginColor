@@ -54,3 +54,9 @@ def test_no_group_is_forbidden(admin, table):
 def test_missing_claims_is_unauthenticated(admin, table):
     resp = admin.lambda_handler(api_event("GET /v1/me", auth={"jwt": {"claims": {}}}), None)
     assert resp["statusCode"] == 401
+
+
+def test_me_returns_the_school_or_null(admin, table):
+    assert call(admin, "[instructor]")[1]["data"]["orgId"] is None
+    table.put_item(Item={"pk": "USR#u1", "sk": "META", "orgId": "org_1"})
+    assert call(admin, "[instructor]")[1]["data"]["orgId"] == "org_1"

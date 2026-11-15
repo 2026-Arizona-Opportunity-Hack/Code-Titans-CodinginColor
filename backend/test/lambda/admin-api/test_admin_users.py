@@ -142,3 +142,41 @@ def test_half_created_user_is_rolled_back(admin, pool, monkeypatch):
     monkeypatch.setattr(real, "admin_add_user_to_group", boom)
     assert invite(admin)[0] == 500
     assert client.list_users(UserPoolId=pid)["Users"] == []
+
+
+@pytest.fixture
+def schools(table):
+    table.put_item(Item={"pk": "ORG#org_1", "sk": "META", "status": "active"})
+    table.put_item(Item={"pk": "ORG#org_2", "sk": "META", "status": "active"})
+    table.put_item(Item={"pk": "ORG#org_old", "sk": "META", "status": "archived"})
+
+
+def test_invite_with_a_school_and_list_shows_it(admin, table, schools):
+    status, body = invite(admin, orgId="org_1", canAuthor=True)
+    assert status == 201 and body["data"]["orgId"] == "org_1"
+    profile = table.get_item(Key={"pk": f"USR#{body['data']['userId']}", "sk": "META"})["Item"]
+    assert profile["orgId"] == "org_1" and profile["canAuthor"] is True
+    listed = call(admin, "GET /v1/admin/users")[1]["data"]
+    assert listed[0]["orgId"] == "org_1"
+    assert invite(admin, "b@school.org")[1]["data"]["orgId"] is None  # a school is optional
+
+
+@pytest.mark.parametrize("org", ["org_missing", "org_old", "a#b", 5])
+def test_invite_rejects_unknown_or_archived_schools(admin, schools, org):
+    assert invite(admin, orgId=org)[0] == 400
+
+
+def test_change_and_clear_school_keeps_can_author(admin, table, schools):
+    user = invite(admin, orgId="org_1", canAuthor=True)[1]["data"]
+    status, body = patch(admin, user["userId"], {"orgId": "org_2"})
+    assert status == 200 and body["data"]["orgId"] == "org_2" and body["data"]["canAuthor"] is True
+    body = patch(admin, user["userId"], {"orgId": None})[1]
+    assert body["data"]["orgId"] is None
+    profile = table.get_item(Key={"pk": f"USR#{user['userId']}", "sk": "META"})["Item"]
+    assert "orgId" not in profile and profile["canAuthor"] is True
+    assert patch(admin, user["userId"], {"orgId": "org_old"})[0] == 400
+
+
+def test_changing_can_author_keeps_the_school(admin, table, schools):
+    user = invite(admin, orgId="org_1")[1]["data"]
+    assert patch(admin, user["userId"], {"canAuthor": True})[1]["data"]["orgId"] == "org_1"

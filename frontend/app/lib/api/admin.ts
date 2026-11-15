@@ -40,17 +40,19 @@ export type StaffUser = {
   canAuthor: boolean;
   enabled: boolean;
   status: string;
+  /** The school this person's classes are created in (instructors). null when none is set. */
+  orgId: string | null;
 };
 
 /** GET /admin/users */
 export const listUsers = (token: string, signal?: AbortSignal) => apiFetch<StaffUser[]>("/admin/users?limit=60", { token, signal });
 
 /** POST /admin/users: Cognito emails the person a temporary password. canAuthor is for instructors only. */
-export const inviteUser = (token: string, body: { email: string; name: string; role: "cic_admin" | "instructor" | "reviewer"; canAuthor?: boolean }) =>
+export const inviteUser = (token: string, body: { email: string; name: string; role: "cic_admin" | "instructor" | "reviewer"; canAuthor?: boolean; orgId?: string }) =>
   apiFetch<StaffUser>("/admin/users", { method: "POST", token, body });
 
 /** PATCH /admin/users/{userId}: change role, canAuthor, or disable/enable. */
-export const updateUser = (token: string, userId: string, body: { role?: StaffUser["role"]; canAuthor?: boolean; enabled?: boolean }) =>
+export const updateUser = (token: string, userId: string, body: { role?: StaffUser["role"]; canAuthor?: boolean; enabled?: boolean; orgId?: string | null }) =>
   apiFetch<StaffUser>(`/admin/users/${encodeURIComponent(userId)}`, { method: "PATCH", token, body });
 
 export type School = { orgId: string; name: string; status: "active" | "archived"; createdAt?: string };
