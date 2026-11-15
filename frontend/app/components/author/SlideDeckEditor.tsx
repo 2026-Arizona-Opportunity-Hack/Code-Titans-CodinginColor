@@ -1,15 +1,16 @@
 "use client";
 import { useId, useState } from "react";
 import type { DocActivity } from "../../lib/api/curriculum";
-import { MAX_PDF_BYTES, toGoogleSlidesEmbed, uploadPdf } from "../../lib/slideDocument";
+import { DECK_ACCEPT, MAX_PDF_BYTES, MAX_PPTX_BYTES, toGoogleSlidesEmbed, uploadDeck } from "../../lib/slideDocument";
 import { DocumentViewer } from "../common/DocumentViewer";
 
-type Source = "text" | "pdf" | "google";
+type Source = "upload" | "google" | "text";
 
 /** What a slides step shows: typed slides, an uploaded PDF, or a Google Slides deck. */
 export function SlideDeckEditor({ a, token, set }: { a: DocActivity; token: string; set: (patch: Partial<DocActivity>) => void }) {
   const id = useId();
-  const [source, setSource] = useState<Source>(a.document?.kind ?? "text");
+  const typed = (a.slides ?? []).some((s) => (s.body ?? "").trim());
+  const [source, setSource] = useState<Source>(a.document?.kind === "google" ? "google" : a.document ? "upload" : typed ? "text" : "upload");
   const [link, setLink] = useState(a.document?.kind === "google" ? a.document.url : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -25,7 +26,7 @@ export function SlideDeckEditor({ a, token, set }: { a: DocActivity; token: stri
     setBusy(true);
     setError("");
     try {
-      set({ document: await uploadPdf(token, file) });
+      set({ document: await uploadDeck(token, file) });
     } catch (e) {
       setError(e instanceof Error ? e.message : "The upload didn't work. Try again.");
     } finally {
@@ -40,7 +41,7 @@ export function SlideDeckEditor({ a, token, set }: { a: DocActivity; token: stri
     set({ document: { kind: "google", url: embed } });
   }
 
-  const options: [Source, string][] = [["text", "Type the slides here"], ["pdf", "Upload a PDF"], ["google", "Link Google Slides"]];
+  const options: [Source, string][] = [["upload", "Upload PDF or PowerPoint"], ["google", "Link Google Slides"], ["text", "Type the slides here"]];
   return (
     <div className="mt-3">
       <fieldset>
@@ -67,15 +68,19 @@ export function SlideDeckEditor({ a, token, set }: { a: DocActivity; token: stri
         </div>
       ) : null}
 
-      {source === "pdf" ? (
+      {source === "upload" ? (
         <div className="mt-3">
-          <label htmlFor={`${id}-pdf`} className="block font-bold">PDF file</label>
-          <p id={`${id}-pdf-h`} className="text-sm text-muted">
-            Export your deck as a PDF (PowerPoint, Keynote and Google Slides all can), up to {MAX_PDF_BYTES / 1024 / 1024} MB.
-          </p>
-          <input id={`${id}-pdf`} type="file" accept="application/pdf" disabled={busy} aria-describedby={`${id}-pdf-h`}
-            onChange={(e) => onFile(e.target.files?.[0])} className="mt-1 block text-sm" />
-          {busy ? <p role="status" className="mt-2 text-muted">Uploading…</p> : null}
+          <label htmlFor={`${id}-file`} className="flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 border-dashed border-brand bg-tint px-4 py-6 text-center hover:bg-surface">
+            <span className="font-bold text-brand">{a.document && a.document.kind !== "google" ? "Replace the slides file" : "Choose a slides file"}</span>
+            <span id={`${id}-file-h`} className="text-sm text-muted">
+              PDF up to {MAX_PDF_BYTES / 1024 / 1024} MB, or PowerPoint .pptx up to {MAX_PPTX_BYTES / 1024 / 1024} MB.
+              Keynote: export as PDF. Old .ppt: save as .pptx.
+            </span>
+          </label>
+          <input id={`${id}-file`} type="file" accept={DECK_ACCEPT} disabled={busy} aria-describedby={`${id}-file-h`}
+            onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} className="sr-only" />
+          {busy ? <p role="status" className="mt-2 font-bold text-muted">Uploading…</p> : null}
+          {a.document && a.document.kind !== "google" && !busy ? <p className="mt-2 text-sm">Using <strong>{a.document.name ?? "the uploaded file"}</strong>.</p> : null}
         </div>
       ) : null}
 
@@ -93,7 +98,7 @@ export function SlideDeckEditor({ a, token, set }: { a: DocActivity; token: stri
       ) : null}
 
       {error ? <p role="alert" className="mt-2 font-bold text-danger">{error}</p> : null}
-      {source !== "text" && a.document?.kind === source ? (
+      {source !== "text" && a.document && (source === "google") === (a.document.kind === "google") ? (
         <div className="mt-4">
           <p className="mb-2 text-sm font-bold">Preview</p>
           <DocumentViewer doc={a.document} title={`${a.title || "Slides"} preview`} />

@@ -9,7 +9,7 @@ import { getModuleDoc, listConcepts, listVersions, problemsOf, publishModule, sa
 import { StaffPage } from "../common/StaffPage";
 import { ActivityEditor, newQuestion } from "./ActivityEditor";
 
-const ADDABLE: [DocActivity["type"], string][] = [["video", "Video"], ["slides", "Slides"], ["check", "Check"], ["worksheet", "Worksheet"], ["exit", "Exit question"]];
+const ADDABLE: [DocActivity["type"], string][] = [["video", "Video"], ["slides", "Slides (PDF, PowerPoint or Google Slides)"], ["check", "Check"], ["worksheet", "Worksheet"], ["exit", "Exit question"]];
 
 function Editor({ token, moduleId, initial, onReload }: { token: string; moduleId: string; initial: ModuleDoc; onReload: () => void }) {
   const qc = useQueryClient();
@@ -121,7 +121,7 @@ function Editor({ token, moduleId, initial, onReload }: { token: string; moduleI
                     const acts = d.lessons[li].activities;
                     const act: DocActivity = { activityId: `a-${Math.random().toString(36).slice(2, 8)}`, type: add, title: ADDABLE.find(([v]) => v === add)?.[1] ?? "" };
                     if (add === "video") Object.assign(act, { provider: "youtube", videoId: "", minSeconds: 0 });
-                    if (add === "slides") act.slides = [{ body: "" }];
+                    if (add === "slides") Object.assign(act, { title: "Slides", slides: [] });
                     if (add === "check" || add === "exit") act.questions = [newQuestion(false)];
                     if (add === "worksheet") Object.assign(act, { instructions: "", fields: [newQuestion(true)] });
                     const post = acts.findIndex((x) => x.type === "assessment" && x.role === "post");

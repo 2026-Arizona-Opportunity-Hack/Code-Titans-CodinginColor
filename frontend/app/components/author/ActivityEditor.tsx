@@ -37,6 +37,22 @@ export function ActivityEditor({ a, token, onChange, onRemove }: { a: DocActivit
         </>
       ) : null}
 
+      {a.type === "video" || a.type === "slides" ? (
+        <fieldset className="mt-3">
+          <legend className="font-bold">This step shows</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {([["video", "A YouTube video"], ["slides", "Slides (PDF, PowerPoint or Google Slides)"]] as const).map(([kind, label]) => (
+              <label key={kind} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-4 text-sm font-bold ${a.type === kind ? "border-brand bg-tint text-brand" : "border-line"}`}>
+                <input type="radio" name={`${id}-kind`} checked={a.type === kind} className="size-4"
+                  onChange={() => onChange(kind === "slides"
+                    ? { activityId: a.activityId, type: "slides", title: a.title, body: a.body, required: a.required, minSeconds: a.minSeconds ?? 0, slides: a.slides ?? [] }
+                    : { activityId: a.activityId, type: "video", title: a.title, body: a.body, required: a.required, minSeconds: a.minSeconds ?? 0, provider: "youtube", videoId: "" })} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
       {a.type === "video" ? (
         <div className="mt-3 flex flex-wrap gap-4">
           <div>

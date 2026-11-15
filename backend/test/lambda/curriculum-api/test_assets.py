@@ -77,3 +77,11 @@ def test_pdfs_are_allowed_up_to_20_mb(api):
     assert status == 200 and body["data"]["key"].endswith(".pdf") and body["data"]["fields"]["Content-Type"] == "application/pdf"
     assert call(api, {"contentType": "application/pdf", "size": 20 * 1024 * 1024 + 1})[0] == 400
     assert call(api, {"contentType": "image/png", "size": 6 * 1024 * 1024})[0] == 400  # images keep their 5 MB limit
+
+
+def test_powerpoint_is_allowed_up_to_10_mb(api):
+    pptx = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    status, body = call(api, {"contentType": pptx, "size": 10 * 1024 * 1024})
+    assert status == 200 and body["data"]["key"].endswith(".pptx")
+    assert call(api, {"contentType": pptx, "size": 10 * 1024 * 1024 + 1})[0] == 400
+    assert call(api, {"contentType": "application/vnd.ms-powerpoint", "size": 10})[0] == 400  # old .ppt: export as .pptx or PDF
