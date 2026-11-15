@@ -99,7 +99,7 @@ export const saveDraft = (token: string, moduleId: string, doc: ModuleDoc, revis
 
 /** POST /curriculum/modules/{id}/publish: validates, then creates the next immutable version. */
 export const publishModule = (token: string, moduleId: string) =>
-  apiFetch<{ moduleId: string; version: number; publishedAt: string }>(`/curriculum/modules/${encodeURIComponent(moduleId)}/publish`, { method: "POST", token });
+  apiFetch<{ moduleId: string; version: number; publishedAt: string; classesUpdated?: number }>(`/curriculum/modules/${encodeURIComponent(moduleId)}/publish`, { method: "POST", token });
 
 export const listVersions = (token: string, moduleId: string, signal?: AbortSignal) =>
   apiFetch<{ version: number; publishedAt: string; publishedBy: string }[]>(`/curriculum/modules/${encodeURIComponent(moduleId)}/versions`, { token, signal });

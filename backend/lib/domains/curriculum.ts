@@ -25,6 +25,7 @@ export class CurriculumDomain extends Construct {
     });
     ctx.tables.content.grantReadWriteData(fn);
     ctx.tables.core.grantReadData(fn); // the canAuthor flag, and which classes use a module before deleting it
+    ctx.tables.core.grant(fn, "dynamodb:UpdateItem"); // publishing moves the author's classes to the new version
     ctx.tables.events.grant(fn, "dynamodb:PutItem"); // audit entries
     ctx.tables.progress.grant(fn, "dynamodb:Query"); // how many students started a module, per class
     ctx.assets.bucket.grantPut(fn, "curriculum/*"); // signs upload forms for this prefix only
