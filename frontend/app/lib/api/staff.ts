@@ -53,6 +53,8 @@ export type ClassSummary = {
 export type ClassDetail = ClassSummary & {
   counts: { students: number };
   assignments: unknown[];
+  /** The class's school. Every student in the class belongs to it. */
+  schoolName?: string | null;
 };
 
 export type CreateClassInput = {

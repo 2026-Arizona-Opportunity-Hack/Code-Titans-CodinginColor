@@ -194,3 +194,9 @@ def test_adding_an_instructor_stores_their_name(api, pool, table):
     sub = pool("n@school.org", "instructor")
     call(api, "POST /v1/classes/{classId}/members", {"userId": sub}, path={"classId": cid})
     assert table.get_item(Key={"pk": f"CLS#{cid}", "sk": f"INS#{sub}"})["Item"]["name"] == "n@school.org"
+
+
+def test_class_detail_names_its_school(api, table):
+    table.put_item(Item={"pk": "ORG#org_1", "sk": "META", "status": "active", "name": "Maryvale High"})
+    cid = make(api)[1]["data"]["classId"]
+    assert call(api, "GET /v1/classes/{classId}", who=INS, path={"classId": cid})[1]["data"]["schoolName"] == "Maryvale High"
