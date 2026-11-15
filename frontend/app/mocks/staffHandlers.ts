@@ -67,6 +67,7 @@ function randomCode() {
 }
 
 export const staffHandlers = [
+  http.post(`${env.apiUrl}/auth/external/request-access`, () => HttpResponse.json({ data: { received: true } }, { status: 202 })),
   http.get(`${env.apiUrl}/me`, ({ request }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");

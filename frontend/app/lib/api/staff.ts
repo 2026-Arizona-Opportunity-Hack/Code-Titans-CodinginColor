@@ -120,3 +120,7 @@ export async function searchStudents(token: string, filters: { q: string; classI
 /** POST /classes/{classId}/members: an admin adds another instructor to a class. */
 export const addClassMember = (token: string, classId: string, userId: string) =>
   apiFetch<{ classId: string; userId: string }>(`/classes/${encodeURIComponent(classId)}/members`, { method: "POST", token, body: { userId } });
+
+/** POST /auth/external/request-access (public). Always succeeds the same way, so it never says whether the email already asked. */
+export const requestAccess = (body: { name: string; email: string; organization: string; note?: string }) =>
+  apiFetch<{ received: true }>("/auth/external/request-access", { method: "POST", body });
