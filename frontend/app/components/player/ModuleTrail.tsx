@@ -37,10 +37,10 @@ function ModuleCard({ module }: { module: HomeModule }) {
         ) : (
           <p className="font-bold">{module.title}</p>
         )}
-        <p className="text-sm text-muted">{info.label(module.progressPct)}</p>
+        <p className="text-sm text-muted">{info.label(module.percent)}</p>
         {showProgress ? (
           <progress
-            value={module.progressPct}
+            value={module.percent}
             max={100}
             aria-label={`${module.title} progress`}
             className="mt-2 h-2 w-full accent-accent"
