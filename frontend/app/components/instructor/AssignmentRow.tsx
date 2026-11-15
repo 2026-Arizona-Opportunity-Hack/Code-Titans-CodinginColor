@@ -11,7 +11,6 @@ export function AssignmentRow({
   count,
   busy,
   latestVersion,
-  canChangeVersion,
   onMove,
   onDate,
   onUpgrade,
@@ -23,7 +22,6 @@ export function AssignmentRow({
   count: number;
   busy: boolean;
   latestVersion: number;
-  canChangeVersion: boolean;
   onMove: (direction: -1 | 1) => void;
   onDate: (date: string | null) => void;
   onUpgrade: () => void;
@@ -94,12 +92,8 @@ export function AssignmentRow({
       {newer ? (
         <div className="callout mt-4">
           <p className="font-bold text-brand">A newer version of this module is available (version {latestVersion}).</p>
-          <p className="mt-1 text-sm text-muted">
-            {started > 0 && !canChangeVersion
-              ? "Students have started this module, so only an administrator can move it to the new version."
-              : "Students keep what they have; moving only changes what is shown from now on."}
-          </p>
-          <button type="button" className="btn btn-primary mt-3" disabled={busy || (started > 0 && !canChangeVersion)} onClick={onUpgrade}>
+          <p className="mt-1 text-sm text-muted">Students keep the steps they finished; moving changes what they see from now on.</p>
+          <button type="button" className="btn btn-primary mt-3" disabled={busy} onClick={onUpgrade}>
             Move to version {latestVersion}
           </button>
         </div>

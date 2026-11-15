@@ -9,7 +9,7 @@ from boto3.dynamodb.conditions import Key
 
 from cic import db, validate
 from cic.authz import require_class_access, require_staff
-from cic.errors import Conflict, Forbidden, NotFound, ValidationError
+from cic.errors import Conflict, NotFound, ValidationError
 from cic.http import Reply, Request
 from cic.ids import utc_now_iso
 from roster import class_id_from, student_id_from
@@ -98,7 +98,6 @@ def list_assignments(req: Request):
 def update_assignment(req: Request):
     class_id, module_id = class_id_from(req), _module_id(req)
     table = db.get_table(db.CORE)
-    staff = require_staff(req.auth)
     require_class_access(req.auth, table, class_id)
     body = req.json()
     validate.reject_unknown(body, ("order", "targetDate", "moduleVersion"))
@@ -115,8 +114,8 @@ def update_assignment(req: Request):
         version = validate.integer(body["moduleVersion"], "moduleVersion", 1, 10_000)
         if version <= int(current["moduleVersion"]) or version > latest_version(module_id):
             raise ValidationError("moduleVersion must be newer than the current one and already published")
-        if started_count(class_id, module_id) and not staff.is_admin:
-            raise Forbidden("Students have started this module. Ask an administrator to change its version")
+        # Allowed even after students start: progress is kept per activity, so finished steps
+        # that still exist stay finished, and new or changed steps open up for them.
         item["moduleVersion"] = version
     if item == current:
         raise ValidationError("Nothing to update")

@@ -279,7 +279,32 @@ def delete_module(req: Request):
     return {"moduleId": module_id, "deleted": True}
 
 
+def module_classes(req: Request):
+    """GET /v1/curriculum/modules/{moduleId}/classes: the caller's classes that use this module,
+    with the version each is pinned to, so an author can move them to a new version."""
+    staff = require_staff(req.auth)
+    if not (staff.is_admin or staff.is_instructor):
+        raise Forbidden("Only instructors and administrators can see which classes use a module")
+    module_id = module_id_from(req)
+    meta = db.get_table(db.CONTENT).get_item(Key=meta_key(module_id)).get("Item")
+    if not meta:
+        raise NotFound("Module not found")
+    core, progress = db.get_table(db.CORE), db.get_table(db.PROGRESS)
+    rows = []
+    for asg in db.scan_all(core, FilterExpression=Attr("sk").begins_with("ASG#") & Attr("moduleId").eq(module_id)):
+        class_id = asg["pk"].split("#", 1)[1]
+        if not staff.is_admin and not core.get_item(Key={"pk": asg["pk"], "sk": f"INS#{staff.user_id}"}).get("Item"):
+            continue  # instructors only see their own classes
+        cls = core.get_item(Key={"pk": asg["pk"], "sk": "META"}).get("Item") or {}
+        started = progress.query(IndexName="gsi1", Select="COUNT",
+                                 KeyConditionExpression=Key("gsi1pk").eq(f"CLS#{class_id}#MOD#{module_id}"))["Count"]
+        rows.append({"classId": class_id, "name": cls.get("name", class_id), "moduleVersion": int(asg["moduleVersion"]),
+                     "startedCount": started})
+    return {"latestVersion": int(meta["latestVersion"]), "classes": sorted(rows, key=lambda r: r["name"].lower())}
+
+
 ROUTES = {
+    "GET /v1/curriculum/modules/{moduleId}/classes": module_classes,
     "DELETE /v1/curriculum/modules/{moduleId}": delete_module,
     "POST /v1/curriculum/modules/{moduleId}/publish": publish,
     "GET /v1/curriculum/modules/{moduleId}/versions": list_versions,

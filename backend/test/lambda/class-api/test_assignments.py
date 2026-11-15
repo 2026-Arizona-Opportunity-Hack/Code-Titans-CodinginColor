@@ -80,8 +80,9 @@ def test_move_to_newer_version_rules(api, cls):
     assert patch({"moduleVersion": 4})[0] == 400      # not published yet
     boto3.resource("dynamodb").Table("progress").put_item(
         Item={"pk": "STU#s1", "sk": "MOD#py-vars", "gsi1pk": f"CLS#{cls}#MOD#py-vars", "gsi1sk": "STU#s1"})
-    assert patch({"moduleVersion": 2})[0] == 403      # a student started: instructors cannot
-    assert patch({"moduleVersion": 2}, who=ADMIN)[1]["data"]["moduleVersion"] == 2  # admins can
+    assert patch({"moduleVersion": 2})[1]["data"]["moduleVersion"] == 2  # the class's instructor can, even after students start
+    assert patch({"moduleVersion": 3}, who=ADMIN)[1]["data"]["moduleVersion"] == 3
+    assert patch({"moduleVersion": 3}, who=INS2)[0] == 403   # not their class
 
 
 def test_move_version_freely_when_nobody_started(api, cls):

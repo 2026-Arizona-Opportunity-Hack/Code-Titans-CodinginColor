@@ -20,4 +20,11 @@ def api(table):
         KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}],
         AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}, {"AttributeName": "sk", "AttributeType": "S"}])
     os.environ["EVENTS_TABLE"] = "events"
+    boto3.resource("dynamodb").create_table(
+        TableName="progress", BillingMode="PAY_PER_REQUEST",
+        KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}],
+        AttributeDefinitions=[{"AttributeName": a, "AttributeType": "S"} for a in ("pk", "sk", "gsi1pk", "gsi1sk")],
+        GlobalSecondaryIndexes=[{"IndexName": "gsi1", "Projection": {"ProjectionType": "ALL"}, "KeySchema": [
+            {"AttributeName": "gsi1pk", "KeyType": "HASH"}, {"AttributeName": "gsi1sk", "KeyType": "RANGE"}]}])
+    os.environ["PROGRESS_TABLE"] = "progress"
     return load_lambda("curriculum-api")
