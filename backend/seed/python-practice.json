@@ -1,0 +1,80 @@
+{
+  "moduleId": "python-practice",
+  "title": "Python Practice",
+  "description": "A short module that shows the coding exercises: write a function, then write a loop. Each is checked in the browser.",
+  "lessons": [
+    {
+      "lessonId": "l1",
+      "title": "Functions and loops",
+      "activities": [
+        {
+          "activityId": "a-pre", "type": "assessment", "role": "pre", "title": "Pretest", "estimatedMinutes": 2,
+          "questions": [
+            {"questionId": "q-pre-1", "type": "mcq", "pairKey": "pair-fn", "concept": "functions", "points": 1,
+             "prompt": "What does the keyword `def` do in Python?",
+             "choices": [{"id": "a", "text": "Defines a new function"}, {"id": "b", "text": "Deletes a variable"}, {"id": "c", "text": "Starts a loop"}, {"id": "d", "text": "Imports a module"}],
+             "answerKey": "a"},
+            {"questionId": "q-pre-2", "type": "mcq", "pairKey": "pair-loop", "concept": "loops", "points": 1,
+             "prompt": "How many times does the body of `for i in range(3):` run?",
+             "choices": [{"id": "a", "text": "3 times"}, {"id": "b", "text": "2 times"}, {"id": "c", "text": "4 times"}, {"id": "d", "text": "Forever"}],
+             "answerKey": "a"}
+          ]
+        },
+        {
+          "activityId": "a-slides", "type": "slides", "title": "What is a function?", "estimatedMinutes": 3,
+          "slides": [
+            {"title": "A function is a named recipe", "body": "A function is a small piece of code with a name. You write it once with `def`, then use it as many times as you like by calling its name."},
+            {"title": "Taking something in, giving something back", "body": "A function can take values in (its parameters) and hand a value back with `return`.\n\nFor example, a function called `double` could take 4 and return 8."},
+            {"title": "return is not print", "body": "`return` gives a value back to the code that called the function. `print` only shows text on the screen.\n\nIf a function has no `return`, it gives back `None`."}
+          ]
+        },
+        {
+          "activityId": "a-chk", "type": "check", "title": "Check your understanding", "estimatedMinutes": 1, "passPct": 100,
+          "questions": [
+            {"questionId": "q-chk-1", "type": "mcq", "points": 1,
+             "prompt": "What does a function give back when it has no `return` line?",
+             "choices": [{"id": "a", "text": "None"}, {"id": "b", "text": "0"}, {"id": "c", "text": "An empty string"}, {"id": "d", "text": "An error"}],
+             "answerKey": "a",
+             "explanation": "With no return, Python gives back None, which means no value."}
+          ]
+        },
+        {
+          "activityId": "a-code-fn", "type": "code", "title": "Write a function: square", "estimatedMinutes": 5, "language": "python", "passPct": 100,
+          "body": "Write a function called `square` that takes a number `n` and **returns** that number multiplied by itself.\n\nFor example, `square(4)` should give `16`.\n\nUse `return`, not `print`. Press **Check my code** to see which tests pass.",
+          "starterCode": "def square(n):\n    # write your code here\n    pass\n",
+          "solution": "def square(n):\n    return n * n\n",
+          "tests": [
+            {"testId": "t-sq-1", "label": "square(4) gives 16", "kind": "call", "expression": "square(4)", "expected": "16"},
+            {"testId": "t-sq-2", "label": "square(-3) gives 9", "kind": "call", "expression": "square(-3)", "expected": "9"},
+            {"testId": "t-sq-3", "label": "square(0) gives 0", "kind": "call", "expression": "square(0)", "expected": "0"},
+            {"testId": "t-sq-4", "label": "square(1.5) gives 2.25", "kind": "call", "expression": "square(1.5)", "expected": "2.25"}
+          ]
+        },
+        {
+          "activityId": "a-code-loop", "type": "code", "title": "Write a loop: count up", "estimatedMinutes": 5, "language": "python", "passPct": 100,
+          "body": "Write a program that reads a whole number `n` and prints the numbers from 1 to `n`, one on each line.\n\nFor example, if `n` is 3, it prints 1, 2 and 3.\n\nThe first line is done for you. Stuck? Press **Need a hint?** and the tutor will look at your code.",
+          "starterCode": "n = int(input())\n\n# print the numbers from 1 to n\n",
+          "solution": "n = int(input())\nfor i in range(1, n + 1):\n    print(i)\n",
+          "tests": [
+            {"testId": "t-lp-1", "label": "n = 3 prints 1, 2, 3", "kind": "output", "stdin": "3", "expected": "1\n2\n3"},
+            {"testId": "t-lp-2", "label": "n = 1 prints just 1", "kind": "output", "stdin": "1", "expected": "1"},
+            {"testId": "t-lp-3", "label": "n = 5 prints 1 to 5", "kind": "output", "stdin": "5", "expected": "1\n2\n3\n4\n5"}
+          ]
+        },
+        {
+          "activityId": "a-post", "type": "assessment", "role": "post", "title": "Post-test", "estimatedMinutes": 2,
+          "questions": [
+            {"questionId": "q-post-1", "type": "mcq", "pairKey": "pair-fn", "concept": "functions", "points": 1,
+             "prompt": "Which line starts the definition of a function called `greet`?",
+             "choices": [{"id": "a", "text": "def greet():"}, {"id": "b", "text": "greet def:"}, {"id": "c", "text": "function greet()"}, {"id": "d", "text": "new greet():"}],
+             "answerKey": "a"},
+            {"questionId": "q-post-2", "type": "mcq", "pairKey": "pair-loop", "concept": "loops", "points": 1,
+             "prompt": "How many times does the body of `for i in range(5):` run?",
+             "choices": [{"id": "a", "text": "5 times"}, {"id": "b", "text": "4 times"}, {"id": "c", "text": "6 times"}, {"id": "d", "text": "Forever"}],
+             "answerKey": "a"}
+          ]
+        }
+      ]
+    }
+  ]
+}
