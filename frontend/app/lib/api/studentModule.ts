@@ -97,3 +97,11 @@ export function submitActivity(
 export function saveDraft(token: string, moduleId: string, activityId: string, answers: Answer[]): Promise<{ savedAt: number }> {
   return apiFetch(path(moduleId, activityId, "draft"), { method: "PUT", token, body: { answers } });
 }
+
+/** POST /student/hints: one Socratic hint on a check or worksheet. Never available on tests. */
+export function requestHint(
+  token: string,
+  body: { moduleId: string; activityId: string; questionId?: string; question?: string; code?: string },
+): Promise<{ hint: string; level: 1 | 2 | 3; remainingToday: number }> {
+  return apiFetch("/student/hints", { method: "POST", token, body });
+}
