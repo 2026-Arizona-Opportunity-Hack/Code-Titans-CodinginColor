@@ -15,6 +15,16 @@ function apiTemplate(): Template {
   return Template.fromStack(new ApiStack(app, "Api", { env, config, data, userPool: auth.userPool, userPoolClient: auth.userPoolClient }));
 }
 
+describe("ReportsApi", () => {
+  const t = apiTemplate();
+
+  test("report routes use the Cognito JWT authorizer, including the admin cohort summary", () => {
+    for (const key of ["GET /v1/classes/{classId}/modules/{moduleId}/gain", "GET /v1/classes/{classId}/export", "GET /v1/admin/cohorts/{cohortId}/summary"]) {
+      t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key, AuthorizationType: "JWT" });
+    }
+  });
+});
+
 describe("StudentPlayerApi", () => {
   const t = apiTemplate();
 

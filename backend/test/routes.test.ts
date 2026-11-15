@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { REPORTS_ROUTES } from "../lib/domains/reports";
 import { STUDENT_ROUTES } from "../lib/domains/student-player";
 
 /** API Gateway and the Lambda must agree on route keys, because the Lambda dispatches on routeKey. */
@@ -10,6 +11,10 @@ function pythonRoutes(dir: string): string[] {
 }
 
 describe("route keys match between CDK and Lambda", () => {
+  test("reports-api", () => {
+    expect([...pythonRoutes("reports-api")].sort()).toEqual([...REPORTS_ROUTES].sort());
+  });
+
   test("student-api", () => {
     expect([...pythonRoutes("student-api")].sort()).toEqual([...STUDENT_ROUTES].sort());
   });
