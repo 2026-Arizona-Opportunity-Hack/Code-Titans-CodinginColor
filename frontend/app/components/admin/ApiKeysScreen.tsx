@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { createApiKey, listApiKeys, revokeApiKey } from "../../lib/api/admin";
 import { ApiError } from "../../lib/api/client";
+import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "never");
@@ -48,8 +49,7 @@ function Body({ token }: { token: string }) {
 
   return (
     <>
-      <h1>API keys</h1>
-      <p className="mt-1 text-muted">Keys let the CIC dashboard read cohort results. Treat a key like a password.</p>
+      <PageHeader title="API keys" description="Keys let the CIC dashboard read cohort results. Treat a key like a password." />
 
       {reveal ? (
         <section role="status" className="callout mt-6">

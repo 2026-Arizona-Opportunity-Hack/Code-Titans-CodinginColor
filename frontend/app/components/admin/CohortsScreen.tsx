@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { createCohort, listCohorts, listSchools } from "../../lib/api/admin";
 import { ApiError } from "../../lib/api/client";
+import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
 
 function Body({ token }: { token: string }) {
@@ -21,9 +22,8 @@ function Body({ token }: { token: string }) {
   const schoolName = (id?: string) => schools.data?.find((s) => s.orgId === id)?.name;
   return (
     <>
-      <h1>Cohorts</h1>
-      <p className="mt-1 text-muted">A cohort groups classes so you can see completion and learning gain across them.</p>
-      <form onSubmit={submit} className="card mt-6 max-w-xl">
+      <PageHeader title="Cohorts" description="A cohort groups classes so you can see completion and learning gain across them." />
+      <form onSubmit={submit} className="card mt-2 max-w-2xl">
         <label htmlFor="cohort-name" className="block font-bold">New cohort name</label>
         <input id="cohort-name" className="field mt-1" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         <label htmlFor="cohort-school" className="mt-3 block font-bold">School (optional)</label>
