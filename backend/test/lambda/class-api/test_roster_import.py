@@ -150,3 +150,17 @@ def test_search_limits_and_access(api, cls):
     assert search(api, who=REV)[0] == 403
     assert search(api, limit="0")[0] == 400
     assert search(api, classId="a#b")[0] == 400
+
+
+def test_search_results_name_the_school_and_admins_can_filter_by_it(api, table):
+    table.put_item(Item={"pk": "ORG#org_1", "sk": "META", "status": "active", "name": "Maryvale High"})
+    table.put_item(Item={"pk": "ORG#org_2", "sk": "META", "status": "active", "name": "Desert Edge High"})
+    a = make_class(api, who=ADMIN, orgId="org_1")
+    b = make_class(api, who=ADMIN, orgId="org_2")
+    do_import(api, a, "displayName\nAna\n", who=ADMIN)
+    do_import(api, b, "displayName\nBen\n", who=ADMIN)
+    rows = {s["displayName"]: s for s in search(api, who=ADMIN)[1]["data"]}
+    assert (rows["Ana"]["schoolName"], rows["Ben"]["schoolName"]) == ("Maryvale High", "Desert Edge High")
+    assert rows["Ana"]["orgId"] == "org_1"
+    assert [s["displayName"] for s in search(api, who=ADMIN, orgId="org_2")[1]["data"]] == ["Ben"]
+    assert search(api, who=ADMIN, orgId="a#b")[0] == 400

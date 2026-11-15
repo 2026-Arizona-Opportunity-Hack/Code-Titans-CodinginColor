@@ -103,7 +103,7 @@ export const rosterHandlers = [
     const limit = Math.min(200, Math.max(1, Number(q.get("limit") ?? 50) || 50));
     const hits = allClasses()
       .filter((c) => (!q.get("classId") || c.classId === q.get("classId")) && (!q.get("cohortId") || c.cohortId === q.get("cohortId")))
-      .flatMap((c) => getRoster(c.classId).filter((s) => !needle || normalizeName(s.displayName).includes(needle)).map((s) => ({ studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, classId: c.classId, status: s.status, gradeLevel: s.gradeLevel })));
+      .flatMap((c) => getRoster(c.classId).filter((s) => !needle || normalizeName(s.displayName).includes(needle)).map((s) => ({ studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, classId: c.classId, status: s.status, gradeLevel: s.gradeLevel, orgId: c.orgId, schoolName: c.orgId === "org_maryvale" ? "Maryvale High School" : "Desert Edge High School" })));
     return HttpResponse.json({ data: hits.slice(0, limit), meta: { nextCursor: null, truncated: hits.length > limit } });
   }),
 

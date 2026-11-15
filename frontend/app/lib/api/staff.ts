@@ -105,13 +105,14 @@ export function rotateJoinCode(token: string, classId: string): Promise<{ classI
   return apiFetch(`/classes/${encodeURIComponent(classId)}/join-code/rotate`, { method: "POST", token });
 }
 
-export type StudentHit = { studentId: string; displayName: string; rosterNumber: number; classId: string; status: "active" | "inactive"; gradeLevel?: number | null };
+export type StudentHit = { studentId: string; displayName: string; rosterNumber: number; classId: string; status: "active" | "inactive"; gradeLevel?: number | null; orgId?: string | null; schoolName?: string | null };
 
 /** GET /students?q=&cohortId=&classId=: find students by name. `truncated` means there are more than were returned. */
 /** GET /students. An empty `q` lists every student in the caller's classes (up to 200). */
-export async function searchStudents(token: string, filters: { q: string; classId?: string; cohortId?: string }, signal?: AbortSignal) {
+export async function searchStudents(token: string, filters: { q: string; classId?: string; cohortId?: string; orgId?: string }, signal?: AbortSignal) {
   const params = new URLSearchParams({ q: filters.q, limit: "200" });
   if (filters.classId) params.set("classId", filters.classId);
+  if (filters.orgId) params.set("orgId", filters.orgId);
   if (filters.cohortId) params.set("cohortId", filters.cohortId);
   const { data, meta } = await apiFetchPage<StudentHit[]>(`/students?${params}`, { token, signal });
   return { students: data, truncated: Boolean(meta.truncated) };
