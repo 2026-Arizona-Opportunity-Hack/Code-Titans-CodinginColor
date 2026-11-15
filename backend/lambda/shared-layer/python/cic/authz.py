@@ -15,6 +15,7 @@ from .errors import Forbidden, NotFound, Unauthenticated
 ADMIN = "cic_admin"
 INSTRUCTOR = "instructor"
 REVIEWER = "reviewer"
+EXTERNAL = "external_teacher"  # a partner-school teacher outside CIC who runs their own classes
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,15 @@ class Staff:
     @property
     def is_reviewer(self) -> bool:
         return REVIEWER in self.groups
+
+    @property
+    def is_external(self) -> bool:
+        return EXTERNAL in self.groups
+
+    @property
+    def is_teacher(self) -> bool:
+        """Runs classes: a CIC instructor or an external teacher."""
+        return self.is_instructor or self.is_external
 
 
 @dataclass(frozen=True)
@@ -87,9 +97,9 @@ def api_key_from_auth(auth: dict, required_scope: Optional[str] = None) -> ApiKe
 
 
 def require_staff(auth: dict) -> Staff:
-    """Any signed-in staff user (admin, instructor, or reviewer)."""
+    """Any signed-in staff user (admin, instructor, external teacher, or reviewer)."""
     staff = staff_from_auth(auth)
-    if not (staff.is_admin or staff.is_instructor or staff.is_reviewer):
+    if not (staff.is_admin or staff.is_teacher or staff.is_reviewer):
         raise Forbidden("Your account has no role assigned")
     return staff
 
@@ -102,19 +112,22 @@ def require_admin(auth: dict) -> Staff:
 
 
 def require_class_access(auth: dict, core_table: Any, class_id: str) -> Staff:
-    """Allow admins for any class, and instructors only for classes they belong to.
-
-    Reviewers are always refused: they never see class or student data.
-    A class that does not exist returns 404 to admins, and 403 to others, so an
-    instructor cannot probe which class IDs exist.
+    """Allow admins for CIC classes, and teachers (instructors and external teachers) only for
+    classes they belong to. Reviewers are always refused: they never see class or student data.
+    An external teacher's class belongs to their own school, not to CIC. CIC admins can see that
+    it exists and how much it is used (GET /v1/admin/usage), but never its students or progress.
+    A class that does not exist returns 404 to admins, and 403 to others, so a teacher
+    cannot probe which class IDs exist.
     """
     staff = staff_from_auth(auth)
     if staff.is_admin:
         meta = core_table.get_item(Key={"pk": f"CLS#{class_id}", "sk": "META"}).get("Item")
         if not meta:
             raise NotFound("Class not found")
+        if meta.get("ownerKind") == "external":
+            raise Forbidden("CIC can see how much this class is used, but not its students or progress")
         return staff
-    if staff.is_instructor:
+    if staff.is_teacher:
         member = core_table.get_item(Key={"pk": f"CLS#{class_id}", "sk": f"INS#{staff.user_id}"}).get("Item")
         if member:
             return staff

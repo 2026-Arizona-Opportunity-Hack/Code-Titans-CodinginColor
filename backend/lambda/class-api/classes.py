@@ -65,7 +65,7 @@ def new_join_code() -> str:
 def public(meta: dict) -> dict:
     return {
         "classId": meta["pk"].split("#", 1)[1], "name": meta["name"], "orgId": meta["orgId"],
-        "cohortId": meta.get("cohortId"), "status": meta["status"], "joinCode": meta["joinCode"],
+        "cohortId": meta.get("cohortId"), "ownerKind": meta.get("ownerKind", "cic"), "status": meta["status"], "joinCode": meta["joinCode"],
         "termStart": meta.get("termStart"), "termEnd": meta.get("termEnd"),
         "currentModuleId": meta.get("currentModuleId"),
         "settings": {**DEFAULT_SETTINGS, **(meta.get("settings") or {})},
@@ -84,21 +84,21 @@ def _staff_name(req: Request) -> str:
 
 def create_class(req: Request):
     staff = require_staff(req.auth)
-    if not (staff.is_admin or staff.is_instructor):
-        raise Forbidden("Only instructors and administrators can create classes")
+    if not (staff.is_admin or staff.is_teacher):
+        raise Forbidden("Only instructors, external teachers and administrators can create classes")
     body = req.json()
     validate.reject_unknown(body, ("name", "orgId", "cohortId", "termStart", "termEnd"))
     name = validate.text(body, "name")
     if staff.is_admin:
         org_id = validate.safe_id(body.get("orgId"), "orgId")
     else:
-        # Instructors create classes only in the school an admin assigned to them.
+        # Teachers create classes only in the school an admin assigned to them.
         profile = db.get_table(db.CORE).get_item(Key={"pk": f"USR#{staff.user_id}", "sk": "META"}).get("Item", {})
         org_id = profile.get("orgId")
         if not org_id:
             raise Forbidden("Your account has no school yet. Ask a CIC admin to assign one")
         if body.get("orgId") not in (None, org_id):
-            raise Forbidden("Instructors can only create classes in their own school")
+            raise Forbidden("Teachers can only create classes in their own school")
     cohort_id = body.get("cohortId")
     if cohort_id is not None:
         validate.safe_id(cohort_id, "cohortId")
@@ -110,6 +110,13 @@ def create_class(req: Request):
     org = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": "META"}).get("Item")
     if not org or org.get("status") != "active":
         raise ValidationError("orgId does not match an active organization")
+    external = org.get("kind", "cic") == "external"
+    if staff.is_admin and external:
+        raise Forbidden("CIC administrators cannot create classes in an external school")
+    if staff.is_external != external:  # each kind of teacher works only in its own kind of school
+        raise Forbidden("Your account cannot create classes in this school")
+    if external and cohort_id:
+        raise ValidationError("External classes cannot join a CIC cohort")
     if cohort_id and not _exists(table, f"COH#{cohort_id}"):
         raise ValidationError("cohortId does not match a cohort")
 
@@ -119,7 +126,10 @@ def create_class(req: Request):
         code = new_join_code()
         meta = {"pk": f"CLS#{class_id}", "sk": "META", "name": name, "orgId": org_id, "status": "active",
                 "joinCode": code, "createdAt": now, "createdBy": staff.user_id,
-                "gsi1pk": "LIST#CLS", "gsi1sk": f"CLS#{class_id}",  # admin listing
+                "ownerKind": "external" if external else "cic",
+                # CIC's class list holds CIC classes only. External classes sit in their own list,
+                # which only the usage report reads, so no admin screen can reach their students.
+                "gsi1pk": "LIST#XCLS" if external else "LIST#CLS", "gsi1sk": f"CLS#{class_id}",
                 "gsi3pk": f"JOIN#{code}", "gsi3sk": f"CLS#{class_id}"}  # student login lookup
         for field, value in (("cohortId", cohort_id), ("termStart", start), ("termEnd", end)):
             if value:
@@ -157,8 +167,8 @@ def list_classes(req: Request):
         items, cursor = paging.query_page(table, req, keys, **query)
         names = {}
         return Reply(data=[with_instructors(table, i, names) for i in items], meta={"nextCursor": cursor})
-    if not staff.is_instructor:
-        raise Forbidden("Only instructors and administrators can list classes")
+    if not staff.is_teacher:
+        raise Forbidden("Only instructors, external teachers and administrators can list classes")
     names = {}
     memberships, cursor = paging.query_page(
         table, req, ("pk", "sk", "gsi1pk", "gsi1sk"),
@@ -232,8 +242,11 @@ def add_member(req: Request):
     validate.reject_unknown(body, ("userId",))
     user_id = validate.safe_id(body.get("userId"), "userId")
     table = db.get_table(db.CORE)
-    if not _exists(table, f"CLS#{class_id}"):
+    meta = table.get_item(Key={"pk": f"CLS#{class_id}", "sk": "META"}).get("Item")
+    if not meta:
         raise NotFound("Class not found")
+    if meta.get("ownerKind") == "external":
+        raise Forbidden("CIC cannot add people to an external teacher's class")
     try:
         groups = cognito().admin_list_groups_for_user(UserPoolId=os.environ["USER_POOL_ID"], Username=user_id)["Groups"]
     except ClientError as err:

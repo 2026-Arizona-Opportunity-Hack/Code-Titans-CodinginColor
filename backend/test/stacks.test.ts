@@ -51,14 +51,14 @@ describe("DataStack", () => {
 });
 
 describe("AuthStack", () => {
-  test("is invite-only, TOTP-only, with the three staff groups", () => {
+  test("is invite-only, TOTP-only, with the four staff groups", () => {
     const { auth } = build();
     auth.hasResourceProperties("AWS::Cognito::UserPool", {
       AdminCreateUserConfig: { AllowAdminCreateUserOnly: true },
       MfaConfiguration: "ON",
       EnabledMfas: ["SOFTWARE_TOKEN_MFA"],
     });
-    auth.resourceCountIs("AWS::Cognito::UserPoolGroup", 3);
+    auth.resourceCountIs("AWS::Cognito::UserPoolGroup", 4);
   });
 
   test("MFA can be relaxed through context", () => {

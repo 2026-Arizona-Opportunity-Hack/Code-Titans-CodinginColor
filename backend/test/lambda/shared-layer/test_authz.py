@@ -87,3 +87,15 @@ def test_api_key_scope_is_enforced():
         api_key_from_auth(ctx, "write:anything")
     with pytest.raises(Unauthenticated):
         api_key_from_auth({}, "read:cohorts")
+def test_external_teacher_is_staff_and_a_teacher_not_an_admin():
+    staff = require_staff(jwt(groups="[external_teacher]"))
+    assert staff.is_external and staff.is_teacher and not staff.is_admin and not staff.is_instructor
+def test_class_access_admin_is_denied_external_classes_teachers_need_membership():
+    table = FakeTable({"pk": "CLS#c1", "sk": "META", "ownerKind": "external"}, {"pk": "CLS#c1", "sk": "INS#u1"},
+                      {"pk": "CLS#c2", "sk": "META"})
+    with pytest.raises(Forbidden):
+        require_class_access(jwt(groups="[cic_admin]"), table, "c1")
+    assert require_class_access(jwt(groups="[cic_admin]"), table, "c2").is_admin
+    assert require_class_access(jwt("u1", "[external_teacher]"), table, "c1").is_external
+    with pytest.raises(Forbidden):
+        require_class_access(jwt("u2", "[external_teacher]"), table, "c1")
