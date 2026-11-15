@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
-import type { ActivityDetail, Attention, ConceptGain, GainSummary, ModuleGain, ProgressMatrix, StudentDetail, StuckReason } from "../lib/api/reports";
+import type { ActivityDetail, Attention, ConceptGain, Gradebook, GainSummary, HintReport, ModuleGain, ProgressMatrix, StudentDetail, StuckReason } from "../lib/api/reports";
 import { draftFor } from "./studentHandlers";
 import { register } from "./persist";
 import { recordAudit } from "./adminHandlers";
@@ -75,7 +75,12 @@ function studentDetail(classId: string, studentId: string): StudentDetail | null
       const v = views.find((x) => x.moduleId === a.moduleId)!;
       const activities: ActivityDetail[] = DOCS[a.moduleId].lessons.flatMap((l) => l.activities).map((act) => {
         const state = v.states[act.activityId];
+        // A finished coding exercise shows what the student submitted (sample code), as the real report does.
+        const code = act.type === "code" && state === "complete"
+          ? { title: act.title, code: "n = int(input())\nfor i in range(1, n + 1):\n    print(i)\n", testsPassed: 2, testsTotal: 2, hintCount: 1 }
+          : {};
         return {
+          ...code,
           activityId: act.activityId, type: act.type, state,
           attempts: state === "complete" || state === "in_progress" ? 1 : 0,
           bestScore: act.type === "check" && state === "complete" ? 100 : null,
@@ -148,6 +153,63 @@ function exportCsv(classId: string, kind: string): string {
   return Papa.unparse({ fields: ["module", "rosterNumber", "student", "pre", "post", "gain", "normalizedGain"], data: rows }, { newline: "\n" });
 }
 
+// Sample hint activity: which students asked the AI tutor for help, on what. Fixed, since the fake server does not log hints.
+const HINT_ASKS: Record<string, { hints: number; concept: string }> = {
+  stu_cls_01_1: { hints: 2, concept: "loops" }, stu_cls_01_2: { hints: 4, concept: "loops" }, stu_cls_01_4: { hints: 1, concept: "functions" },
+};
+function hintReport(classId: string): HintReport {
+  const roster = getRoster(classId).filter((s) => s.status === "active");
+  const asked = roster.filter((s) => HINT_ASKS[s.studentId]);
+  const total = asked.reduce((n, s) => n + HINT_ASKS[s.studentId].hints, 0);
+  const students = asked.map((s) => ({ studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, hints: HINT_ASKS[s.studentId].hints, topConcepts: [HINT_ASKS[s.studentId].concept] })).sort((a, b) => b.hints - a.hints);
+  const byConcept = (c: string) => asked.filter((s) => HINT_ASKS[s.studentId].concept === c);
+  const concept = (c: string) => ({ concept: c, hints: byConcept(c).reduce((n, s) => n + HINT_ASKS[s.studentId].hints, 0), students: byConcept(c).length, studentPct: roster.length ? Math.round((byConcept(c).length / roster.length) * 100) : null });
+  const first = asked[0];
+  return {
+    totals: { hints: total, studentsWhoAsked: asked.length, enrolled: roster.length },
+    reteachFirst: total ? "loops" : null,
+    concepts: total ? [concept("loops"), concept("functions")].filter((c) => c.students > 0) : [],
+    activities: total ? [{ moduleId: "py-loops", moduleTitle: "Python Loops", activityId: "a-code", activityTitle: "Write a loop", hints: 6, students: 2 }, { moduleId: "py-loops", moduleTitle: "Python Loops", activityId: "a-chk", activityTitle: "Check your understanding", hints: 1, students: 1 }] : [],
+    students,
+    recent: first ? [
+      { at: Date.now() - 1_800_000, studentId: first.studentId, displayName: first.displayName, moduleTitle: "Python Loops", activityTitle: "Write a loop", concepts: ["loops"], level: 1, question: "it only prints one number", hint: "What do you think the loop needs to repeat? Look at how many numbers you want to print.", filtered: false },
+      { at: Date.now() - 5_400_000, studentId: first.studentId, displayName: first.displayName, moduleTitle: "Python Loops", activityTitle: "Check your understanding", concepts: ["loops"], level: 2, question: "I do not get range", hint: "Think about what range(3) hands to the loop. Try writing out the values it makes, one at a time.", filtered: false },
+    ] : [],
+  };
+}
+function gradebook(classId: string): Gradebook {
+  const assigned = assignedFor(classId);
+  const roster = getRoster(classId).filter((s) => s.status === "active");
+  return {
+    modules: assigned.map((a) => ({ moduleId: a.moduleId, title: titleOf(a.moduleId) })),
+    students: roster.map((s) => {
+      const { views } = moduleViews(s.studentId);
+      const cells = assigned.map((a) => {
+        const v = views.find((x) => x.moduleId === a.moduleId);
+        const pre = assessmentScore(s.studentId, a.moduleId, "pre");
+        const post = assessmentScore(s.studentId, a.moduleId, "post");
+        return { moduleId: a.moduleId, cell: { state: v?.state ?? "locked", percent: v?.percent ?? 0, score: v?.state === "complete" ? 100 : null, pre, post, gain: pre !== null && post !== null ? round(post - pre) : null, hints: HINT_ASKS[s.studentId]?.hints ?? 0 } };
+      });
+      const gains = cells.map((c) => c.cell.gain).filter((g): g is number => g !== null);
+      const scores = cells.map((c) => c.cell.score).filter((g): g is number => g !== null);
+      return {
+        studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, gradeLevel: null,
+        modules: Object.fromEntries(cells.map((c) => [c.moduleId, c.cell])),
+        overall: {
+          completion: cells.length ? Math.round(cells.reduce((n, c) => n + c.cell.percent, 0) / cells.length) : null,
+          score: scores.length ? round(scores.reduce((n, g) => n + g, 0) / scores.length) : null,
+          gain: gains.length ? round(gains.reduce((n, g) => n + g, 0) / gains.length) : null,
+          hints: HINT_ASKS[s.studentId]?.hints ?? 0, mostHelpOn: HINT_ASKS[s.studentId]?.concept ?? null,
+        },
+      };
+    }),
+    definitions: { completion: "average percent complete across assigned modules", score: "average score on check and coding steps", gain: "post-test minus pretest, in points" },
+  };
+}
+function gradebookCsv(classId: string): string {
+  const g = gradebook(classId);
+  return Papa.unparse({ fields: ["rosterNumber", "student", "completion", "score", "gain", "hints", "mostHelpOn"], data: g.students.map((s) => [s.rosterNumber, safeCell(s.displayName), s.overall.completion, s.overall.score, s.overall.gain, s.overall.hints, s.overall.mostHelpOn]) }, { newline: "\n" });
+}
 // Worksheets with a free-text field wait for a teacher. Reviewed ones leave the queue.
 const reviewed = new Map<string, { score: number; comment: string }>();
 register({ key: "reviews", snapshot: () => [...reviewed], restore: (d: [string, { score: number; comment: string }][]) => { reviewed.clear(); d.forEach(([k, v]) => reviewed.set(k, v)); } });
@@ -182,6 +244,18 @@ function conceptRows(classId: string): ConceptGain[] {
 }
 
 export const reportHandlers = [
+  http.get(`${env.apiUrl}/classes/:classId/hints`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
+    return HttpResponse.json({ data: hintReport(String(params.classId)) });
+  }),
+  http.get(`${env.apiUrl}/classes/:classId/gradebook`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
+    return HttpResponse.json({ data: gradebook(String(params.classId)) });
+  }),
   http.get(`${env.apiUrl}/classes/:classId/concepts`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
@@ -223,9 +297,9 @@ export const reportHandlers = [
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
     if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't export class data.");
     const kind = new URL(request.url).searchParams.get("type") ?? "gain";
-    if (kind !== "gain" && kind !== "progress") return apiError(400, "VALIDATION_ERROR", "type must be gain or progress");
+    if (kind !== "gain" && kind !== "progress" && kind !== "gradebook") return apiError(400, "VALIDATION_ERROR", "type must be gain, progress or gradebook");
     recordAudit("export", { classId: String(params.classId), type: kind });
-    return new HttpResponse(exportCsv(String(params.classId), kind), {
+    return new HttpResponse(kind === "gradebook" ? gradebookCsv(String(params.classId)) : exportCsv(String(params.classId), kind), {
       headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${kind}-${params.classId}.csv"` },
     });
   }),

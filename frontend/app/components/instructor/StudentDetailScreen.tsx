@@ -69,6 +69,19 @@ function ModuleCard({ module }: { module: StudentDetail["modules"][number] }) {
           </tbody>
         </table>
       </div>
+      {module.activities.filter((a) => a.code !== undefined).map((a) => (
+        <details key={a.activityId} className="mt-4 rounded-xl border border-hairline">
+          <summary className="cursor-pointer p-3 font-bold text-brand">
+            Submitted code: {a.title || "Coding exercise"}
+            <span className="ml-2 font-normal text-muted">{a.testsPassed} of {a.testsTotal} tests passing{a.hintCount ? ` · ${a.hintCount} ${a.hintCount === 1 ? "hint" : "hints"} asked` : ""}</span>
+          </summary>
+          <div className="border-t border-hairline p-3">
+            {/* Plain text only: student code is never rendered as HTML. */}
+            <pre className="max-h-96 overflow-auto rounded-lg bg-wash p-3 font-mono text-sm whitespace-pre-wrap">{a.code}</pre>
+            <p className="mt-2 text-sm text-muted">The test results come from the student&apos;s own run in their browser, so read the code before relying on them.</p>
+          </div>
+        </details>
+      ))}
     </section>
   );
 }

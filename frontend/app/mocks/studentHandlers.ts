@@ -55,6 +55,7 @@ register({
 const hintsToday = new Map<string, number>();
 const HINTS = ["What is the question asking you to find? Say it in your own words first.", "This is about repeating something a set number of times. Which word starts that?", "Try a tiny example: if you repeat 2 times, what would the output look like? Now do the same with your number."];
 
+const CODE_HINTS = ["Run your program and read what it prints. Which number does it start from, and which one do you want it to start from?", "Look at the numbers `range` gives your loop. What do you pass to `range` to change where it starts and where it stops?", "Try a tiny case on paper: if n is 2, which numbers should appear? Walk through your loop one step at a time and compare."];
 export const studentHandlers = [
   http.post(`${env.apiUrl}/student/hints`, async ({ request }) => {
     const me = personFromToken(request.headers.get("Authorization"));
@@ -64,13 +65,13 @@ export const studentHandlers = [
     const doc = studentModule(me.studentId, String(b.moduleId));
     const activity = doc?.lessons.flatMap((l) => l.activities).find((a) => a.activityId === b.activityId);
     if (!doc || !activity) return studentError(404, "NOT_FOUND", "Activity not found");
-    if (activity.type !== "check" && activity.type !== "worksheet") return studentError(403, "HINTS_NOT_ALLOWED", "Hints are not available for this activity");
+    if (activity.type !== "check" && activity.type !== "worksheet" && activity.type !== "code") return studentError(403, "HINTS_NOT_ALLOWED", "Hints are not available for this activity");
     if (activity.state === "locked") return studentError(403, "ACTIVITY_LOCKED", "Finish the earlier activities first");
     const used = hintsToday.get(me.studentId) ?? 0;
     if (used >= 10) return studentError(429, "HINT_LIMIT_REACHED", "You have used all your hints for today");
     hintsToday.set(me.studentId, used + 1);
     const level = (Math.min(3, (used % 3) + 1)) as 1 | 2 | 3;
-    return HttpResponse.json({ data: { hint: HINTS[level - 1], level, remainingToday: 9 - used } });
+    return HttpResponse.json({ data: { hint: (activity.type === "code" ? CODE_HINTS : HINTS)[level - 1], level, remainingToday: 9 - used } });
   }),
 
   http.post(`${env.apiUrl}/auth/student/login`, async ({ request }) => {
