@@ -4,13 +4,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { assignModule, listAssignments, unassignModule } from "../../lib/api/assignments";
+import { assignModule, listAssignments, unassignModule, updateAssignment } from "../../lib/api/assignments";
 import { ApiError } from "../../lib/api/client";
 import { listModules } from "../../lib/api/curriculum";
+import { getClass, updateClass } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 import { AssignmentRow } from "./AssignmentRow";
 
-function AssignmentsBody({ token, classId }: { token: string; classId: string }) {
+function AssignmentsBody({ token, classId, isAdmin }: { token: string; classId: string; isAdmin: boolean }) {
   const queryClient = useQueryClient();
   const classHref = `/instructor/class/?id=${encodeURIComponent(classId)}`;
 
@@ -21,7 +22,9 @@ function AssignmentsBody({ token, classId }: { token: string; classId: string })
   });
   const modules = useQuery({ queryKey: ["modules", token], queryFn: ({ signal }) => listModules(token, signal), retry: false });
 
+  const cls = useQuery({ queryKey: ["class", token, classId], queryFn: ({ signal }) => getClass(token, classId, signal), retry: false });
   const [pick, setPick] = useState("");
+  const [startPick, setStartPick] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +45,20 @@ function AssignmentsBody({ token, classId }: { token: string; classId: string })
       setBusy(false);
     }
   }
+
+  // Positions are rewritten as 1..n so the order stays clean even if the saved numbers have gaps or ties.
+  function move(index: number, direction: -1 | 1) {
+    const next = [...list];
+    [next[index], next[index + direction]] = [next[index + direction], next[index]];
+    return run(async () => {
+      for (const [i, item] of next.entries()) {
+        if (item.order !== i + 1) await updateAssignment(token, classId, item.moduleId, { order: i + 1 });
+      }
+    });
+  }
+
+  const currentModuleId = cls.data?.currentModuleId ?? null;
+  const startValue = startPick || currentModuleId || "";
 
   return (
     <>
@@ -83,11 +100,56 @@ function AssignmentsBody({ token, classId }: { token: string; classId: string })
               assignment={a}
               title={titleOf(a.moduleId)}
               index={i}
+              count={list.length}
               busy={busy}
+              latestVersion={modules.data?.find((m) => m.moduleId === a.moduleId)?.latestVersion ?? a.moduleVersion}
+              canChangeVersion={isAdmin}
+              onMove={(direction) => move(i, direction)}
+              onDate={(date) => run(() => updateAssignment(token, classId, a.moduleId, { targetDate: date }))}
+              onUpgrade={() =>
+                run(() => updateAssignment(token, classId, a.moduleId, { moduleVersion: (modules.data?.find((m) => m.moduleId === a.moduleId)?.latestVersion ?? a.moduleVersion) }))
+              }
               onRemove={() => run(() => unassignModule(token, classId, a.moduleId))}
             />
           ))}
         </ol>
+      ) : null}
+
+      {list.length > 0 ? (
+        <section aria-labelledby="start-heading" className="card mt-10 max-w-xl">
+          <h2 id="start-heading">Where late joiners start</h2>
+          <p className="mt-2 text-muted">
+            A student added later starts at this module. Earlier modules stay open as optional catch-up.
+            {currentModuleId ? "" : " Nothing is set, so they start at the first module."}
+          </p>
+          <label htmlFor="start-module" className="mt-3 block font-bold">
+            Class is currently on
+          </label>
+          <select id="start-module" value={startValue} onChange={(e) => setStartPick(e.target.value)} className="field mt-1">
+            <option value="" disabled>
+              Choose a module
+            </option>
+            {list.map((a) => (
+              <option key={a.moduleId} value={a.moduleId}>
+                {titleOf(a.moduleId)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn btn-primary mt-4"
+            disabled={busy || !startValue || startValue === currentModuleId}
+            onClick={() =>
+              run(async () => {
+                await updateClass(token, classId, { currentModuleId: startValue });
+                setStartPick("");
+                await queryClient.invalidateQueries({ queryKey: ["class"] });
+              })
+            }
+          >
+            Save
+          </button>
+        </section>
       ) : null}
 
       <section aria-labelledby="add-heading" className="card mt-10 max-w-xl">
@@ -136,9 +198,9 @@ export function AssignmentsScreen() {
   const classId = useSearchParams().get("id") ?? "";
   return (
     <StaffPage roles={["instructor", "cic_admin"]}>
-      {({ token }) =>
+      {({ token, me }) =>
         classId ? (
-          <AssignmentsBody token={token} classId={classId} />
+          <AssignmentsBody token={token} classId={classId} isAdmin={me.role === "cic_admin"} />
         ) : (
           <p role="alert" className="callout callout-danger">
             No class was chosen. Open this page from a class.

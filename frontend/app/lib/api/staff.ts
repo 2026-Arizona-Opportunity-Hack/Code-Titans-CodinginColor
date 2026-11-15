@@ -77,3 +77,12 @@ export function createClass(token: string, input: CreateClassInput): Promise<Cla
 export function listOrgs(token: string, signal?: AbortSignal): Promise<Org[]> {
   return apiFetch<Org[]>("/admin/orgs", { token, signal });
 }
+
+/** PATCH /classes/{classId}. currentModuleId is where late joiners start by default; it can be changed but not cleared. */
+export function updateClass(
+  token: string,
+  classId: string,
+  changes: { currentModuleId?: string; name?: string; status?: "active" | "archived"; settings?: Partial<ClassSummary["settings"]> },
+): Promise<ClassSummary> {
+  return apiFetch<ClassSummary>(`/classes/${encodeURIComponent(classId)}`, { method: "PATCH", token, body: changes });
+}

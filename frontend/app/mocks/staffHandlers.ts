@@ -105,6 +105,18 @@ export const staffHandlers = [
     return HttpResponse.json({ data: created }, { status: 201 });
   }),
 
+  http.patch(`${env.apiUrl}/classes/:classId`, async ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't change classes.");
+    const found = classes.find((c) => c.classId === params.classId);
+    if (!found) return apiError(404, "NOT_FOUND", "Class not found.");
+    const body = (await request.json().catch(() => ({}))) as Partial<ClassSummary>;
+    if (body.currentModuleId) found.currentModuleId = body.currentModuleId;
+    if (body.name?.trim()) found.name = body.name.trim();
+    return HttpResponse.json({ data: found });
+  }),
+
   http.get(`${env.apiUrl}/classes/:classId`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");

@@ -3,21 +3,35 @@
 import { useState } from "react";
 import type { Assignment } from "../../lib/api/assignments";
 
-/** One assigned module: its position, version and progress, with remove. */
+/** One assigned module: position, version, progress and target date, with reorder, version change and remove. */
 export function AssignmentRow({
   assignment,
   title,
   index,
+  count,
   busy,
+  latestVersion,
+  canChangeVersion,
+  onMove,
+  onDate,
+  onUpgrade,
   onRemove,
 }: {
   assignment: Assignment;
   title: string;
   index: number;
+  count: number;
   busy: boolean;
+  latestVersion: number;
+  canChangeVersion: boolean;
+  onMove: (direction: -1 | 1) => void;
+  onDate: (date: string | null) => void;
+  onUpgrade: () => void;
   onRemove: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [date, setDate] = useState(assignment.targetDate ?? "");
+  const newer = latestVersion > assignment.moduleVersion;
   const started = assignment.startedCount ?? 0;
 
   return (
@@ -37,6 +51,12 @@ export function AssignmentRow({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="btn btn-secondary" disabled={busy || index === 0} aria-label={`Move ${title} up`} onClick={() => onMove(-1)}>
+            Move up
+          </button>
+          <button type="button" className="btn btn-secondary" disabled={busy || index === count - 1} aria-label={`Move ${title} down`} onClick={() => onMove(1)}>
+            Move down
+          </button>
           {!confirming ? (
             <button type="button" className="btn btn-secondary" aria-label={`Remove ${title}`} onClick={() => setConfirming(true)}>
               Remove
@@ -44,6 +64,46 @@ export function AssignmentRow({
           ) : null}
         </div>
       </div>
+
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label htmlFor={`date-${assignment.moduleId}`} className="block text-sm font-bold">
+            Target date <span className="font-normal text-muted">(optional)</span>
+          </label>
+          <input id={`date-${assignment.moduleId}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} className="field mt-1 w-auto" />
+        </div>
+        <button type="button" className="btn btn-secondary" disabled={busy || date === (assignment.targetDate ?? "") || date === ""} onClick={() => onDate(date)}>
+          Save date
+        </button>
+        {assignment.targetDate ? (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={busy}
+            aria-label={`Clear the target date for ${title}`}
+            onClick={() => {
+              setDate("");
+              onDate(null);
+            }}
+          >
+            Clear date
+          </button>
+        ) : null}
+      </div>
+
+      {newer ? (
+        <div className="callout mt-4">
+          <p className="font-bold text-brand">A newer version of this module is available (version {latestVersion}).</p>
+          <p className="mt-1 text-sm text-muted">
+            {started > 0 && !canChangeVersion
+              ? "Students have started this module, so only an administrator can move it to the new version."
+              : "Students keep what they have; moving only changes what is shown from now on."}
+          </p>
+          <button type="button" className="btn btn-primary mt-3" disabled={busy || (started > 0 && !canChangeVersion)} onClick={onUpgrade}>
+            Move to version {latestVersion}
+          </button>
+        </div>
+      ) : null}
 
       {confirming ? (
         <div role="alert" className="callout callout-danger mt-4">
