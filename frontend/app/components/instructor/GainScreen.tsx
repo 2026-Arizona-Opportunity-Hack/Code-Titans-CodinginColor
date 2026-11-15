@@ -1,0 +1,219 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { ApiError } from "../../lib/api/client";
+import { downloadExport } from "../../lib/api/exportCsv";
+import { getModuleGain, getProgress, type GainSummary } from "../../lib/api/reports";
+import { StaffPage } from "../common/StaffPage";
+
+const num = (x: number | null, suffix = "") => (x === null ? "—" : `${x}${suffix}`);
+const signed = (x: number | null) => (x === null ? "—" : `${x > 0 ? "+" : ""}${x}`);
+
+function Tiles({ summary }: { summary: GainSummary }) {
+  const tiles: [string, string][] = [
+    ["Students with both tests", summary.nEnrolled === null ? String(summary.n) : `${summary.n} of ${summary.nEnrolled}`],
+    ["Average before", num(summary.meanPre, "%")],
+    ["Average after", num(summary.meanPost, "%")],
+    ["Average gain", `${signed(summary.meanGain)}${summary.meanGain === null ? "" : " points"}`],
+    ["Normalized gain", num(summary.normalizedGain)],
+  ];
+  return (
+    <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
+      {tiles.map(([label, value]) => (
+        <div key={label} className="card">
+          <dt className="text-sm text-muted">{label}</dt>
+          <dd className="mt-1 text-2xl font-bold text-brand">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function GainBody({ token, classId }: { token: string; classId: string }) {
+  const classHref = `/instructor/class/?id=${encodeURIComponent(classId)}`;
+  const [chosen, setChosen] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  const progress = useQuery({ queryKey: ["progress", token, classId], queryFn: ({ signal }) => getProgress(token, classId, signal), retry: false });
+  const modules = progress.data?.modules ?? [];
+  const moduleId = chosen || modules[0]?.moduleId || "";
+
+  const gain = useQuery({
+    queryKey: ["gain", token, classId, moduleId],
+    queryFn: ({ signal }) => getModuleGain(token, classId, moduleId, signal),
+    enabled: Boolean(moduleId),
+    retry: false,
+    refetchOnMount: "always",
+  });
+
+  async function exportCsv() {
+    setExportError("");
+    setExporting(true);
+    try {
+      await downloadExport(token, classId, "gain");
+    } catch (e) {
+      setExportError(e instanceof ApiError ? e.message : "The export could not be created.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const g = gain.data;
+  const lowItems = g?.byConcept.filter((c) => c.lowItemCount) ?? [];
+
+  return (
+    <>
+      <nav aria-label="Breadcrumb" className="mb-4 text-sm">
+        <Link href={classHref}>← Back to class</Link>
+      </nav>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1>Learning gain</h1>
+          <p className="mt-1 text-muted">How much students improved between the pretest and the post-test.</p>
+        </div>
+        <button type="button" className="btn btn-secondary" onClick={exportCsv} disabled={exporting}>
+          {exporting ? "Preparing…" : "Download CSV"}
+        </button>
+      </div>
+      {exportError ? (
+        <p role="alert" className="callout callout-danger mt-4 font-bold text-danger">
+          {exportError}
+        </p>
+      ) : null}
+
+      {progress.isPending ? <div role="status" aria-label="Loading" className="skeleton mt-6 h-40" /> : null}
+      {progress.isError ? (
+        <p role="alert" className="callout callout-danger mt-6 font-bold text-danger">
+          {progress.error instanceof ApiError ? progress.error.message : "We couldn't load this class."}
+        </p>
+      ) : null}
+      {progress.data && modules.length === 0 ? (
+        <div className="card mt-6 max-w-xl">
+          <p className="font-bold">No modules are assigned yet.</p>
+          <Link href={`/instructor/class/assignments/?id=${encodeURIComponent(classId)}`} className="btn btn-primary mt-4">
+            Assigned modules
+          </Link>
+        </div>
+      ) : null}
+
+      {modules.length > 0 ? (
+        <div className="mt-6 max-w-sm">
+          <label htmlFor="gain-module" className="block font-bold">
+            Module
+          </label>
+          <select id="gain-module" className="field mt-1" value={moduleId} onChange={(e) => setChosen(e.target.value)}>
+            {modules.map((m) => (
+              <option key={m.moduleId} value={m.moduleId}>
+                {m.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      {gain.isPending && moduleId ? <div role="status" aria-label="Loading gain" className="skeleton mt-6 h-40" /> : null}
+      {gain.isError ? (
+        <p role="alert" className="callout callout-danger mt-6 font-bold text-danger">
+          {gain.error instanceof ApiError ? gain.error.message : "We couldn't load the results."}
+        </p>
+      ) : null}
+
+      {g ? (
+        <>
+          <Tiles summary={g.class} />
+          {g.class.n === 0 ? <p className="callout mt-4">No student has both tests yet, so there is no gain to show.</p> : null}
+          <details className="mt-4 text-sm text-muted">
+            <summary className="cursor-pointer font-bold text-brand">How these numbers are worked out</summary>
+            <ul className="mt-2 list-disc pl-6">
+              {Object.entries(g.definitions).map(([k, v]) => (
+                <li key={k}>
+                  <strong>{k}</strong>: {v}
+                </li>
+              ))}
+            </ul>
+          </details>
+
+          <h2 className="mt-8">By concept</h2>
+          {lowItems.length > 0 ? (
+            <p className="callout mt-2 text-sm">Concepts marked &ldquo;few questions&rdquo; have fewer than 3 test questions, so read them with care.</p>
+          ) : null}
+          <div className="table-wrap mt-3">
+            <table className="table-brand">
+              <caption className="sr-only">Learning gain for each concept in this module</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Concept</th>
+                  <th scope="col">Students</th>
+                  <th scope="col">Before</th>
+                  <th scope="col">After</th>
+                  <th scope="col">Gain</th>
+                  <th scope="col">At 80% or above</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.byConcept.map((c) => (
+                  <tr key={c.concept}>
+                    <th scope="row">
+                      {c.concept} {c.lowItemCount ? <span className="badge badge-muted">few questions</span> : null}
+                    </th>
+                    <td>{c.n}</td>
+                    <td>{num(c.meanPre, "%")}</td>
+                    <td>{num(c.meanPost, "%")}</td>
+                    <td>{signed(c.meanGain)}</td>
+                    <td>{num(c.masteryPct, "%")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <h2 className="mt-8">By student</h2>
+          <div className="table-wrap mt-3">
+            <table className="table-brand">
+              <caption className="sr-only">Pretest and post-test score for each student</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Student</th>
+                  <th scope="col">Before</th>
+                  <th scope="col">After</th>
+                  <th scope="col">Gain</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.students.map((s) => (
+                  <tr key={s.studentId}>
+                    <th scope="row">{s.displayName}</th>
+                    <td>{s.pre === null ? "not taken" : `${s.pre}%`}</td>
+                    <td>{s.post === null ? "not taken" : `${s.post}%`}</td>
+                    <td>{signed(s.gain)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+export function GainScreen() {
+  const classId = useSearchParams().get("id") ?? "";
+  return (
+    <StaffPage roles={["instructor", "cic_admin"]}>
+      {({ token }) =>
+        classId ? (
+          <GainBody token={token} classId={classId} />
+        ) : (
+          <p role="alert" className="callout callout-danger">
+            No class was chosen. Open this page from a class.
+          </p>
+        )
+      }
+    </StaffPage>
+  );
+}

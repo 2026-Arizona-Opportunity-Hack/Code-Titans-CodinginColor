@@ -1,6 +1,8 @@
+import Papa from "papaparse";
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
-import type { ActivityDetail, Attention, ProgressMatrix, StudentDetail, StuckReason } from "../lib/api/reports";
+import type { ActivityDetail, Attention, ConceptGain, GainSummary, ModuleGain, ProgressMatrix, StudentDetail, StuckReason } from "../lib/api/reports";
+import { safeCell } from "../lib/loginLinks";
 import { assignedFor, titleOf } from "./assignmentHandlers";
 import { getRoster } from "./rosterStore";
 import { apiError, roleOf } from "./staffHandlers";
@@ -85,7 +87,74 @@ function studentDetail(classId: string, studentId: string): StudentDetail | null
   };
 }
 
+const round = (x: number, places = 1) => Math.round(x * 10 ** places) / 10 ** places;
+const DEFINITIONS = {
+  gain: "post - pre, in percentage points",
+  normalizedGain: "(post - pre) / (100 - pre); undefined when pre = 100",
+  n: "students with both a pretest and a post-test",
+};
+
+function summarize(pairs: [number, number][], enrolled: number | null): GainSummary {
+  if (pairs.length === 0) return { nEnrolled: enrolled, n: 0, meanPre: null, meanPost: null, meanGain: null, normalizedGain: null };
+  const mean = (i: 0 | 1) => pairs.reduce((sum, p) => sum + p[i], 0) / pairs.length;
+  const [pre, post] = [mean(0), mean(1)];
+  return { nEnrolled: enrolled, n: pairs.length, meanPre: round(pre), meanPost: round(post), meanGain: round(post - pre), normalizedGain: pre >= 100 ? null : round((post - pre) / (100 - pre), 2) };
+}
+
+function moduleGain(classId: string, moduleId: string): ModuleGain | null {
+  if (!assignedFor(classId).some((a) => a.moduleId === moduleId)) return null;
+  const active = getRoster(classId).filter((s) => s.status === "active");
+  const students = active.map((s) => {
+    const pre = assessmentScore(s.studentId, moduleId, "pre");
+    const post = assessmentScore(s.studentId, moduleId, "post");
+    const both = pre !== null && post !== null;
+    return {
+      studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, externalId: s.externalId, pre, post,
+      gain: both ? round(post - pre) : null,
+      normalizedGain: both && pre < 100 ? round((post - pre) / (100 - pre), 2) : null,
+    };
+  });
+  const pairs = students.filter((s) => s.pre !== null && s.post !== null).map((s) => [s.pre!, s.post!] as [number, number]);
+  const questions = DOCS[moduleId].lessons.flatMap((l) => l.activities).find((a) => a.type === "assessment")?.questions ?? [];
+  const byConcept: ConceptGain[] = [...new Set(questions.map((q) => q.concept ?? "general"))].sort().map((concept) => ({
+    ...summarize(pairs, null), nEnrolled: null, concept,
+    lowItemCount: questions.filter((q) => (q.concept ?? "general") === concept).length < 3,
+    postN: pairs.length,
+    masteryPct: pairs.length ? Math.round((pairs.filter((p) => p[1] >= 80).length / pairs.length) * 100) : null,
+  }));
+  return { definitions: DEFINITIONS, moduleId, class: summarize(pairs, active.length), byConcept, students };
+}
+
+function exportCsv(classId: string, kind: string): string {
+  if (kind === "progress") {
+    const m = progressMatrix(classId);
+    const header = ["rosterNumber", "student", ...m.modules.map((x) => `${x.title} percent`), ...m.modules.map((x) => `${x.title} minutes`)];
+    return Papa.unparse({ fields: header, data: m.students.map((s) => [s.rosterNumber, safeCell(s.displayName), ...m.modules.map((x) => s.modules[x.moduleId].percent), ...m.modules.map((x) => s.modules[x.moduleId].activeMinutes)]) }, { newline: "\n" });
+  }
+  const rows = assignedFor(classId).flatMap((a) => (moduleGain(classId, a.moduleId)?.students ?? []).map((s) => [titleOf(a.moduleId), s.rosterNumber, safeCell(s.displayName), s.pre, s.post, s.gain, s.normalizedGain]));
+  return Papa.unparse({ fields: ["module", "rosterNumber", "student", "pre", "post", "gain", "normalizedGain"], data: rows }, { newline: "\n" });
+}
+
 export const reportHandlers = [
+  http.get(`${env.apiUrl}/classes/:classId/modules/:moduleId/gain`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
+    const found = moduleGain(String(params.classId), String(params.moduleId));
+    return found ? HttpResponse.json({ data: found }) : apiError(404, "NOT_FOUND", "Module is not assigned to this class");
+  }),
+
+  http.get(`${env.apiUrl}/classes/:classId/export`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't export class data.");
+    const kind = new URL(request.url).searchParams.get("type") ?? "gain";
+    if (kind !== "gain" && kind !== "progress") return apiError(400, "VALIDATION_ERROR", "type must be gain or progress");
+    return new HttpResponse(exportCsv(String(params.classId), kind), {
+      headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${kind}-${params.classId}.csv"` },
+    });
+  }),
+
   http.get(`${env.apiUrl}/classes/:classId/students/:studentId/progress`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");

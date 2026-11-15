@@ -91,3 +91,46 @@ export type StudentDetail = {
 export function getStudentDetail(token: string, classId: string, studentId: string, signal?: AbortSignal): Promise<StudentDetail> {
   return apiFetch<StudentDetail>(`/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}/progress`, { token, signal });
 }
+
+/** The numbers behind learning gain (docs/architecture.md section 7.5). Only students with BOTH tests are counted in `n`. */
+export type GainSummary = {
+  nEnrolled: number | null;
+  n: number;
+  meanPre: number | null;
+  meanPost: number | null;
+  meanGain: number | null;
+  normalizedGain: number | null;
+};
+
+export type ConceptGain = GainSummary & {
+  concept: string;
+  /** Fewer than 3 questions on a side: read the numbers with care. */
+  lowItemCount: boolean;
+  postN: number;
+  /** Share of post-tested students at 80% or above, or null when nobody has taken the post-test. */
+  masteryPct: number | null;
+};
+
+export type StudentGain = {
+  studentId: string;
+  displayName: string;
+  rosterNumber: number;
+  externalId: string | null;
+  pre: number | null;
+  post: number | null;
+  gain: number | null;
+  normalizedGain: number | null;
+};
+
+/** GET /classes/{classId}/modules/{moduleId}/gain */
+export type ModuleGain = {
+  definitions: Record<string, string>;
+  moduleId: string;
+  class: GainSummary;
+  byConcept: ConceptGain[];
+  students: StudentGain[];
+};
+
+export function getModuleGain(token: string, classId: string, moduleId: string, signal?: AbortSignal): Promise<ModuleGain> {
+  return apiFetch<ModuleGain>(`/classes/${encodeURIComponent(classId)}/modules/${encodeURIComponent(moduleId)}/gain`, { token, signal });
+}
