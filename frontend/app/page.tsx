@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ApiStatus } from "./components/common/ApiStatus";
 import { BrandMark } from "./components/common/BrandMark";
@@ -25,6 +26,12 @@ const steps: { icon: IconName; title: string; text: string }[] = [
   },
 ];
 
+const promises: { icon: IconName; title: string; text: string }[] = [
+  { icon: "lock", title: "Private by design", text: "Students are known by name, school and class. No email, birthdate or address is collected." },
+  { icon: "eye", title: "Built for every learner", text: "Designed to WCAG 2.1 AA: keyboard friendly, screen reader tested, and readable at any zoom." },
+  { icon: "classes", title: "Runs on school devices", text: "Works on a Chromebook, a tablet or a phone, with nothing to install." },
+  { icon: "chart", title: "Shows what was learned", text: "Pretest to post-test gain for every student, class and concept, not just who finished." },
+];
 const audiences: { icon: IconName; title: string; points: string[] }[] = [
   {
     icon: "graduation",
@@ -128,7 +135,22 @@ export default function Home() {
           </div>
         </section>
 
-        <section aria-labelledby="how-heading" className="border-y border-hairline bg-wash">
+        <section aria-label="What to expect" className="border-y border-hairline bg-surface">
+          <ul className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
+            {promises.map((p) => (
+              <li key={p.title} className="flex gap-4">
+                <span className="icon-tile shrink-0">
+                  <Icon name={p.icon} className="size-6" />
+                </span>
+                <div>
+                  <h2 className="!text-base">{p.title}</h2>
+                  <p className="mt-1 text-sm text-muted">{p.text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section aria-labelledby="how-heading" className="border-b border-hairline bg-wash">
           <div className="mx-auto max-w-6xl px-4 py-16">
             <p className="eyebrow">How it works</p>
             <h2 id="how-heading" className="mt-1 max-w-2xl">
@@ -206,22 +228,34 @@ export default function Home() {
           </section>
         ) : null}
 
+        <section aria-labelledby="about-heading" className="border-t border-hairline bg-wash">
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 md:grid-cols-[0.8fr_1.2fr]">
+            <Image src="/brand/cic-stacked.png" alt="Coding in Color" width={720} height={712} className="mx-auto h-auto w-full max-w-[17rem]" />
+            <div>
+              <p className="eyebrow">About Coding in Color</p>
+              <h2 id="about-heading" className="mt-1">
+                Computer science and AI education for Arizona&apos;s next workforce
+              </h2>
+              <p className="mt-4 max-w-2xl text-lg text-muted">
+                Coding in Color is a 501(c)(3) nonprofit developing the future digital workforce. CIC Learn is where its
+                curriculum meets the classroom: one place for the lessons, the class list and the progress.
+              </p>
+            </div>
+          </div>
+        </section>
         <section aria-labelledby="cta-heading" className="bg-brand text-on-brand">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 px-4 py-12">
             <div>
               <h2 id="cta-heading" className="!text-on-brand">
                 Ready to start learning?
               </h2>
-              <p className="mt-1 max-w-xl text-white/90">
-                Coding in Color is a 501(c)(3) nonprofit developing the future digital workforce through computer science and AI
-                education in Arizona.
-              </p>
+              <p className="mt-1 max-w-xl text-white/90">Open your class link, or sign in to manage your classes.</p>
             </div>
             <FinalCta />
           </div>
         </section>
       </main>
-      <Footer />
+      <Footer full />
     </div>
   );
 }
