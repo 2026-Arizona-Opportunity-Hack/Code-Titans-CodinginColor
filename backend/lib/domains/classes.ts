@@ -14,11 +14,14 @@ export class ClassesDomain extends Construct {
       environment: {
         CORE_TABLE: ctx.tables.core.tableName,
         CONTENT_TABLE: ctx.tables.content.tableName,
+        PROGRESS_TABLE: ctx.tables.progress.tableName,
         USER_POOL_ID: ctx.userPool.userPoolId,
       },
     });
     ctx.tables.core.grantReadWriteData(fn);
     ctx.tables.content.grantReadData(fn);
+    // Only to delete a student's progress along with the student.
+    ctx.tables.progress.grant(fn, "dynamodb:Query", "dynamodb:BatchWriteItem", "dynamodb:DeleteItem");
     ctx.userPool.grant(fn, "cognito-idp:AdminListGroupsForUser"); // checks a member is an instructor
     addRoutes(
       ctx,
@@ -29,6 +32,12 @@ export class ClassesDomain extends Construct {
         "GET /v1/classes/{classId}",
         "PATCH /v1/classes/{classId}",
         "POST /v1/classes/{classId}/members",
+        "GET /v1/classes/{classId}/roster",
+        "POST /v1/classes/{classId}/roster",
+        "GET /v1/classes/{classId}/roster/duplicates",
+        "PATCH /v1/classes/{classId}/roster/{studentId}",
+        "DELETE /v1/classes/{classId}/roster/{studentId}",
+        "GET /v1/students/{studentId}",
       ],
       ctx.staffAuthorizer,
     );
