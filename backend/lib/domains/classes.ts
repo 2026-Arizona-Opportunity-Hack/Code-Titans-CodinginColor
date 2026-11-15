@@ -32,7 +32,7 @@ export class ClassesDomain extends Construct {
     // Query: count who started a module. Batch/Delete: remove a deleted student's progress.
     ctx.tables.progress.grant(fn, "dynamodb:Query", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:BatchWriteItem", "dynamodb:DeleteItem");
     ctx.tables.events.grant(fn, "dynamodb:PutItem"); // audit entries
-    ctx.userPool.grant(fn, "cognito-idp:AdminListGroupsForUser"); // checks a member is an instructor
+    ctx.userPool.grant(fn, "cognito-idp:AdminListGroupsForUser", "cognito-idp:AdminGetUser"); // instructor check, and names for the class list
     addRoutes(
       ctx,
       fn,

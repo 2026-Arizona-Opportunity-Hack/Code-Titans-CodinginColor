@@ -41,6 +41,8 @@ export type ClassSummary = {
     inactiveSchoolDays: number;
   };
   createdAt: string;
+  /** Who teaches the class, sorted by name. */
+  instructors?: { userId: string; name: string }[];
 };
 
 /** GET /classes/{classId} adds the student count and assignments to the class. */
