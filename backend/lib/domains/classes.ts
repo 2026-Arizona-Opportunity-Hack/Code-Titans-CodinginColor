@@ -1,11 +1,12 @@
 import * as cdk from "aws-cdk-lib";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import { createPythonFunction } from "../lambda-factory";
 import { DomainContext, addRoutes } from "./context";
 
 /** Classes and their instructors (docs/api.md section 4). Roster and assignments are added here. */
 export class ClassesDomain extends Construct {
-  constructor(scope: Construct, id: string, ctx: DomainContext) {
+  constructor(scope: Construct, id: string, ctx: DomainContext, pepper: secretsmanager.ISecret) {
     super(scope, id);
     // Where students open the login page: the first non-localhost allowed origin (the hosted
     // app), else localhost for local development. Used to build the login sheet link.
@@ -21,10 +22,12 @@ export class ClassesDomain extends Construct {
         PROGRESS_TABLE: ctx.tables.progress.tableName,
         USER_POOL_ID: ctx.userPool.userPoolId,
         APP_URL: appUrl,
+        PEPPER_SECRET_ARN: pepper.secretArn, // adding a student, issuing words and importing all hash credentials
       },
     });
     ctx.tables.core.grantReadWriteData(fn);
     ctx.tables.content.grantReadData(fn);
+    pepper.grantRead(fn);
     // Query: count who started a module. Batch/Delete: remove a deleted student's progress.
     ctx.tables.progress.grant(fn, "dynamodb:Query", "dynamodb:BatchWriteItem", "dynamodb:DeleteItem");
     ctx.userPool.grant(fn, "cognito-idp:AdminListGroupsForUser"); // checks a member is an instructor

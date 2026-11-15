@@ -49,12 +49,22 @@ describe("StudentAuthDomain", () => {
     });
   });
 
-  test("the pepper is retained and only the login function can read it", () => {
+  test("the pepper is retained and only the login and class functions can read it", () => {
     const secrets = t.findResources("AWS::SecretsManager::Secret");
     expect(Object.keys(secrets)).toHaveLength(1);
     expect(Object.values(secrets)[0].DeletionPolicy).toBe("Retain");
     const policies = JSON.stringify(t.findResources("AWS::IAM::Policy"));
-    expect(policies.match(/secretsmanager:GetSecretValue/g)).toHaveLength(1);
+    expect(policies.match(/secretsmanager:GetSecretValue/g)).toHaveLength(2);
+  });
+
+  test("every function that hashes student words is told where the pepper is", () => {
+    // Tests set CREDENTIAL_PEPPER, so only the stack can catch a function that has no way to find it in AWS.
+    for (const description of ["Student login and logout", "Classes, roster and assignments"]) {
+      t.hasResourceProperties("AWS::Lambda::Function", {
+        Description: description,
+        Environment: { Variables: Match.objectLike({ PEPPER_SECRET_ARN: Match.anyValue() }) },
+      });
+    }
   });
 
   test("the authorizer function has no write access to DynamoDB", () => {
