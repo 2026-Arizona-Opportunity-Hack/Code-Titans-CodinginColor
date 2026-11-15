@@ -89,7 +89,7 @@ Only `NEXT_PUBLIC_` values are exposed to the browser, so never put a secret in 
 
 ## Links
 
-- Live demo:
+- Live demo: https://main.d3voqx7r17ipz6.amplifyapp.com (staff sign in at /login, students at /s)
 - Demo video:
 - Design / docs:
 

@@ -39,3 +39,21 @@ Deployment settings come from CDK context (`cdk.json` or `-c key=value`): `allow
 1. Add the function to the Lambda's `ROUTES` dict. The key is the API Gateway route key, for example `"GET /v1/classes/{classId}/progress"`.
 2. Add the same route key to the domain construct's route list in `lib/domains/`.
 3. Authorize inside the handler with `cic.authz` (never trust IDs from the request for who the caller is).
+
+## Frontend hosting
+
+The frontend is a static export hosted on AWS Amplify (app `cic-curriculum`, `d3voqx7r17ipz6`, branch `main`,
+us-west-2): https://main.d3voqx7r17ipz6.amplifyapp.com. Amplify adds HSTS, `X-Frame-Options: DENY`,
+`nosniff` and a strict referrer policy. To publish a new build (no Git connection needed):
+
+```bash
+cd frontend && npm run build            # uses frontend/.env.local, so mocks must be off there
+(cd out && zip -qr /tmp/site.zip .)
+aws amplify create-deployment --app-id d3voqx7r17ipz6 --branch-name main   # returns jobId and zipUploadUrl
+curl -X PUT -H "Content-Type: application/zip" --data-binary @/tmp/site.zip "<zipUploadUrl>"
+aws amplify start-deployment --app-id d3voqx7r17ipz6 --branch-name main --job-id <jobId>
+```
+
+The hosted URL is listed first in `allowedOrigins` (`cdk.json`). That lets the browser call the API and
+upload files to S3 from it, and makes it the link printed on student login sheets.
+
