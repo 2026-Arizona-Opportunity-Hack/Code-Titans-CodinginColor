@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Atkinson_Hyperlegible, JetBrains_Mono } from "next/font/google";
 import { MockProvider } from "./components/common/MockProvider";
+import { Providers } from "./components/common/Providers";
 import { SkipLink } from "./components/common/SkipLink";
 import "./globals.css";
 
@@ -36,7 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>
         <SkipLink />
-        <MockProvider>{children}</MockProvider>
+        <MockProvider>
+          <Providers>{children}</Providers>
+        </MockProvider>
       </body>
     </html>
   );

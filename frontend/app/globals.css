@@ -129,6 +129,10 @@ body {
     background: var(--tint);
     color: var(--brand-hover);
   }
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
 
 /* Skip link: hidden until it receives keyboard focus. */
