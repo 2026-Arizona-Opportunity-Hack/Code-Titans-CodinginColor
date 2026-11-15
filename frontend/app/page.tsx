@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ApiStatus } from "./components/common/ApiStatus";
 import { BrandMark } from "./components/common/BrandMark";
 import { Footer } from "./components/common/Footer";
+import { ResetDemo } from "./components/common/ResetDemo";
 import { env } from "./config/env";
 
 const audiences = [
@@ -73,6 +74,9 @@ export default function Home() {
                 <Link href="/login/" className="btn btn-secondary">
                   Staff sign in
                 </Link>
+              </li>
+              <li>
+                <ResetDemo />
               </li>
             </ul>
             <div className="mt-4 text-sm">

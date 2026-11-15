@@ -1,4 +1,5 @@
 import type { ModuleState } from "../lib/api/student";
+import { register } from "./persist";
 import type { Activity, ActivityState, Question, StepResult, StudentModule } from "../lib/api/studentModule";
 
 // In-memory student data for the fake API. The progress rules port the real server's
@@ -61,11 +62,13 @@ export const DOCS: Record<string, StudentModule> = Object.fromEntries(
   ),
 );
 
-type Status = "complete" | "in_progress";const progress = new Map<string, Map<string, Status>>();
+type Status = "complete" | "in_progress";
+const progress = new Map<string, Map<string, Status>>();
 export const statusMap = (studentId: string) => {
   if (!progress.has(studentId)) progress.set(studentId, new Map());
   return progress.get(studentId)!;
-};const activeSeconds = new Map<string, number>();
+};
+const activeSeconds = new Map<string, number>();
 export const addSeconds = (key: string, n: number) => activeSeconds.set(key, (activeSeconds.get(key) ?? 0) + n);
 export const secondsFor = (key: string) => activeSeconds.get(key) ?? 0;
 const flat = (m: StudentModule): Activity[] => m.lessons.flatMap((l) => l.activities);
@@ -139,6 +142,27 @@ export function registerLogins(classCode: string, classId: string, issued: { stu
     people.set(s.studentId, person);
   }
 }
+type Entries<V> = [string, V][];
+register({
+  key: "student",
+  snapshot: () => ({
+    progress: [...progress].map(([id, m]) => [id, [...m]] as [string, Entries<Status>]),
+    seconds: [...activeSeconds],
+    logins: [...logins],
+    people: [...people],
+  }),
+  restore: (d: { progress: Entries<Entries<Status>>; seconds: Entries<number>; logins: Entries<Person>; people: Entries<Person> }) => {
+    progress.clear();
+    d.progress.forEach(([id, entries]) => progress.set(id, new Map(entries)));
+    activeSeconds.clear();
+    d.seconds.forEach(([k, v]) => activeSeconds.set(k, v));
+    logins.clear();
+    d.logins.forEach(([k, v]) => logins.set(k, v));
+    people.clear();
+    d.people.forEach(([k, v]) => people.set(k, v));
+  },
+});
+
 export const findLogin = (code: string, words: string) => logins.get(`${code.toUpperCase()}|${words}`);
 export const personFromToken = (header: string | null) => {
   const m = /^Bearer ses_mock_(.+)$/.exec(header ?? "");

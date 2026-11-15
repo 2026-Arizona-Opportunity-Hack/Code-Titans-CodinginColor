@@ -2,6 +2,7 @@ import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { StudentHome } from "../lib/api/student";
 import type { StudentModule } from "../lib/api/studentModule";
+import { register } from "./persist";
 import { addSeconds, commit, DOCS, findLogin, KEYS, moduleViews, personFromToken, secondsFor, statusMap } from "./studentStore";
 
 // Fake student API (backend auth-student and student-api). Demo student: class code K7M4QX,
@@ -36,6 +37,17 @@ export function studentModule(studentId: string, moduleId: string): StudentModul
 
 const CSID = /^[A-Za-z0-9_-]{8,64}$/;
 const submitted = new Map<string, { csid: string; result: unknown }>(); // safe retries: the first result is returned again
+
+register({
+  key: "student-steps",
+  snapshot: () => ({ drafts: [...drafts], submitted: [...submitted] }),
+  restore: (d: { drafts: [string, Record<string, unknown>][]; submitted: [string, { csid: string; result: unknown }][] }) => {
+    drafts.clear();
+    d.drafts.forEach(([k, v]) => drafts.set(k, v));
+    submitted.clear();
+    d.submitted.forEach(([k, v]) => submitted.set(k, v));
+  },
+});
 
 export const studentHandlers = [
   http.post(`${env.apiUrl}/auth/student/login`, async ({ request }) => {

@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { ClassSummary, Org, StaffMe, StaffRole } from "../lib/api/staff";
+import { register } from "./persist";
 import { getRoster } from "./rosterStore";
 
 // Fake staff API. Demo accounts use the token "staff_mock_<role>". Shapes follow the
@@ -38,6 +39,12 @@ const classes: ClassSummary[] = [
   }),
   newClass({ classId: "cls_02", name: "Period 5", orgId: "org_maryvale", joinCode: "R2D9TW" }),
 ];
+
+register({
+  key: "classes",
+  snapshot: () => classes,
+  restore: (data: ClassSummary[]) => classes.splice(0, classes.length, ...data),
+});
 
 export const findClass = (classId: string) => classes.find((c) => c.classId === classId);
 
