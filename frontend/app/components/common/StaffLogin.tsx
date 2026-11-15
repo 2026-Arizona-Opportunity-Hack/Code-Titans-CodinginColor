@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { useStaffSession } from "../../context/StaffSessionContext";
@@ -77,6 +78,12 @@ export function StaffLogin() {
           <code className="font-mono">frontend/.env.local</code> (see <code className="font-mono">.env.example</code>).
         </p>
       )}
+      <p className="mt-8 border-t pt-5 text-sm text-muted">
+        Teach outside CIC?{" "}
+        <Link href="/request-access/" className="font-bold underline">
+          Request a teacher account
+        </Link>
+      </p>
     </PublicShell>
   );
 }
