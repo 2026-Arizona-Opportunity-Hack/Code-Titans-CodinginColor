@@ -1,11 +1,11 @@
 import { Suspense } from "react";
-import { ClassPlaceholder } from "../../components/instructor/ClassPlaceholder";
+import { ClassPage as ClassScreen } from "../../components/instructor/ClassPage";
 
 // useSearchParams needs a Suspense boundary in a static export.
 export default function ClassPage() {
   return (
     <Suspense>
-      <ClassPlaceholder />
+      <ClassScreen />
     </Suspense>
   );
 }
