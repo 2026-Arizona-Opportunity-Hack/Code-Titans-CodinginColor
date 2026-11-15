@@ -135,6 +135,31 @@ def list_users(req: Request):
     return Reply(data=data, meta={"nextCursor": page.get("PaginationToken")})
 
 
+def invite_user(admin_id: str, email: str, name: str, role: str, can_author: bool, org_id):
+    """Create the Cognito user (which sends the invite email), add the role group and write the
+    profile. Returns (cognito user, sub). Nothing is left behind if a step fails."""
+    check_school_for_role(role, org_id)
+    try:
+        created = cognito().admin_create_user(
+            UserPoolId=pool_id(), Username=email, DesiredDeliveryMediums=["EMAIL"],
+            UserAttributes=[{"Name": "email", "Value": email}, {"Name": "email_verified", "Value": "true"},
+                            {"Name": "name", "Value": name}])["User"]
+    except ClientError as err:
+        if err.response["Error"]["Code"] == "UsernameExistsException":
+            raise Conflict("A user with this email already exists")
+        raise
+    sub = _attrs(created)["sub"]
+    try:
+        cognito().admin_add_user_to_group(UserPoolId=pool_id(), Username=email, GroupName=role)
+        profile = {"pk": f"USR#{sub}", "sk": "META", "canAuthor": can_author}
+        if org_id:
+            profile["orgId"] = org_id
+        db.get_table(db.CORE).put_item(Item=profile)
+    except Exception:
+        cognito().admin_delete_user(UserPoolId=pool_id(), Username=email)  # no half-created users
+        raise
+    log("staff_user_invited", userId=sub, role=role, by=admin_id)
+    return created, sub
 def create_user(req: Request):
     admin = require_admin(req.auth)
     body = req.json()
@@ -153,30 +178,8 @@ def create_user(req: Request):
         raise ValidationError("canAuthor can only be set for instructors")
     org_id = _school(body)
     org_id = None if org_id is _MISSING else org_id
-    check_school_for_role(role, org_id)
-    try:
-        created = cognito().admin_create_user(
-            UserPoolId=pool_id(), Username=email, DesiredDeliveryMediums=["EMAIL"],
-            UserAttributes=[{"Name": "email", "Value": email}, {"Name": "email_verified", "Value": "true"},
-                            {"Name": "name", "Value": name}])["User"]
-    except ClientError as err:
-        if err.response["Error"]["Code"] == "UsernameExistsException":
-            raise Conflict("A user with this email already exists")
-        raise
-    sub = _attrs(created)["sub"]
-    try:
-        cognito().admin_add_user_to_group(UserPoolId=pool_id(), Username=email, GroupName=role)
-        profile = {"pk": f"USR#{sub}", "sk": "META", "canAuthor": flag}
-        if org_id:
-            profile["orgId"] = org_id
-        db.get_table(db.CORE).put_item(Item=profile)
-    except Exception:
-        cognito().admin_delete_user(UserPoolId=pool_id(), Username=email)  # no half-created users
-        raise
-    log("staff_user_invited", userId=sub, role=role, by=admin.user_id)
+    created, _ = invite_user(admin.user_id, email, name, role, flag, org_id)
     return Reply(data=_public(created, role, _can_author(role, flag), org_id), status=201)
-
-
 def _current_role(sub: str):
     groups = cognito().admin_list_groups_for_user(UserPoolId=pool_id(), Username=sub)["Groups"]
     names = [g["GroupName"] for g in groups]

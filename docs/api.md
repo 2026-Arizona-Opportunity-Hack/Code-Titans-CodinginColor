@@ -50,6 +50,7 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 |---|---|---|---|
 | POST | `/auth/student/login` | Public | Class code + student secret words, returns a session |
 | POST | `/auth/student/logout` | Student | Delete the session |
+| POST | `/auth/external/request-access` | Public, throttled | A teacher outside CIC asks for an account `{name, email, organization, note?}`. Always `202 {received: true}`, also when the email already asked, so it cannot be used to find out who has. At most 200 requests wait at once (429 after that). |
 | GET | `/me` | Staff | Role, display name, `permissions: {canAuthor}`, class memberships |
 | GET | `/health` | Public | Liveness |
 
@@ -67,6 +68,8 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 - After 10 failures in 5 minutes for a class code, that class returns 429 `LOGIN_THROTTLED` with `Retry-After` for 5 minutes.
 - The convenience link `https://<app>/s#<classCode>.<words>` is read by the frontend and posted to this same endpoint.
 
+`POST /auth/external/request-access` creates no user. An admin reviews it (section 2). The staff user pool stays invite-only. A request waits 60 days, and a decided one is kept a year. A denied email cannot ask again.
+
 ---
 
 ## 2. Admin: users, organizations, cohorts, API keys
@@ -79,6 +82,9 @@ All `A` only.
 | POST | `/admin/users` | Invite a user `{email, name, role: instructor\|external_teacher\|reviewer\|cic_admin, canAuthor?, orgId?}` (Cognito admin-create-user). `external_teacher` needs an `orgId` of an external school. Everyone else must be in a CIC school. |
 | PATCH | `/admin/users/{userId}` | Change role, set `canAuthor`, or disable |
 | GET, POST | `/admin/orgs` | List or create schools `{name, kind?: cic\|external}`. `kind` defaults to `cic` and cannot be changed later. An `external` school belongs to an external teacher. CIC sees its usage only. |
+| GET | `/admin/access-requests?status=` | External teachers' requests for an account: `pending` (default), `approved` or `denied`, newest first. Each has `requestId, name, email, organization, note, status, createdAt, decidedAt, orgId`. |
+| POST | `/admin/access-requests/{requestId}/approve` | Optional `{orgId}` of an existing external school. Without it a new external school is created from the request's `organization`. Then the person is invited (Cognito sends the email) as an `external_teacher` in that school. 409 if already decided or if the email already has an account. Written to the audit log. |
+| POST | `/admin/access-requests/{requestId}/deny` | Deny a pending request. Written to the audit log. |
 | GET | `/admin/usage` | How much external teachers use CIC's curriculum. Counts and dates only, see below. |
 | PATCH | `/admin/orgs/{orgId}` | Rename or archive |
 | GET, POST | `/admin/cohorts` | List or create cohorts `{name, orgId?}` |
@@ -353,7 +359,8 @@ Generated from the synthesized CDK stack, so it shows what is deployed, not what
 | `GET /health` | `health` | none (public) | none |
 | `POST /auth/student/login` | `auth-student` | none (public, throttled) | core rw, pepper secret (read) |
 | `POST /auth/student/logout` | `auth-student` | student session | same as login |
-| `GET /me`, `/admin/orgs`, `/admin/cohorts`, `/admin/users`, `/admin/api-keys`, `/admin/audit` | `admin-api` | Cognito JWT | core rw, events rw, Cognito admin actions |
+| `GET /me`, `/admin/orgs`, `/admin/cohorts`, `/admin/users`, `/admin/api-keys`, `/admin/audit`, `/admin/access-requests` | `admin-api` | Cognito JWT | core rw, events rw, Cognito admin actions |
+| `POST /auth/external/request-access` | `access-request` | none (public, throttled to 2 per second) | core PutItem and Query only |
 | `/curriculum/*` | `curriculum-api` | Cognito JWT | content rw, core r, assets bucket (write) |
 | `/classes` (create, list, update, members, roster, import, credentials, join code, assignments, unlock) and `GET /students`, `GET /students/{id}` | `class-api` | Cognito JWT | core rw, content r, progress (query and delete, to remove a deleted student), pepper secret (read), Cognito (group check) |
 | `/classes/{id}/progress`, `students/{id}/progress`, `attention`, `modules/{id}/gain`, `concepts`, `review-queue`, `submissions/{id}/review`, `export`, `/admin/cohorts/{id}/summary`, and `GET /admin/usage` | `reports-api` | Cognito JWT | core r, content r, progress rw (review updates), events w (export audit) |

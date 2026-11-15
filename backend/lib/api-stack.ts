@@ -8,6 +8,7 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 import { AppConfig } from "./config";
 import { DataStack } from "./data-stack";
+import { AccessRequestApi } from "./domains/access-request";
 import { DomainContext, addRoutes } from "./domains/context";
 import { AdminDomain } from "./domains/admin";
 import { ClassesDomain } from "./domains/classes";
@@ -99,6 +100,7 @@ export class ApiStack extends cdk.Stack {
     new ReportsApi(this, "Reports", ctx);
     new ReadApi(this, "Read", ctx);
     new AdminDomain(this, "Admin", ctx);
+    new AccessRequestApi(this, "AccessRequest", ctx);
     new ClassesDomain(this, "Classes", ctx, studentAuth.pepper);
     new CurriculumDomain(this, "Curriculum", ctx);
 

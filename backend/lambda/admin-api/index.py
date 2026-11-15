@@ -5,6 +5,7 @@ from admin_audit import ROUTES as AUDIT_ROUTES
 from admin_cohorts import ROUTES as COHORT_ROUTES
 from admin_keys import ROUTES as KEY_ROUTES
 from admin_orgs import ROUTES as ORG_ROUTES
+from admin_requests import ROUTES as REQUEST_ROUTES
 from admin_users import ROUTES as USER_ROUTES
 from cic import db
 from cic.authz import ADMIN, EXTERNAL, INSTRUCTOR, REVIEWER, require_staff
@@ -44,4 +45,4 @@ def me(req: Request):
     }
 
 
-lambda_handler = make_handler({"GET /v1/me": me, **ORG_ROUTES, **COHORT_ROUTES, **USER_ROUTES, **KEY_ROUTES, **AUDIT_ROUTES})
+lambda_handler = make_handler({"GET /v1/me": me, **ORG_ROUTES, **COHORT_ROUTES, **USER_ROUTES, **KEY_ROUTES, **AUDIT_ROUTES, **REQUEST_ROUTES})

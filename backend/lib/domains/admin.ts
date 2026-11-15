@@ -55,6 +55,9 @@ export class AdminDomain extends Construct {
         "POST /v1/admin/api-keys",
         "DELETE /v1/admin/api-keys/{keyId}",
         "GET /v1/admin/audit",
+        "GET /v1/admin/access-requests",
+        "POST /v1/admin/access-requests/{requestId}/approve",
+        "POST /v1/admin/access-requests/{requestId}/deny",
       ],
       ctx.staffAuthorizer,
     );
