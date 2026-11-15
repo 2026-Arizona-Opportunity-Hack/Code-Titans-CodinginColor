@@ -86,3 +86,8 @@ export function updateClass(
 ): Promise<ClassSummary> {
   return apiFetch<ClassSummary>(`/classes/${encodeURIComponent(classId)}`, { method: "PATCH", token, body: changes });
 }
+
+/** POST /classes/{classId}/join-code/rotate: the old class code stops working straight away. */
+export function rotateJoinCode(token: string, classId: string): Promise<{ classId: string; joinCode: string }> {
+  return apiFetch(`/classes/${encodeURIComponent(classId)}/join-code/rotate`, { method: "POST", token });
+}

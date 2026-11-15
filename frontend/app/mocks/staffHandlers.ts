@@ -117,7 +117,26 @@ export const staffHandlers = [
     const body = (await request.json().catch(() => ({}))) as Partial<ClassSummary>;
     if (body.currentModuleId) found.currentModuleId = body.currentModuleId;
     if (body.name?.trim()) found.name = body.name.trim();
+    if (body.status === "active" || body.status === "archived") found.status = body.status;
+    if (body.settings) {
+      const limits: Record<string, [number, number]> = { stuckFailedAttempts: [1, 20], stuckTimeMultiplier: [1, 10], notStartedDays: [1, 14], inactiveSchoolDays: [1, 14] };
+      for (const [k, v] of Object.entries(body.settings)) {
+        const [lo, hi] = limits[k] ?? [1, 0];
+        if (!Number.isInteger(v) || v < lo || v > hi) return apiError(400, "VALIDATION_ERROR", `${k} must be a whole number from ${lo} to ${hi}`);
+      }
+      found.settings = { ...found.settings, ...body.settings };
+    }
     return HttpResponse.json({ data: found });
+  }),
+
+  http.post(`${env.apiUrl}/classes/:classId/join-code/rotate`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't change classes.");
+    const found = classes.find((c) => c.classId === params.classId);
+    if (!found) return apiError(404, "NOT_FOUND", "Class not found.");
+    found.joinCode = randomCode();
+    return HttpResponse.json({ data: { classId: found.classId, joinCode: found.joinCode } });
   }),
 
   http.get(`${env.apiUrl}/classes/:classId`, ({ request, params }) => {
