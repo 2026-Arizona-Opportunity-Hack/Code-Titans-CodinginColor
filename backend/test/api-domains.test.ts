@@ -137,6 +137,7 @@ describe("CurriculumDomain", () => {
     "GET /v1/curriculum/modules/{moduleId}/versions",
     "GET /v1/curriculum/modules/{moduleId}/versions/{version}",
     "GET /v1/curriculum/concepts",
+    "POST /v1/curriculum/assets/upload-url",
   ])("%s requires the Cognito JWT authorizer", (routeKey) => {
     t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
   });
@@ -152,5 +153,43 @@ describe("CurriculumDomain", () => {
     expect(actionsFor("ContentTable")).toContain("dynamodb:PutItem");
     expect(actionsFor("CoreTable")).toContain("dynamodb:GetItem");
     expect(actionsFor("CoreTable")).not.toContain("dynamodb:PutItem");
+  });
+});
+
+describe("Curriculum assets", () => {
+  function dataTemplate(): Template {
+    const app = new cdk.App({ context: { allowedOrigins: "http://localhost:3000" } });
+    return Template.fromStack(new DataStack(app, "Data", { env, allowedOrigins: ["http://localhost:3000"] }));
+  }
+
+  test("the bucket is private, encrypted, TLS-only and retained, with CORS for uploads", () => {
+    const d = dataTemplate();
+    d.hasResourceProperties("AWS::S3::Bucket", {
+      PublicAccessBlockConfiguration: { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true },
+      BucketEncryption: Match.anyValue(),
+      CorsConfiguration: { CorsRules: [Match.objectLike({ AllowedMethods: ["POST"], AllowedOrigins: ["http://localhost:3000"] })] },
+    });
+    d.hasResource("AWS::S3::Bucket", { DeletionPolicy: "Retain" });
+    expect(JSON.stringify(d.findResources("AWS::S3::BucketPolicy"))).toContain("aws:SecureTransport");
+  });
+
+  test("images are served through CloudFront with origin access control, not public S3", () => {
+    const d = dataTemplate();
+    d.resourceCountIs("AWS::CloudFront::OriginAccessControl", 1);
+    d.hasResourceProperties("AWS::CloudFront::Distribution", {
+      DistributionConfig: Match.objectLike({ DefaultCacheBehavior: Match.objectLike({ ViewerProtocolPolicy: "redirect-to-https" }) }),
+    });
+  });
+
+  test("the curriculum function can only put objects under curriculum/", () => {
+    const policies = Object.values(apiTemplate().findResources("AWS::IAM::Policy")) as any[];
+    const policy = policies.find((x) => JSON.stringify(x).includes("CurriculumApiFunction"));
+    const s3Statements = ([] as any[]).concat(policy.Properties.PolicyDocument.Statement)
+      .filter((st) => ([] as any[]).concat(st.Action).some((a: string) => a.startsWith("s3:")));
+    const actions = s3Statements.flatMap((st) => ([] as any[]).concat(st.Action));
+    expect(actions).toContain("s3:PutObject");
+    expect(actions).not.toContain("s3:GetObject");
+    expect(actions).not.toContain("s3:DeleteObject");
+    expect(JSON.stringify(s3Statements)).toContain("/curriculum/*");
   });
 });

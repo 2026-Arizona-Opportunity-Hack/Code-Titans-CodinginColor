@@ -15,7 +15,7 @@ const env = {
 };
 
 // The shared AWS account already holds other stacks, so every name is prefixed.
-const data = new DataStack(app, "CicCurriculumDataStack", { env });
+const data = new DataStack(app, "CicCurriculumDataStack", { env, allowedOrigins: config.allowedOrigins });
 const auth = new AuthStack(app, "CicCurriculumAuthStack", { env, config });
 new ApiStack(app, "CicCurriculumApiStack", {
   env,
