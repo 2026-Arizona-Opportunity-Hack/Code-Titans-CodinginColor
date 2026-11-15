@@ -14,19 +14,26 @@ type Value = string | string[];
 const newSubmissionId = () => crypto.randomUUID();
 const hasAnswer = (v: Value | undefined) => (Array.isArray(v) ? v.length > 0 : (v ?? "").trim() !== "");
 
-function QuestionField({ q, value, onChange, disabled }: { q: Question; value: Value | undefined; onChange: (v: Value) => void; disabled: boolean }) {
+function QuestionField({ q, n, value, onChange, disabled }: { q: Question; n: number; value: Value | undefined; onChange: (v: Value) => void; disabled: boolean }) {
   return (
     <fieldset disabled={disabled} className="card">
-      <legend className="px-1 text-lg font-bold">
-        <InlineCode text={q.prompt} />
+      {/* float + full width lets the question sit inside the card instead of on its border */}
+      <legend className="float-left mb-3 flex w-full items-start gap-3 p-0 text-lg font-bold">
+        <span aria-hidden="true" className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-tint text-sm text-brand">
+          {n}
+        </span>
+        <span>
+          <span className="sr-only">Question {n}: </span>
+          <InlineCode text={q.prompt} />
+        </span>
       </legend>
       {q.type === "mcq" || q.type === "multi" ? (
-        <div className="mt-3 flex flex-col gap-2">
+        <div className="clear-both flex flex-col gap-2.5">
           {q.choices?.map((c) => {
             const multi = q.type === "multi";
             const selected = multi ? ((value as string[] | undefined) ?? []).includes(c.id) : value === c.id;
             return (
-              <label key={c.id} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border-2 border-transparent px-2 hover:bg-tint has-[:checked]:border-brand has-[:checked]:bg-tint">
+              <label key={c.id} className="option">
                 <input
                   type={multi ? "checkbox" : "radio"}
                   name={q.questionId}
@@ -51,7 +58,7 @@ function QuestionField({ q, value, onChange, disabled }: { q: Question; value: V
           value={(value as string | undefined) ?? ""}
           onChange={(e) => onChange(e.target.value)}
           autoComplete="off"
-          className="field mt-3"
+          className="field clear-both"
         />
       )}
     </fieldset>
@@ -156,19 +163,21 @@ export function QuestionActivity({
   return (
     <div>
       {isTest ? (
-        <p className="callout mb-5">
-          <span className="font-bold text-brand">
+        <p className="callout mb-5 flex items-start gap-3">
+          <Icon name="info" className="mt-0.5 size-5 text-brand" />
+          <span><span className="font-bold text-brand">
             {activity.role === "pre" ? "This test shows what you already know." : "This test shows what you have learned."}
           </span>{" "}
-          It isn&apos;t a grade against you. You can only submit it once, and the answers aren&apos;t shown afterwards.
+          It isn&apos;t a grade against you. You can only submit it once, and the answers aren&apos;t shown afterwards.</span>
         </p>
       ) : null}
 
       <div className="flex flex-col gap-4">
-        {activity.questions.map((q) => (
+        {activity.questions.map((q, i) => (
           <QuestionField
             key={q.questionId}
             q={q}
+            n={i + 1}
             value={answers[q.questionId]}
             onChange={(v) => setAnswers((a) => ({ ...a, [q.questionId]: v }))}
             disabled={busy || confirming}
