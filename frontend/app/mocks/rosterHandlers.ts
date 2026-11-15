@@ -103,6 +103,33 @@ export const rosterHandlers = [
     return HttpResponse.json({ data: rows, meta: { nextCursor: null } });
   }),
 
+  http.patch(`${env.apiUrl}/classes/:classId/roster/:studentId`, async ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't change students.");
+    const s = getRoster(String(params.classId)).find((x) => x.studentId === params.studentId);
+    if (!s) return apiError(404, "NOT_FOUND", "Student not found");
+    const b = (await request.json().catch(() => ({}))) as { displayName?: string; status?: "active" | "inactive" };
+    if (!b.displayName?.trim() && !b.status) return apiError(400, "VALIDATION_ERROR", "Nothing to update");
+    if (b.displayName?.trim()) s.displayName = b.displayName.trim();
+    if (b.status) s.status = b.status;
+    return HttpResponse.json({ data: s });
+  }),
+
+  http.post(`${env.apiUrl}/classes/:classId/roster/:studentId/merge`, async ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't change students.");
+    const roster = getRoster(String(params.classId));
+    const into = ((await request.json().catch(() => ({}))) as { intoStudentId?: string }).intoStudentId;
+    if (into === params.studentId) return apiError(400, "VALIDATION_ERROR", "A student cannot be merged into themselves");
+    const index = roster.findIndex((x) => x.studentId === params.studentId);
+    if (index === -1) return apiError(404, "NOT_FOUND", "Student not found");
+    if (!roster.some((x) => x.studentId === into)) return apiError(400, "VALIDATION_ERROR", "intoStudentId is not a student in this class");
+    roster.splice(index, 1);
+    return HttpResponse.json({ data: { merged: true } });
+  }),
+
   http.get(`${env.apiUrl}/classes/:classId/roster/duplicates`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");

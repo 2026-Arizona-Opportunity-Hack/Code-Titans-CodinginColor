@@ -2,10 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ApiError } from "../../lib/api/client";
 import { getStudentDetail, type ActivityDetail, type StudentDetail } from "../../lib/api/reports";
 import { StaffPage } from "../common/StaffPage";
+import { StudentManage } from "./StudentManage";
 
 const TYPE: Record<ActivityDetail["type"], string> = {
   video: "Video",
@@ -77,6 +78,7 @@ function DetailBody({ token, classId, studentId }: { token: string; classId: str
     retry: false,
     refetchOnMount: "always",
   });
+  const router = useRouter();
   const back = `/instructor/class/progress/?id=${encodeURIComponent(classId)}`;
   const d = detail.data;
   const next = d?.resume ? d.modules.find((m) => m.moduleId === d.resume?.moduleId)?.title : undefined;
@@ -116,6 +118,8 @@ function DetailBody({ token, classId, studentId }: { token: string; classId: str
               <ModuleCard key={m.moduleId} module={m} />
             ))}
           </div>
+
+          <StudentManage token={token} classId={classId} detail={d} onMerged={() => router.replace(back)} />
 
           {d.submissions.length > 0 ? (
             <section aria-labelledby="subs-heading" className="mt-8">
