@@ -67,6 +67,20 @@ export default function Home() {
           </section>
         ) : null}
 
+        {env.useMocks ? (
+          <section aria-labelledby="staff-demo-heading" className="rounded-xl border border-line bg-surface p-5">
+            <h2 id="staff-demo-heading" className="text-xl">
+              Try the instructor flow (fake data)
+            </h2>
+            <p className="mt-1 text-muted">Sign in with a demo account, see your classes, and create a new one.</p>
+            <p className="mt-4">
+              <Link href="/login/" className="btn btn-primary">
+                Staff sign in
+              </Link>
+            </p>
+          </section>
+        ) : null}
+
         <section aria-labelledby="status-heading" className="rounded-xl border border-line bg-surface p-5">
           <h2 id="status-heading" className="mb-3 text-xl">
             Status
