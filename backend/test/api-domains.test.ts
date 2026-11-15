@@ -88,3 +88,24 @@ describe("AdminDomain", () => {
     expect(policies).not.toMatch(/cognito-idp:(DeleteUserPool|UpdateUserPool|\*)/);
   });
 });
+
+describe("ClassesDomain", () => {
+  const t = apiTemplate();
+
+  test.each([
+    "POST /v1/classes",
+    "GET /v1/classes",
+    "GET /v1/classes/{classId}",
+    "PATCH /v1/classes/{classId}",
+    "POST /v1/classes/{classId}/members",
+  ])("%s requires the Cognito JWT authorizer", (routeKey) => {
+    t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
+  });
+
+  test("the class function reads content but cannot write it", () => {
+    const policies = Object.values(t.findResources("AWS::IAM::Policy")) as any[];
+    const p = JSON.stringify(policies.find((x) => JSON.stringify(x).includes("ClassApiFunction")));
+    expect(p).toContain("cognito-idp:AdminListGroupsForUser");
+    expect(p).not.toContain("cognito-idp:AdminCreateUser");
+  });
+});
