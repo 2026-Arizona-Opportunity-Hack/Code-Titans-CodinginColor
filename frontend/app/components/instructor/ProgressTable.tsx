@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ModuleState } from "../../lib/api/student";
 import type { ProgressMatrix } from "../../lib/api/reports";
 
@@ -10,8 +11,11 @@ const STATE: Record<ModuleState, { label: (percent: number) => string; badge: st
   catch_up: { label: (p) => (p > 0 ? `Catch up · ${p}%` : "Catch up"), badge: "badge badge-warn" },
 };
 
+export const studentHref = (classId: string, studentId: string) =>
+  `/instructor/student/?class=${encodeURIComponent(classId)}&id=${encodeURIComponent(studentId)}`;
+
 /** The roster by assigned modules: each cell shows the student's state, percent and minutes spent. */
-export function ProgressTable({ matrix, students }: { matrix: ProgressMatrix; students: ProgressMatrix["students"] }) {
+export function ProgressTable({ matrix, students, classId }: { matrix: ProgressMatrix; students: ProgressMatrix["students"]; classId: string }) {
   const titleOf = (moduleId: string) => matrix.modules.find((m) => m.moduleId === moduleId)?.title ?? moduleId;
 
   return (
@@ -33,7 +37,8 @@ export function ProgressTable({ matrix, students }: { matrix: ProgressMatrix; st
           {students.map((s) => (
             <tr key={s.studentId}>
               <th scope="row" className="font-bold">
-                {s.displayName} <span className="font-normal text-muted">#{s.rosterNumber}</span>
+                <Link href={studentHref(classId, s.studentId)}>{s.displayName}</Link>{" "}
+                <span className="font-normal text-muted">#{s.rosterNumber}</span>
               </th>
               {matrix.modules.map((m) => {
                 const cell = s.modules[m.moduleId];

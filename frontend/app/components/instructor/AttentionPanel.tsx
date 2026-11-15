@@ -1,4 +1,6 @@
+import Link from "next/link";
 import type { Attention, StuckReason } from "../../lib/api/reports";
+import { studentHref } from "./ProgressTable";
 
 // Plain-language versions of the server's reasons (docs/api.md section 5).
 const REASON: Record<StuckReason, string> = {
@@ -9,7 +11,7 @@ const REASON: Record<StuckReason, string> = {
 };
 
 /** Who needs a teacher's help right now: students who are stuck, and students who have not started. */
-export function AttentionPanel({ attention, titleOf }: { attention: Attention; titleOf: (moduleId: string) => string }) {
+export function AttentionPanel({ attention, titleOf, classId }: { attention: Attention; titleOf: (moduleId: string) => string; classId: string }) {
   const { stuck, notStarted } = attention;
 
   if (stuck.length === 0 && notStarted.length === 0) {
@@ -33,7 +35,8 @@ export function AttentionPanel({ attention, titleOf }: { attention: Attention; t
             {stuck.map((s) => (
               <li key={s.studentId}>
                 <p className="font-bold">
-                  {s.displayName} <span className="font-normal text-muted">#{s.rosterNumber}</span>
+                  <Link href={studentHref(classId, s.studentId)}>{s.displayName}</Link>{" "}
+                  <span className="font-normal text-muted">#{s.rosterNumber}</span>
                   <span className="font-normal text-muted"> · {titleOf(s.moduleId)}</span>
                 </p>
                 <p className="mt-1 flex flex-wrap gap-2">
@@ -57,7 +60,8 @@ export function AttentionPanel({ attention, titleOf }: { attention: Attention; t
             {notStarted.map((s) => (
               <li key={s.studentId}>
                 <p className="font-bold">
-                  {s.displayName} <span className="font-normal text-muted">#{s.rosterNumber}</span>
+                  <Link href={studentHref(classId, s.studentId)}>{s.displayName}</Link>{" "}
+                  <span className="font-normal text-muted">#{s.rosterNumber}</span>
                 </p>
                 <p className="text-sm text-muted">
                   Next: {titleOf(s.moduleId)}

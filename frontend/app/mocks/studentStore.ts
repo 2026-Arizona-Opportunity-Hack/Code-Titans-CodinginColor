@@ -71,6 +71,9 @@ export const statusMap = (studentId: string) => {
 const activeSeconds = new Map<string, number>();
 export const addSeconds = (key: string, n: number) => activeSeconds.set(key, (activeSeconds.get(key) ?? 0) + n);
 export const secondsFor = (key: string) => activeSeconds.get(key) ?? 0;
+const assessments = new Map<string, number>(); // "student/module/role" -> score in percent
+export const recordAssessment = (studentId: string, moduleId: string, role: string, pct: number) => assessments.set(`${studentId}/${moduleId}/${role}`, pct);
+export const assessmentScore = (studentId: string, moduleId: string, role: string) => assessments.get(`${studentId}/${moduleId}/${role}`) ?? null;
 export const moduleSeconds = (studentId: string, moduleId: string) =>
   [...activeSeconds].filter(([k]) => k.startsWith(`${studentId}/${moduleId}/`)).reduce((sum, [, s]) => sum + s, 0);
 // Demo students on the Period 3 roster who are at different points, so the teacher's views have something to show.
@@ -84,6 +87,8 @@ const demoProgress: [string, string[][], number][] = [
 ];
 for (const [id, done, seconds] of demoProgress) {
   done.forEach(([m, a]) => statusMap(id).set(`${m}/${a}`, "complete"));
+  if (done.some(([, a]) => a === "a-pre")) recordAssessment(id, "py-loops", "pre", id === "stu_cls_01_3" ? 40 : 50);
+  if (done.some(([, a]) => a === "a-post")) recordAssessment(id, "py-loops", "post", 85);
   addSeconds(`${id}/${done[done.length - 1][0]}/${done[done.length - 1][1]}`, seconds);
 }
 
@@ -166,8 +171,9 @@ register({
     seconds: [...activeSeconds],
     logins: [...logins],
     people: [...people],
+    scores: [...assessments],
   }),
-  restore: (d: { progress: Entries<Entries<Status>>; seconds: Entries<number>; logins: Entries<Person>; people: Entries<Person> }) => {
+  restore: (d: { progress: Entries<Entries<Status>>; seconds: Entries<number>; logins: Entries<Person>; people: Entries<Person>; scores: Entries<number> }) => {
     progress.clear();
     d.progress.forEach(([id, entries]) => progress.set(id, new Map(entries)));
     activeSeconds.clear();
@@ -176,6 +182,8 @@ register({
     d.logins.forEach(([k, v]) => logins.set(k, v));
     people.clear();
     d.people.forEach(([k, v]) => people.set(k, v));
+    assessments.clear();
+    d.scores.forEach(([k, v]) => assessments.set(k, v));
   },
 });
 

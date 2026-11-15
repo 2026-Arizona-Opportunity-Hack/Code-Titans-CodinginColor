@@ -107,7 +107,7 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
           </dl>
 
           {attention.data ? (
-            <AttentionPanel attention={attention.data} titleOf={(id) => matrix.modules.find((m) => m.moduleId === id)?.title ?? id} />
+            <AttentionPanel attention={attention.data} classId={classId} titleOf={(id) => matrix.modules.find((m) => m.moduleId === id)?.title ?? id} />
           ) : null}
 
           <div className="mt-8 max-w-sm">
@@ -120,7 +120,7 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
             Showing {visible.length} of {students.length} students
           </p>
           <div className="mt-2">
-            {visible.length > 0 ? <ProgressTable matrix={matrix} students={visible} /> : <p className="card text-muted">No students match.</p>}
+            {visible.length > 0 ? <ProgressTable matrix={matrix} students={visible} classId={classId} /> : <p className="card text-muted">No students match.</p>}
           </div>
         </>
       ) : null}

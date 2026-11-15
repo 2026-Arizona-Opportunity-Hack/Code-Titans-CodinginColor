@@ -1,10 +1,10 @@
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
-import type { Attention, ProgressMatrix, StuckReason } from "../lib/api/reports";
+import type { ActivityDetail, Attention, ProgressMatrix, StudentDetail, StuckReason } from "../lib/api/reports";
 import { assignedFor, titleOf } from "./assignmentHandlers";
 import { getRoster } from "./rosterStore";
 import { apiError, roleOf } from "./staffHandlers";
-import { moduleSeconds, moduleViews, statusMap } from "./studentStore";
+import { assessmentScore, DOCS, moduleSeconds, moduleViews, secondsFor, statusMap } from "./studentStore";
 
 // Fake instructor reports, built from the same fake students the player updates, so what a
 // student does in one tab shows up here. Active students only, as the real endpoint does.
@@ -57,7 +57,43 @@ function attention(classId: string): Attention {
   return result;
 }
 
+function studentDetail(classId: string, studentId: string): StudentDetail | null {
+  const s = getRoster(classId).find((x) => x.studentId === studentId);
+  if (!s) return null;
+  const { views, resume } = moduleViews(studentId);
+  const done = Date.now() - 86_400_000;
+  return {
+    student: { studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, externalId: s.externalId },
+    status: s.status,
+    resume,
+    modules: assignedFor(classId).map((a) => {
+      const v = views.find((x) => x.moduleId === a.moduleId)!;
+      const activities: ActivityDetail[] = DOCS[a.moduleId].lessons.flatMap((l) => l.activities).map((act) => {
+        const state = v.states[act.activityId];
+        return {
+          activityId: act.activityId, type: act.type, state,
+          attempts: state === "complete" || state === "in_progress" ? 1 : 0,
+          bestScore: act.type === "check" && state === "complete" ? 100 : null,
+          activeMinutes: Math.round((secondsFor(`${studentId}/${a.moduleId}/${act.activityId}`) / 60) * 10) / 10,
+          completedAt: state === "complete" ? done : null,
+        };
+      });
+      return { moduleId: a.moduleId, title: titleOf(a.moduleId), state: v.state, percent: v.percent, pre: assessmentScore(studentId, a.moduleId, "pre"), post: assessmentScore(studentId, a.moduleId, "post"), activities };
+    }),
+    // A finished worksheet has a free-text field with no answer key, so it waits for the teacher.
+    submissions: assignedFor(classId).flatMap((a) => (views.find((x) => x.moduleId === a.moduleId)?.states["a-ws"] === "complete" ? [{ activityId: "a-ws", moduleId: a.moduleId, submittedAt: done, reviewStatus: "pending" as const, autoScorePct: 100, reviewScore: null, reviewComment: null }] : [])),
+  };
+}
+
 export const reportHandlers = [
+  http.get(`${env.apiUrl}/classes/:classId/students/:studentId/progress`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
+    const found = studentDetail(String(params.classId), String(params.studentId));
+    return found ? HttpResponse.json({ data: found }) : apiError(404, "NOT_FOUND", "Student not found");
+  }),
+
   http.get(`${env.apiUrl}/classes/:classId/attention`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
