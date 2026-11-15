@@ -20,12 +20,11 @@ export type WorksheetField = { fieldId: string; type: string; prompt: string };
 
 export type ActivityState = "locked" | "available" | "in_progress" | "complete";
 
-type ActivityBase = { activityId: string; title: string; state: ActivityState; required?: boolean };
+type ActivityBase = { activityId: string; title: string; state: ActivityState; required?: boolean; /** Author text, a safe markdown subset. */ body?: string };
 
 export type Activity =
   | (ActivityBase & { type: "video"; provider: "youtube"; videoId: string; minSeconds: number })
-  // The slides schema is not defined in the docs yet.
-  | (ActivityBase & { type: "slides"; minSeconds?: number })
+  | (ActivityBase & { type: "slides"; minSeconds?: number; slides?: { title?: string; body?: string }[] })
   | (ActivityBase & { type: "check" | "exit"; questions: Question[]; passPct?: number })
   | (ActivityBase & { type: "assessment"; role: "pre" | "post"; questions: Question[] })
   | (ActivityBase & {
