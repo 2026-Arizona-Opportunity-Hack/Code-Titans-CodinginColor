@@ -100,8 +100,9 @@ export function rotateJoinCode(token: string, classId: string): Promise<{ classI
 export type StudentHit = { studentId: string; displayName: string; rosterNumber: number; classId: string; status: "active" | "inactive" };
 
 /** GET /students?q=&cohortId=&classId=: find students by name. `truncated` means there are more than were returned. */
+/** GET /students. An empty `q` lists every student in the caller's classes (up to 200). */
 export async function searchStudents(token: string, filters: { q: string; classId?: string; cohortId?: string }, signal?: AbortSignal) {
-  const params = new URLSearchParams({ q: filters.q, limit: "50" });
+  const params = new URLSearchParams({ q: filters.q, limit: "200" });
   if (filters.classId) params.set("classId", filters.classId);
   if (filters.cohortId) params.set("cohortId", filters.cohortId);
   const { data, meta } = await apiFetchPage<StudentHit[]>(`/students?${params}`, { token, signal });
