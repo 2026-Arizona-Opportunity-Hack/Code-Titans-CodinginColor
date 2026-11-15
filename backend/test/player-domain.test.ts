@@ -96,3 +96,21 @@ describe("StudentPlayerApi", () => {
     expect(JSON.stringify(t.findResources("AWS::IAM::Policy"))).not.toContain('"dynamodb:*"');
   });
 });
+
+describe("access requests", () => {
+  const t = apiTemplate();
+
+  test("the request route is public and throttled to 2 per second", () => {
+    t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /v1/auth/external/request-access", AuthorizationType: "NONE" });
+    t.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
+      RouteSettings: Match.objectLike({ "POST /v1/auth/external/request-access": { ThrottlingRateLimit: 2, ThrottlingBurstLimit: 5 } }),
+    });
+  });
+
+  test("the public function can only put items and query, never read or delete", () => {
+    const policies = Object.values(t.findResources("AWS::IAM::Policy")) as any[];
+    const own = policies.find((p) => JSON.stringify(p).includes("AccessRequestFunction"));
+    const actions = own.Properties.PolicyDocument.Statement.flatMap((s: any) => (Array.isArray(s.Action) ? s.Action : [s.Action]));
+    expect(actions.filter((a: string) => a.startsWith("dynamodb:")).sort()).toEqual(["dynamodb:PutItem", "dynamodb:Query"]);
+  });
+});

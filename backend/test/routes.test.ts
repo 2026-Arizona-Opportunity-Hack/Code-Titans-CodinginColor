@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { ACCESS_REQUEST_ROUTES } from "../lib/domains/access-request";
 import { READ_ROUTES } from "../lib/domains/read";
 import { REPORTS_ROUTES } from "../lib/domains/reports";
 import { STUDENT_ROUTES } from "../lib/domains/student-player";
@@ -20,6 +21,9 @@ describe("route keys match between CDK and Lambda", () => {
     expect([...pythonRoutes("reports-api")].sort()).toEqual([...REPORTS_ROUTES].sort());
   });
 
+  test("access-request", () => {
+    expect([...pythonRoutes("access-request")].sort()).toEqual([...ACCESS_REQUEST_ROUTES].sort());
+  });
   test("student-api (includes hints)", () => {
     expect([...pythonRoutes("student-api")].sort()).toEqual([...STUDENT_ROUTES].sort());
   });

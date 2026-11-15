@@ -29,15 +29,18 @@ def list_orgs(req: Request):
     return Reply(data=[public(i) for i in items], meta={"nextCursor": cursor})
 
 
+def new_org(name: str, kind: str) -> dict:
+    """Write a new active school and return its item."""
+    org_id = f"org_{uuid.uuid4().hex[:12]}"
+    item = {"pk": f"ORG#{org_id}", "sk": "META", "name": name, "kind": kind, "status": "active",
+            "createdAt": utc_now_iso(), "gsi2pk": "LIST#ORG", "gsi2sk": f"ORG#{org_id}"}
+    db.get_table(db.CORE).put_item(Item=item)
+    return item
 def create_org(req: Request):
     require_admin(req.auth)
     body = req.json()
     validate.reject_unknown(body, ("name", "kind"))
-    org_id = f"org_{uuid.uuid4().hex[:12]}"
-    item = {"pk": f"ORG#{org_id}", "sk": "META", "name": validate.text(body, "name"),
-            "kind": validate.choice(body, "kind", KINDS) or "cic", "status": "active", "createdAt": utc_now_iso(),
-            "gsi2pk": "LIST#ORG", "gsi2sk": f"ORG#{org_id}"}
-    db.get_table(db.CORE).put_item(Item=item)
+    item = new_org(validate.text(body, "name"), validate.choice(body, "kind", KINDS) or "cic")
     return Reply(data=public(item), status=201)
 
 
