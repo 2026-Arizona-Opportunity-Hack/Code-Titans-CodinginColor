@@ -24,12 +24,14 @@ type ActivityBase = { activityId: string; title: string; state: ActivityState; r
 
 export type Activity =
   | (ActivityBase & { type: "video"; provider: "youtube"; videoId: string; minSeconds: number })
-  | (ActivityBase & { type: "slides"; minSeconds?: number; slides?: { title?: string; body?: string }[] })
+  | (ActivityBase & { type: "slides"; minSeconds?: number; slides?: { title?: string; body?: string }[]; document?: import("../slideDocument").SlideDocument })
   | (ActivityBase & { type: "check" | "exit"; questions: Question[]; passPct?: number })
   | (ActivityBase & { type: "assessment"; role: "pre" | "post"; questions: Question[] })
   | (ActivityBase & {
       type: "worksheet";
       instructions: string;
+      /** The original printed worksheet, shown above the fields. */
+      document?: import("../slideDocument").SlideDocument;
       fields: WorksheetField[];
       /** Saved answers, {fieldId: value}. */
       draft?: Record<string, string | number | null>;

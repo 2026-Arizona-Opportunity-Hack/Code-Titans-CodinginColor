@@ -70,3 +70,10 @@ def test_instructors_can_ask_for_upload_urls_but_reviewers_cannot(api):
     assert call(api, ok, who=AUTHOR)[0] == 200
     assert call(api, ok, who=INS)[0] == 200
     assert call(api, ok, who=REV)[0] == 403
+
+
+def test_pdfs_are_allowed_up_to_20_mb(api):
+    status, body = call(api, {"contentType": "application/pdf", "size": 20 * 1024 * 1024})
+    assert status == 200 and body["data"]["key"].endswith(".pdf") and body["data"]["fields"]["Content-Type"] == "application/pdf"
+    assert call(api, {"contentType": "application/pdf", "size": 20 * 1024 * 1024 + 1})[0] == 400
+    assert call(api, {"contentType": "image/png", "size": 6 * 1024 * 1024})[0] == 400  # images keep their 5 MB limit

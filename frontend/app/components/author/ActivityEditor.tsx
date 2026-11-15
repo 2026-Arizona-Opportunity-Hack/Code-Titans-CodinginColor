@@ -1,5 +1,7 @@
 import type { DocActivity, DocQuestion } from "../../lib/api/curriculum";
 import { QuestionEditor } from "./QuestionEditor";
+import { SlideDeckEditor } from "./SlideDeckEditor";
+import { WorksheetDocumentPicker } from "./WorksheetDocumentPicker";
 
 const LABEL: Record<DocActivity["type"], string> = { video: "Video", slides: "Slides", check: "Check", worksheet: "Worksheet", exit: "Exit question", assessment: "Test" };
 const rid = () => Math.random().toString(36).slice(2, 8);
@@ -10,7 +12,7 @@ export function newQuestion(worksheet: boolean): DocQuestion {
     : { questionId: `q-${rid()}`, type: "mcq", prompt: "", points: 1, choices: [{ id: "a", text: "" }, { id: "b", text: "" }] };
 }
 
-export function ActivityEditor({ a, onChange, onRemove }: { a: DocActivity; onChange: (a: DocActivity) => void; onRemove?: () => void }) {
+export function ActivityEditor({ a, token, onChange, onRemove }: { a: DocActivity; token: string; onChange: (a: DocActivity) => void; onRemove?: () => void }) {
   const set = (patch: Partial<DocActivity>) => onChange({ ...a, ...patch });
   const worksheet = a.type === "worksheet";
   const listKey = worksheet ? "fields" : "questions";
@@ -49,22 +51,13 @@ export function ActivityEditor({ a, onChange, onRemove }: { a: DocActivity; onCh
         </div>
       ) : null}
 
-      {a.type === "slides" ? (
-        <div className="mt-3">
-          {(a.slides ?? []).map((s, i) => (
-            <div key={i} className="mt-2">
-              <label htmlFor={`${id}-s${i}`} className="block font-bold">Slide {i + 1}</label>
-              <textarea id={`${id}-s${i}`} className="field mt-1" rows={2} value={s.body ?? ""} onChange={(e) => set({ slides: (a.slides ?? []).map((x, k) => (k === i ? { ...x, body: e.target.value } : x)) })} />
-            </div>
-          ))}
-          <button type="button" className="btn btn-secondary mt-2" onClick={() => set({ slides: [...(a.slides ?? []), { body: "" }] })}>Add a slide</button>
-        </div>
-      ) : null}
+      {a.type === "slides" ? <SlideDeckEditor a={a} token={token} set={set} /> : null}
 
       {worksheet ? (
         <>
           <label htmlFor={`${id}-ins`} className="mt-3 block font-bold">Instructions</label>
           <textarea id={`${id}-ins`} className="field mt-1" rows={2} maxLength={4000} value={a.instructions ?? ""} onChange={(e) => set({ instructions: e.target.value })} />
+          <WorksheetDocumentPicker a={a} token={token} set={set} />
         </>
       ) : null}
 

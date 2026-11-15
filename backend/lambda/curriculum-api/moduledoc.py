@@ -9,6 +9,7 @@ multi (a list of choice ids), short (accepted text, one or a list) and numeric (
 or {value, tolerance}). Worksheet fields add `text`, a free-text answer for review.
 """
 import json
+import os
 import re
 from decimal import Decimal
 from typing import Any, List, Optional, Set
@@ -18,13 +19,23 @@ MAX_LESSONS, MAX_ACTIVITIES, MAX_QUESTIONS, MAX_CHOICES, MAX_SLIDES = 20, 30, 50
 ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 CONCEPT = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")  # a YouTube video ID
+# A Google Slides embed link, published ("/d/e/...") or shared ("/d/..."). The editor turns any
+# Slides link into this form, so nothing else can be embedded in a module.
+GOOGLE_SLIDES_EMBED = re.compile(r"^https://docs\.google\.com/presentation/d/(e/)?[A-Za-z0-9_-]{20,}/embed(\?[A-Za-z0-9=&_.-]{0,100})?$")
+PDF_KEY = re.compile(r"^curriculum/[a-f0-9]{32}\.pdf$")  # what the upload route issues
+
+
+def pdf_url_ok(url) -> bool:
+    """Only PDFs uploaded through our own upload route, served by our CDN."""
+    base = os.environ.get("ASSETS_URL", "").rstrip("/")
+    return bool(base) and isinstance(url, str) and url.startswith(base + "/") and bool(PDF_KEY.match(url[len(base) + 1:]))
 
 ACTIVITY_TYPES = ("video", "slides", "check", "worksheet", "exit", "assessment")
 QUESTION_TYPES = ("mcq", "multi", "short", "numeric")
 COMMON = {"activityId", "type", "title", "required", "estimatedMinutes", "body"}
-EXTRA_KEYS = {"video": {"provider", "videoId", "minSeconds"}, "slides": {"slides", "minSeconds"},
+EXTRA_KEYS = {"video": {"provider", "videoId", "minSeconds"}, "slides": {"slides", "minSeconds", "document"},
               "check": {"questions", "passPct"}, "exit": {"questions"}, "assessment": {"role", "questions"},
-              "worksheet": {"instructions", "fields"}}
+              "worksheet": {"instructions", "fields", "document"}}
 QUESTION_KEYS = {"questionId", "type", "prompt", "choices", "answerKey", "explanation", "concept", "pairKey", "points"}
 FIELD_KEYS = {"fieldId", "type", "prompt", "choices", "answerKey", "explanation", "concept", "points"}
 
@@ -139,6 +150,25 @@ class Checker:
             self.bad(f"{path}.points", "must be a number from 0 to 100")
         self.answer_key(q, path, self.choices(q, path))
 
+    def document(self, d: Any, path: str) -> None:
+        """A slide deck shown instead of typed slides: an uploaded PDF or a Google Slides link."""
+        if d is None:
+            return
+        if not isinstance(d, dict):
+            self.bad(path, "must be an object with kind and url")
+            return
+        self.unknown(d, {"kind", "url", "name"}, path)
+        self.text(d, "name", path, 200)
+        kind, url = d.get("kind"), d.get("url")
+        if kind == "pdf":
+            if not pdf_url_ok(url):
+                self.bad(f"{path}.url", "must be a PDF uploaded to this site")
+        elif kind == "google":
+            if not (isinstance(url, str) and GOOGLE_SLIDES_EMBED.match(url)):
+                self.bad(f"{path}.url", "must be a Google Slides link")
+        else:
+            self.bad(f"{path}.kind", "must be pdf or google")
+
     def activity(self, a: Any, path: str) -> None:
         if not isinstance(a, dict):
             self.bad(path, "must be an object")
@@ -163,6 +193,7 @@ class Checker:
             if vid != "" and not (isinstance(vid, str) and VIDEO_ID.match(vid)):
                 self.bad(f"{path}.videoId", "must be an 11-character YouTube video ID")
         elif kind == "slides":
+            self.document(a.get("document"), f"{path}.document")
             slides = a.get("slides", [])
             if not isinstance(slides, list) or len(slides) > MAX_SLIDES:
                 self.bad(f"{path}.slides", f"must be a list of at most {MAX_SLIDES} slides")
@@ -176,6 +207,7 @@ class Checker:
                     self.text(s, "title", sp, 120)
                     self.text(s, "body", sp, 4000)
         elif kind == "worksheet":
+            self.document(a.get("document"), f"{path}.document")  # the original printed worksheet, shown above the fields
             self.text(a, "instructions", path, 4000)
             fields = a.get("fields", [])
             if not isinstance(fields, list) or len(fields) > MAX_QUESTIONS:
@@ -295,8 +327,8 @@ def publish_problems(doc: dict) -> List[dict]:
             bad(f"{path}.title", "is empty")
         if kind == "video" and not (isinstance(a.get("videoId"), str) and VIDEO_ID.match(a["videoId"])):
             bad(f"{path}.videoId", "needs an 11-character YouTube video ID")
-        if kind == "slides" and not any(not _blank(s.get("body")) for s in a.get("slides") or []):
-            bad(f"{path}.slides", "needs at least one slide with text")
+        if kind == "slides" and not a.get("document") and not any(not _blank(s.get("body")) for s in a.get("slides") or []):
+            bad(f"{path}.slides", "needs a PDF, a Google Slides link, or at least one slide with text")
         if kind == "worksheet":
             if not a.get("fields"):
                 bad(f"{path}.fields", "needs at least one field")
