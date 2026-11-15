@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { approveAccessRequest, denyAccessRequest, listAccessRequests, listSchools, type AccessRequest } from "../../lib/api/admin";
 import { ApiError } from "../../lib/api/client";
+import { Icon } from "../common/Icon";
+import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
 const msg = (e: unknown, f: string) => (e instanceof ApiError ? e.message : f);
 const STATUSES: [AccessRequest["status"], string][] = [["pending", "Waiting"], ["approved", "Approved"], ["denied", "Denied"]];
@@ -41,17 +43,18 @@ function Body({ token }: { token: string }) {
   const list = useQuery({ queryKey: ["access-requests", token, status], queryFn: ({ signal }) => listAccessRequests(token, status, signal), retry: false, refetchOnMount: "always" });
   return (
     <>
-      <h1>Access requests</h1>
-      <p className="mt-1 text-muted">Teachers outside CIC who asked for an account. Approving sends them an invite as an external teacher. They manage their own students, and CIC sees usage only.</p>
-      <div className="mt-6 max-w-xs">
-        <label htmlFor="req-status" className="block font-bold">Show</label>
-        <select id="req-status" className="field mt-1" value={status} onChange={(e) => setStatus(e.target.value as AccessRequest["status"])}>
-          {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
+      <PageHeader title="Access requests" description="Teachers outside CIC who asked for an account. Approving sends them an invite as an external teacher. They manage their own students, and CIC sees usage only." />
+      <div role="group" aria-label="Show requests that are" className="mt-2 flex flex-wrap gap-2">
+        {STATUSES.map(([v, l]) => (
+          <button key={v} type="button" className="chip" aria-pressed={status === v} onClick={() => setStatus(v)}>{l}</button>
+        ))}
       </div>
       {list.isPending ? <div role="status" aria-label="Loading requests" className="skeleton mt-6 h-32" /> : null}
       {list.isError ? <p role="alert" className="callout callout-danger mt-6 font-bold text-danger">{msg(list.error, "We couldn't load the requests.")}</p> : null}
-      {list.data && list.data.length === 0 ? <p className="card mt-6 text-muted">No {status === "pending" ? "waiting" : status} requests.</p> : null}
+      {list.data && list.data.length === 0 ? <div className="empty mt-6">
+          <span className="icon-tile"><Icon name="userPlus" className="size-6" /></span>
+          <h2 className="text-lg">No {status === "pending" ? "waiting" : status} requests</h2>
+        </div> : null}
       {list.data && list.data.length > 0 && status === "pending" ? <ul className="mt-6 flex flex-col gap-4">{list.data.map((r) => <Pending key={r.requestId} token={token} request={r} />)}</ul> : null}
       {list.data && list.data.length > 0 && status !== "pending" ? (
         <div className="table-wrap mt-6">

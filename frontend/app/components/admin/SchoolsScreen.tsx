@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { createSchool, listSchools, updateSchool, type School } from "../../lib/api/admin";
 import { ApiError } from "../../lib/api/client";
+import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
 
 const msg = (e: unknown, f: string) => (e instanceof ApiError ? e.message : f);
@@ -44,9 +45,8 @@ function Body({ token }: { token: string }) {
   const submit = (e: FormEvent) => { e.preventDefault(); if (name.trim()) create.mutate(); };
   return (
     <>
-      <h1>Schools</h1>
-      <p className="mt-1 text-muted">Every class belongs to a school. External schools belong to teachers outside CIC: CIC sees how much they are used, and nothing about their students.</p>
-      <form onSubmit={submit} className="card mt-6 max-w-xl">
+      <PageHeader title="Schools" description="Every class belongs to a school. External schools belong to teachers outside CIC: CIC sees how much they are used, and nothing about their students." />
+      <form onSubmit={submit} className="card mt-2 max-w-2xl">
         <label htmlFor="school-new" className="block font-bold">Add a school</label>
         <input id="school-new" className="field mt-1" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         <label htmlFor="school-kind" className="mt-3 block font-bold">Kind</label>

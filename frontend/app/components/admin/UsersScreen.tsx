@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { inviteUser, listUsers, updateUser, type StaffUser } from "../../lib/api/admin";
 import { ApiError } from "../../lib/api/client";
 import { listOrgs, type Org } from "../../lib/api/staff";
+import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
 
 const ROLES: [NonNullable<StaffUser["role"]>, string][] = [["instructor", "Instructor"], ["external_teacher", "External teacher"], ["reviewer", "Reviewer"], ["cic_admin", "CIC admin"]];
@@ -24,7 +25,7 @@ function UserRow({ token, user, schools }: { token: string; user: StaffUser; sch
       <th scope="row">{user.name || "—"}<br /><span className="text-sm font-normal text-muted">{user.email}</span></th>
       <td>
         <label htmlFor={`${id}-role`} className="sr-only">Role for {user.name || user.email}</label>
-        <select id={`${id}-role`} className="field" value={user.role ?? ""} disabled={change.isPending}
+        <select id={`${id}-role`} className="field min-w-36" value={user.role ?? ""} disabled={change.isPending}
           onChange={(e) => change.mutate({ role: e.target.value as StaffUser["role"] })}>
           {user.role === null ? <option value="">No role</option> : null}
           {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -42,7 +43,7 @@ function UserRow({ token, user, schools }: { token: string; user: StaffUser; sch
         {user.role === "instructor" || user.role === "external_teacher" ? (
           <>
             <label htmlFor={`${id}-school`} className="sr-only">School for {user.name || user.email}</label>
-            <select id={`${id}-school`} className="field" value={user.orgId ?? ""} disabled={change.isPending}
+            <select id={`${id}-school`} className="field min-w-40" value={user.orgId ?? ""} disabled={change.isPending}
               onChange={(e) => change.mutate({ orgId: e.target.value || null })}>
               <option value="">No school (can&apos;t create classes)</option>
               {schoolsFor(user.role, schools).filter((o) => o.status !== "archived" || o.orgId === user.orgId).map((o) => <option key={o.orgId} value={o.orgId}>{o.name}</option>)}
@@ -52,7 +53,7 @@ function UserRow({ token, user, schools }: { token: string; user: StaffUser; sch
       </td>
       <td>{user.enabled ? <span className="badge">Active</span> : <span className="badge badge-muted">Disabled</span>}</td>
       <td>
-        <button type="button" className="btn btn-secondary" disabled={change.isPending}
+        <button type="button" className="btn btn-secondary btn-sm" disabled={change.isPending}
           onClick={() => { if (user.enabled ? window.confirm(`Disable ${user.name || user.email}? They are signed out straight away.`) : true) change.mutate({ enabled: !user.enabled }); }}>
           {user.enabled ? "Disable" : "Enable"}<span className="sr-only"> {user.name || user.email}</span>
         </button>
@@ -82,18 +83,23 @@ function Body({ token }: { token: string }) {
 
   return (
     <>
-      <h1>Users</h1>
-      <p className="mt-1 text-muted">Staff who can sign in. Role changes take effect the next time they sign in.</p>
+      <PageHeader title="Users" description="Staff who can sign in. Role changes take effect the next time they sign in." />
 
-      <form onSubmit={submit} className="card mt-6 max-w-xl">
+      <form onSubmit={submit} className="card mt-6 max-w-3xl">
         <h2 className="text-lg">Invite someone</h2>
         <p className="text-sm text-muted">They get an email with a temporary password and set up their own sign-in.</p>
-        <label htmlFor="inv-name" className="mt-3 block font-bold">Name</label>
-        <input id="inv-name" className="field mt-1" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
-        <label htmlFor="inv-email" className="mt-3 block font-bold">Email</label>
-        <input id="inv-email" type="email" className="field mt-1" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="inv-name" className="label">Name</label>
+            <input id="inv-name" className="field mt-1" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+          </div>
+          <div>
+            <label htmlFor="inv-email" className="label">Email</label>
+            <input id="inv-email" type="email" className="field mt-1" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
+          </div>
+        </div>
         <label htmlFor="inv-role" className="mt-3 block font-bold">Role</label>
-        <select id="inv-role" className="field mt-1 max-w-xs" value={role} onChange={(e) => { setRole(e.target.value as typeof role); setOrgId(""); }}>
+        <select id="inv-role" className="field mt-1 max-w-sm" value={role} onChange={(e) => { setRole(e.target.value as typeof role); setOrgId(""); }}>
           {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
         {hasSchool ? (
@@ -114,7 +120,7 @@ function Body({ token }: { token: string }) {
         <button type="submit" className="btn btn-primary mt-4" disabled={invite.isPending || !email.trim() || !name.trim() || (role === "external_teacher" && !orgId)}>{invite.isPending ? "Sending…" : "Send invitation"}</button>
       </form>
 
-      <h2 className="mt-8">Everyone</h2>
+      <h2 className="mt-10">Everyone</h2>
       {users.isPending ? <div role="status" aria-label="Loading users" className="skeleton mt-3 h-32" /> : null}
       {users.isError ? <p role="alert" className="callout callout-danger mt-3 font-bold text-danger">{msg(users.error, "We couldn't load the users.")}</p> : null}
       {users.data ? (

@@ -1,12 +1,12 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { getCohortSummary, listCohorts, updateCohort, type CohortSummary } from "../../lib/api/admin";
 import { ApiError } from "../../lib/api/client";
 import { listClasses } from "../../lib/api/staff";
+import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
 
 const num = (x: number | null, s = "") => (x === null ? "—" : `${x}${s}`);
@@ -62,8 +62,7 @@ function Body({ token, cohortId }: { token: string; cohortId: string }) {
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-4 text-sm"><Link href="/admin/cohorts/">← Back to cohorts</Link></nav>
-      <h1>{cohort.name}</h1>
+      <PageHeader back={{ href: "/admin/cohorts/", label: "Back to cohorts" }} title={cohort.name} />
 
       <div className="card mt-6 max-w-xl">
         <label htmlFor="coh-rename" className="block font-bold">Name</label>

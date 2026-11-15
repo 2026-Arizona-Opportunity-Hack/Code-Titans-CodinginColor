@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { listAudit } from "../../lib/api/admin";
 import { ApiError } from "../../lib/api/client";
+import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
 
 const ACTIONS: Record<string, string> = {
@@ -26,8 +27,7 @@ function Body({ token }: { token: string }) {
 
   return (
     <>
-      <h1>Audit log</h1>
-      <p className="mt-1 text-muted">Who created or revoked API keys and who exported class data, newest first. Shows the last 30 days unless you pick dates.</p>
+      <PageHeader title="Audit log" description="Who created or revoked API keys and who exported class data, newest first. Shows the last 30 days unless you pick dates." />
 
       <div className="mt-6 flex flex-wrap gap-4">
         <div>
