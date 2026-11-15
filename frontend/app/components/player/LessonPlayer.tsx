@@ -10,6 +10,7 @@ import { getStudentModule, type Activity, type StepResult } from "../../lib/api/
 import { Icon } from "../common/Icon";
 import { PublicShell } from "../common/PublicShell";
 import { StudentShell } from "../common/StudentShell";
+import { QuestionActivity } from "./QuestionActivity";
 import { WatchActivity } from "./WatchActivity";
 
 const TYPE_LABEL: Record<Activity["type"], string> = {
@@ -128,6 +129,8 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
           </div>
         ) : current.type === "video" || current.type === "slides" ? (
           <WatchActivity key={current.activityId} activity={current} moduleId={moduleId} token={token} onDone={onDone} />
+        ) : current.type === "check" || current.type === "exit" || current.type === "assessment" ? (
+          <QuestionActivity key={current.activityId} activity={current} moduleId={moduleId} token={token} onDone={onDone} />
         ) : (
           <p className="callout">This kind of step is coming in the next update.</p>
         )}

@@ -79,3 +79,18 @@ export function completeActivity(token: string, moduleId: string, activityId: st
 export function sendHeartbeat(token: string, moduleId: string, activityId: string, seconds: number): Promise<{ credited: number }> {
   return apiFetch(path(moduleId, activityId, "heartbeat"), { method: "POST", token, body: { seconds } });
 }
+
+/** Reuse the same clientSubmissionId when retrying: the server returns the first result (api.md section 6). */
+export function submitActivity(
+  token: string,
+  moduleId: string,
+  activityId: string,
+  clientSubmissionId: string,
+  answers: Answer[],
+): Promise<StepResult> {
+  return apiFetch<StepResult>(path(moduleId, activityId, "submit"), {
+    method: "POST",
+    token,
+    body: { clientSubmissionId, answers },
+  });
+}

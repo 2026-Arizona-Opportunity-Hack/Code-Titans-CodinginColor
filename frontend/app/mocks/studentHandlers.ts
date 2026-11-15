@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { StudentHome } from "../lib/api/student";
 import type { StudentModule } from "../lib/api/studentModule";
-import { addSeconds, commit, DOCS, findLogin, moduleViews, personFromToken, secondsFor, statusMap } from "./studentStore";
+import { addSeconds, commit, DOCS, findLogin, KEYS, moduleViews, personFromToken, secondsFor, statusMap } from "./studentStore";
 
 // Fake student API (backend auth-student and student-api). Demo student: class code K7M4QX,
 // words maple-tiger-blue (Maya R.). Words from the teacher's login sheet work too.
@@ -25,6 +25,9 @@ export function studentModule(studentId: string, moduleId: string): StudentModul
   for (const l of copy.lessons) for (const a of l.activities) a.state = view.states[a.activityId];
   return copy;
 }
+
+const CSID = /^[A-Za-z0-9_-]{8,64}$/;
+const submitted = new Map<string, { csid: string; result: unknown }>(); // safe retries: the first result is returned again
 
 export const studentHandlers = [
   http.post(`${env.apiUrl}/auth/student/login`, async ({ request }) => {
@@ -86,6 +89,42 @@ export const studentHandlers = [
     const statusKey = `${params.moduleId}/${params.activityId}`;
     if (!st.has(statusKey)) st.set(statusKey, "in_progress");
     return HttpResponse.json({ data: { credited } });
+  }),
+
+  http.post(`${env.apiUrl}/student/modules/:moduleId/activities/:activityId/submit`, async ({ request, params }) => {
+    const me = personFromToken(request.headers.get("Authorization"));
+    if (!me) return unauthenticated();
+    const body = (await request.json().catch(() => ({}))) as { clientSubmissionId?: string; answers?: { questionId: string; value: unknown }[] };
+    if (typeof body.clientSubmissionId !== "string" || !CSID.test(body.clientSubmissionId)) {
+      return studentError(400, "VALIDATION_ERROR", "clientSubmissionId must be 8 to 64 letters, digits, - or _");
+    }
+    const doc = studentModule(me.studentId, String(params.moduleId));
+    const activity = doc?.lessons.flatMap((l) => l.activities).find((a) => a.activityId === params.activityId);
+    if (!doc || !activity) return studentError(404, "NOT_FOUND", "Activity not found");
+    if (doc.state === "locked" || activity.state === "locked") return studentError(403, "FORBIDDEN", "Finish the earlier activities first");
+    if (activity.type !== "check" && activity.type !== "exit" && activity.type !== "assessment") {
+      return studentError(400, "VALIDATION_ERROR", "This activity type is not submitted with answers");
+    }
+    const key = `${me.studentId}/${doc.moduleId}/${activity.activityId}`;
+    const prior = submitted.get(key);
+    if (prior?.csid === body.clientSubmissionId) return HttpResponse.json({ data: prior.result });
+    if (activity.type === "assessment" && activity.state === "complete") {
+      return studentError(403, "ASSESSMENT_ALREADY_SUBMITTED", "This test was already submitted");
+    }
+
+    const given = new Map((body.answers ?? []).map((a) => [a.questionId, a.value]));
+    const results = activity.questions.map((q) => {
+      const correct = given.get(q.questionId) === KEYS[q.questionId];
+      const right = q.choices?.find((c) => c.id === KEYS[q.questionId])?.text;
+      return { questionId: q.questionId, correct, explanation: right ? `The answer is: ${right}.` : undefined };
+    });
+    const scorePct = Math.round((results.filter((r) => r.correct).length / results.length) * 100);
+    const passed = activity.type !== "check" || scorePct >= (activity.passPct ?? 0);
+    const step = commit(me.studentId, doc.moduleId, activity.activityId, passed ? "complete" : "in_progress");
+    // Tests never reveal scores or answers.
+    const result = activity.type === "check" ? { recorded: true, scorePct, passed, results, ...step } : { recorded: true, ...step };
+    submitted.set(key, { csid: body.clientSubmissionId, result });
+    return HttpResponse.json({ data: result });
   }),
 
   http.post(`${env.apiUrl}/student/modules/:moduleId/activities/:activityId/complete`, ({ request, params }) => {
