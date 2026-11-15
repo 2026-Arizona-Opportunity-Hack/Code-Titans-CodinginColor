@@ -4,6 +4,7 @@ import { env } from "../config/env";
 import type { PossibleDuplicate, RosterImportPreview, RosterImportRequest, RowProblem } from "../lib/api/roster";
 import { addStudent, getRoster, issueWords, normalizeName } from "./rosterStore";
 import { apiError, findClass, roleOf } from "./staffHandlers";
+import { registerLogins } from "./studentStore";
 
 // Fake roster API, behaving like the backend's roster.py and roster_import.py. An import
 // changes the in-memory roster, so imported students show up on the class page.
@@ -63,6 +64,7 @@ export const rosterHandlers = [
     const body = (await request.json().catch(() => ({}))) as { studentIds?: string[] };
     // As the real server does: no list means EVERY active student gets new words.
     const students = issueWords(found.classId, body.studentIds);
+    registerLogins(found.joinCode, found.classId, students);
     return HttpResponse.json({ data: { classCode: found.joinCode, loginUrlBase: `${window.location.origin}/s`, students } });
   }),
 
