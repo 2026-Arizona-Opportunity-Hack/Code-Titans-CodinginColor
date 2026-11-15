@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { ApiError } from "../../lib/api/client";
-import { submitActivity, type Activity, type Answer, type Question, type StepResult } from "../../lib/api/studentModule";
+import { sendHeartbeat, submitActivity, type Activity, type Answer, type Question, type StepResult } from "../../lib/api/studentModule";
+import { useActiveTime } from "../../lib/useActiveTime";
 import { Icon } from "../common/Icon";
 import { InlineCode } from "./InlineCode";
 
@@ -77,6 +78,7 @@ export function QuestionActivity({
   const [submissionId, setSubmissionId] = useState(newSubmissionId);
 
   const complete = activity.state === "complete" && !result;
+  useActiveTime((seconds) => sendHeartbeat(token, moduleId, activity.activityId, seconds), !complete && !result);
   const allAnswered = activity.questions.every((q) => hasAnswer(answers[q.questionId]));
 
   async function submit() {

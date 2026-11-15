@@ -3,15 +3,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRequireStudent } from "../../context/StudentSessionContext";
 import { ApiError } from "../../lib/api/client";
 import { getStudentModule, type Activity, type StepResult } from "../../lib/api/studentModule";
 import { Icon } from "../common/Icon";
 import { PublicShell } from "../common/PublicShell";
 import { StudentShell } from "../common/StudentShell";
+import { ModuleComplete } from "./ModuleComplete";
 import { QuestionActivity } from "./QuestionActivity";
 import { WatchActivity } from "./WatchActivity";
+import { WorksheetActivity } from "./WorksheetActivity";
 
 const TYPE_LABEL: Record<Activity["type"], string> = {
   video: "Video",
@@ -26,6 +28,7 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
   const router = useRouter();
   const queryClient = useQueryClient();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [finished, setFinished] = useState<StepResult | null>(null);
 
   const lesson = useQuery({
     queryKey: ["student", "module", token, moduleId],
@@ -46,7 +49,8 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
 
   async function onDone(result: StepResult) {
     await queryClient.invalidateQueries({ queryKey: ["student"] });
-    router.push(result.next.type === "activity" ? href(result.next.activityId) : "/student/");
+    if (result.next.type === "activity") router.push(href(result.next.activityId));
+    else setFinished(result);
   }
 
   if (lesson.isPending) return <div role="status" aria-label="Loading your lesson" className="skeleton h-72" />;
@@ -65,6 +69,8 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
       </div>
     );
   }
+
+  if (finished) return <ModuleComplete title={lesson.data.title} unlockedId={finished.moduleUnlocked} token={token} />;
 
   const prev = activities[index - 1];
   const next = activities[index + 1];
@@ -131,6 +137,8 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
           <WatchActivity key={current.activityId} activity={current} moduleId={moduleId} token={token} onDone={onDone} />
         ) : current.type === "check" || current.type === "exit" || current.type === "assessment" ? (
           <QuestionActivity key={current.activityId} activity={current} moduleId={moduleId} token={token} onDone={onDone} />
+        ) : current.type === "worksheet" ? (
+          <WorksheetActivity key={current.activityId} activity={current} moduleId={moduleId} token={token} onDone={onDone} />
         ) : (
           <p className="callout">This kind of step is coming in the next update.</p>
         )}

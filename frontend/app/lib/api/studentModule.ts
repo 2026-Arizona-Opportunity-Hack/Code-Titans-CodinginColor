@@ -94,3 +94,7 @@ export function submitActivity(
     body: { clientSubmissionId, answers },
   });
 }
+
+export function saveDraft(token: string, moduleId: string, activityId: string, answers: Answer[]): Promise<{ savedAt: number }> {
+  return apiFetch(path(moduleId, activityId, "draft"), { method: "PUT", token, body: { answers } });
+}

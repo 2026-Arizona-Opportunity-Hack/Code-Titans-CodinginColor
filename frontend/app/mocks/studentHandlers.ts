@@ -10,6 +10,8 @@ import { addSeconds, commit, DOCS, findLogin, KEYS, moduleViews, personFromToken
 const MAX_FAILURES = 10; // docs/architecture.md section 5: 10 failures, then 429 for 5 minutes
 let failures = 0;
 
+const drafts = new Map<string, Record<string, unknown>>(); // saved worksheet answers, per student step
+
 export function studentError(status: number, code: string, error: string, headers?: Record<string, string>) {
   return HttpResponse.json({ error, code, requestId: "req_mock" }, { status, headers });
 }
@@ -22,7 +24,13 @@ export function studentModule(studentId: string, moduleId: string): StudentModul
   const copy = structuredClone(doc);
   copy.state = view.state;
   copy.percent = view.percent;
-  for (const l of copy.lessons) for (const a of l.activities) a.state = view.states[a.activityId];
+  for (const l of copy.lessons) {
+    for (const a of l.activities) {
+      a.state = view.states[a.activityId];
+      const saved = drafts.get(`${studentId}/${moduleId}/${a.activityId}`);
+      if (a.type === "worksheet" && saved) a.draft = saved as typeof a.draft;
+    }
+  }
   return copy;
 }
 
@@ -75,6 +83,21 @@ export const studentHandlers = [
     return HttpResponse.json({ data: doc });
   }),
 
+  http.put(`${env.apiUrl}/student/modules/:moduleId/activities/:activityId/draft`, async ({ request, params }) => {
+    const me = personFromToken(request.headers.get("Authorization"));
+    if (!me) return unauthenticated();
+    const doc = studentModule(me.studentId, String(params.moduleId));
+    const activity = doc?.lessons.flatMap((l) => l.activities).find((a) => a.activityId === params.activityId);
+    if (!doc || !activity) return studentError(404, "NOT_FOUND", "Activity not found");
+    if (activity.type !== "worksheet") return studentError(400, "VALIDATION_ERROR", "Drafts are only saved for worksheets");
+    if (doc.state === "locked" || activity.state === "locked") return studentError(403, "FORBIDDEN", "Finish the earlier activities first");
+    const body = (await request.json().catch(() => ({}))) as { answers?: { questionId: string; value: unknown }[] };
+    drafts.set(`${me.studentId}/${doc.moduleId}/${activity.activityId}`, Object.fromEntries((body.answers ?? []).map((a) => [a.questionId, a.value])));
+    const st = statusMap(me.studentId);
+    if (!st.has(`${doc.moduleId}/${activity.activityId}`)) st.set(`${doc.moduleId}/${activity.activityId}`, "in_progress");
+    return HttpResponse.json({ data: { savedAt: Date.now() } });
+  }),
+
   http.post(`${env.apiUrl}/student/modules/:moduleId/activities/:activityId/heartbeat`, async ({ request, params }) => {
     const me = personFromToken(request.headers.get("Authorization"));
     if (!me) return unauthenticated();
@@ -102,7 +125,7 @@ export const studentHandlers = [
     const activity = doc?.lessons.flatMap((l) => l.activities).find((a) => a.activityId === params.activityId);
     if (!doc || !activity) return studentError(404, "NOT_FOUND", "Activity not found");
     if (doc.state === "locked" || activity.state === "locked") return studentError(403, "FORBIDDEN", "Finish the earlier activities first");
-    if (activity.type !== "check" && activity.type !== "exit" && activity.type !== "assessment") {
+    if (activity.type === "video" || activity.type === "slides") {
       return studentError(400, "VALIDATION_ERROR", "This activity type is not submitted with answers");
     }
     const key = `${me.studentId}/${doc.moduleId}/${activity.activityId}`;
@@ -113,6 +136,16 @@ export const studentHandlers = [
     }
 
     const given = new Map((body.answers ?? []).map((a) => [a.questionId, a.value]));
+    if (activity.type === "worksheet") {
+      // Fields with an answer key are checked automatically; the rest wait for the teacher.
+      const keyed = activity.fields.filter((f) => KEYS[f.fieldId] !== undefined);
+      const right = keyed.filter((f) => String(given.get(f.fieldId)) === KEYS[f.fieldId]).length;
+      const autoScorePct = keyed.length ? Math.round((right / keyed.length) * 100) : null;
+      const step = commit(me.studentId, doc.moduleId, activity.activityId, "complete");
+      const result = { recorded: true, autoScorePct, pendingReview: keyed.length < activity.fields.length, ...step };
+      submitted.set(key, { csid: body.clientSubmissionId, result });
+      return HttpResponse.json({ data: result });
+    }
     const results = activity.questions.map((q) => {
       const correct = given.get(q.questionId) === KEYS[q.questionId];
       const right = q.choices?.find((c) => c.id === KEYS[q.questionId])?.text;
