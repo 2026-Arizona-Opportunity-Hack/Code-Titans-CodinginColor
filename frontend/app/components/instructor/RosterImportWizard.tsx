@@ -40,7 +40,7 @@ function ImportBody({ token, classId }: { token: string; classId: string }) {
   const [result, setResult] = useState<RosterImportResult | null>(null);
 
   const prepared = useMemo(() => (text.trim() ? prepareRosterCsv(text) : null), [text]);
-  const usable = prepared !== null && prepared.fatal === null;
+  const usable = prepared !== null && prepared.fatal === null && prepared.rowCount > 0;
 
   // Move focus to the heading of each new step, so keyboard and screen-reader users land on it.
   useEffect(() => {
@@ -99,11 +99,11 @@ function ImportBody({ token, classId }: { token: string; classId: string }) {
     setStep("choose");
   }
 
+  const fileProblems = prepared?.problems ?? [];
   const importable = preview ? preview.toCreate + preview.toUpdate : 0;
-  const blocked = !preview || preview.errors.length > 0 || importable === 0;
-  // The commit response is not defined in api.md, so fall back to the preview's numbers.
-  const created = result?.created ?? preview?.toCreate ?? 0;
-  const updated = result?.updated ?? preview?.toUpdate ?? 0;
+  // The server imports every valid row and skips the rest, so only an empty import is blocked.
+  const blocked = !preview || importable === 0;
+  const skippedRows = fileProblems.length + (preview?.errors.length ?? 0);
 
   return (
     <>
@@ -158,7 +158,7 @@ function ImportBody({ token, classId }: { token: string; classId: string }) {
           {prepared && !prepared.fatal ? (
             <div role="status" className="mt-4 max-w-xl rounded-xl bg-tint p-4">
               <p className="font-bold text-brand">
-                {prepared.rowCount} {prepared.rowCount === 1 ? "student" : "students"} found
+                {prepared.rowCount} {prepared.rowCount === 1 ? "student" : "students"} ready to import
               </p>
               {prepared.strippedColumns.length > 0 ? (
                 <p className="mt-1 text-sm">
@@ -167,7 +167,7 @@ function ImportBody({ token, classId }: { token: string; classId: string }) {
               ) : null}
               {prepared.problems.length > 0 ? (
                 <p className="mt-1 text-sm">
-                  {prepared.problems.length} {prepared.problems.length === 1 ? "row has" : "rows have"} a problem (for
+                  {prepared.problems.length} {prepared.problems.length === 1 ? "row will be" : "rows will be"} skipped (for
                   example row {prepared.problems[0].row}: {prepared.problems[0].reason}). The next step lists them all.
                 </p>
               ) : null}
@@ -215,12 +215,18 @@ function ImportBody({ token, classId }: { token: string; classId: string }) {
           </h1>
           <p className="mt-2 text-muted">Nothing has been saved yet.</p>
           <div className="mt-6 max-w-2xl">
-            <RosterImportPreview preview={preview} />
+            <RosterImportPreview preview={preview} fileProblems={fileProblems} />
           </div>
 
           {error ? (
             <p role="alert" className="mt-4 max-w-xl rounded-lg border-2 border-danger p-3 font-bold text-danger">
               {error}
+            </p>
+          ) : null}
+
+          {skippedRows > 0 && importable > 0 ? (
+            <p className="mt-6 max-w-prose text-muted">
+              {skippedRows} {skippedRows === 1 ? "row" : "rows"} will be skipped. Everything else will be imported.
             </p>
           ) : null}
 
@@ -240,14 +246,32 @@ function ImportBody({ token, classId }: { token: string; classId: string }) {
           <h1 ref={headingRef} tabIndex={-1} className="text-3xl">
             Import complete
           </h1>
-          <p role="status" className="mt-3 text-lg">
-            Added {created} {created === 1 ? "student" : "students"}
-            {updated > 0 ? ` and updated ${updated}` : ""}.
-          </p>
-          {(result?.possibleDuplicates ?? preview?.possibleDuplicates ?? []).length > 0 ? (
-            <p className="mt-2 max-w-prose text-muted">
-              Some names matched students already in the class. They were flagged so you can review them.
-            </p>
+          {result ? (
+            <>
+              <p role="status" className="mt-3 text-lg">
+                Added {result.created} {result.created === 1 ? "student" : "students"}
+                {result.updated > 0 ? ` and updated ${result.updated}` : ""}.
+                {result.skipped + result.errors.length + fileProblems.length > 0
+                  ? ` Skipped ${result.skipped + result.errors.length + fileProblems.length} ${
+                      result.skipped + result.errors.length + fileProblems.length === 1 ? "row" : "rows"
+                    }.`
+                  : ""}
+              </p>
+              {result.possibleDuplicates.length > 0 ? (
+                <p className="mt-2 max-w-prose text-muted">
+                  Some names matched students already in the class. They were flagged so you can review them.
+                </p>
+              ) : null}
+              {result.credentialsNeeded > 0 ? (
+                <p className="callout mt-6 max-w-prose">
+                  <span className="font-bold text-brand">
+                    {result.credentialsNeeded} new {result.credentialsNeeded === 1 ? "student needs" : "students need"} login
+                    words
+                  </span>{" "}
+                  before they can open their lessons. Creating them is the next step.
+                </p>
+              ) : null}
+            </>
           ) : null}
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href={`/instructor/class/?id=${encodeURIComponent(classId)}`} className="btn btn-primary">

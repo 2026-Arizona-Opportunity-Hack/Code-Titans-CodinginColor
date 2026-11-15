@@ -1,4 +1,5 @@
 import type { RosterImportPreview as Preview } from "../../lib/api/roster";
+import type { CsvProblem } from "../../lib/rosterCsv";
 
 const SHOWN = 10;
 
@@ -15,33 +16,49 @@ function RowList({ items }: { items: { row: number; text: string }[] }) {
   );
 }
 
-/** What the server says an import would do. Nothing is saved yet (this is the dry run). */
-export function RosterImportPreview({ preview }: { preview: Preview }) {
+/**
+ * What an import would do. Nothing is saved yet (this is the dry run).
+ * `fileProblems` are rows found in the instructor's own file; they were left out of what
+ * was sent, so they are skipped. The server's own problems count rows of the cleaned file.
+ */
+export function RosterImportPreview({ preview, fileProblems }: { preview: Preview; fileProblems: CsvProblem[] }) {
   return (
     <>
       <dl className="grid grid-cols-2 gap-4">
-        <div className="rounded-xl border border-line bg-surface p-4">
+        <div className="card">
           <dt className="text-sm text-muted">New students</dt>
           <dd className="mt-1 text-3xl font-bold text-brand">{preview.toCreate}</dd>
         </div>
-        <div className="rounded-xl border border-line bg-surface p-4">
+        <div className="card">
           <dt className="text-sm text-muted">Existing students updated</dt>
           <dd className="mt-1 text-3xl font-bold text-brand">{preview.toUpdate}</dd>
         </div>
       </dl>
 
-      {preview.errors.length > 0 ? (
-        <section role="alert" className="mt-6 rounded-xl border-2 border-danger p-4">
+      {fileProblems.length > 0 ? (
+        <section role="alert" className="callout callout-danger mt-6">
           <h3 className="font-bold text-danger">
-            {preview.errors.length} {preview.errors.length === 1 ? "row has a problem" : "rows have problems"}
+            {fileProblems.length} {fileProblems.length === 1 ? "row in your file will" : "rows in your file will"} be skipped
           </h3>
-          <p className="text-sm text-muted">Fix these in your file, then choose it again. Row 1 is the first student.</p>
+          <p className="text-sm text-muted">
+            Fix them in your file and import again if you want them added. Row 1 is the first student.
+          </p>
+          <RowList items={fileProblems.map((p) => ({ row: p.row, text: p.reason }))} />
+        </section>
+      ) : null}
+
+      {preview.errors.length > 0 ? (
+        <section role="alert" className="callout callout-danger mt-6">
+          <h3 className="font-bold text-danger">
+            The server can&apos;t import {preview.errors.length} more {preview.errors.length === 1 ? "row" : "rows"}
+          </h3>
+          <p className="text-sm text-muted">Row numbers here count only the rows that were sent.</p>
           <RowList items={preview.errors.map((e) => ({ row: e.row, text: e.reason }))} />
         </section>
       ) : null}
 
       {preview.possibleDuplicates.length > 0 ? (
-        <section className="mt-6 rounded-xl border-l-8 border-accent bg-tint p-4">
+        <section className="callout mt-6">
           <h3 className="font-bold text-brand">Names that are already in this class</h3>
           <p className="text-sm text-muted">
             These will be added as separate students and flagged so you can review them. Two students can share a name.
