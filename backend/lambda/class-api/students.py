@@ -1,4 +1,7 @@
-"""GET /v1/students?q=&cohortId=&classId= : find students by name across the caller's classes."""
+"""GET /v1/students?q=&cohortId=&classId=&orgId= : find students by name across the caller's classes.
+
+Each result carries the student's school (the school of their class), so admins looking
+across schools can tell students apart."""
 from boto3.dynamodb.conditions import Key
 
 from cic import db, paging, validate
@@ -34,16 +37,27 @@ def search(req: Request):
     limit = paging.parse_limit(req)
     class_id = validate.safe_id(req.query["classId"], "classId") if req.query.get("classId") else None
     cohort_id = validate.safe_id(req.query["cohortId"], "cohortId") if req.query.get("cohortId") else None
+    org_id = validate.safe_id(req.query["orgId"], "orgId") if req.query.get("orgId") else None
     table = db.get_table(db.CORE)
     if class_id:
         require_class_access(req.auth, table, class_id)  # instructors only for classes they belong to
-    results = []
+    results, schools = [], {}
+
+    def school_name(oid):
+        if oid and oid not in schools:
+            schools[oid] = (table.get_item(Key={"pk": f"ORG#{oid}", "sk": "META"}).get("Item") or {}).get("name")
+        return schools.get(oid)
+
     for cid in _class_ids(staff, table, class_id, cohort_id):
+        cls_org = (table.get_item(Key={"pk": f"CLS#{cid}", "sk": "META"}).get("Item") or {}).get("orgId")
+        if org_id and cls_org != org_id:
+            continue
         for item in load_roster(table, cid):
             if not q or q in normalize_name(item["displayName"]):
                 results.append({"studentId": item["sk"].split("#", 1)[1], "displayName": item["displayName"],
                                 "rosterNumber": int(item["rosterNumber"]), "classId": cid, "status": item["status"],
-                                "gradeLevel": int(item["gradeLevel"]) if item.get("gradeLevel") is not None else None})
+                                "gradeLevel": int(item["gradeLevel"]) if item.get("gradeLevel") is not None else None,
+                                "orgId": cls_org, "schoolName": school_name(cls_org)})
                 if len(results) >= limit:
                     return Reply(data=results, meta={"nextCursor": None, "truncated": True})
     return Reply(data=results, meta={"nextCursor": None, "truncated": False})
