@@ -84,11 +84,13 @@ const demoProgress: [string, string[][], number][] = [
   ["stu_cls_01_2", [...INTRO, ...LOOPS.slice(0, 1)], 25 * 60], // Ben: just started Loops
   ["stu_cls_01_3", [...INTRO, ...LOOPS], 40 * 60], // Carla: finished Loops
   ["stu_cls_01_4", INTRO.slice(0, 1), 5 * 60], // Alex: only the Intro video
+  ["stu_cls_01_5", [...INTRO, ...LOOPS], 35 * 60], // Dev: finished Loops
+  ["stu_cls_01_6", [...INTRO, ...LOOPS], 30 * 60], // Sam Lee #6: finished Loops
 ];
 for (const [id, done, seconds] of demoProgress) {
   done.forEach(([m, a]) => statusMap(id).set(`${m}/${a}`, "complete"));
-  if (done.some(([, a]) => a === "a-pre")) recordAssessment(id, "py-loops", "pre", id === "stu_cls_01_3" ? 40 : 50);
-  if (done.some(([, a]) => a === "a-post")) recordAssessment(id, "py-loops", "post", 85);
+  if (done.some(([, a]) => a === "a-pre")) recordAssessment(id, "py-loops", "pre", ({ stu_cls_01_3: 40, stu_cls_01_5: 30, stu_cls_01_6: 60 } as Record<string, number>)[id] ?? 50);
+  if (done.some(([, a]) => a === "a-post")) recordAssessment(id, "py-loops", "post", ({ stu_cls_01_5: 75, stu_cls_01_6: 70 } as Record<string, number>)[id] ?? 85);
   addSeconds(`${id}/${done[done.length - 1][0]}/${done[done.length - 1][1]}`, seconds);
 }
 
