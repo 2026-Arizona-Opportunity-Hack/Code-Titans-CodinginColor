@@ -32,6 +32,11 @@ type Options = {
  * Any non-2xx response, or a network failure, throws an ApiError.
  */
 export async function apiFetch<T>(path: string, options: Options = {}): Promise<T> {
+  return (await apiFetchPage<T>(path, options)).data;
+}
+
+/** Like apiFetch but also returns `meta` (nextCursor, truncated) for lists that page. */
+export async function apiFetchPage<T>(path: string, options: Options = {}): Promise<{ data: T; meta: { nextCursor?: string | null; truncated?: boolean } }> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (options.ifMatch !== undefined) headers["If-Match"] = String(options.ifMatch);
@@ -50,7 +55,7 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
     throw new ApiError(0, "NETWORK_ERROR", "Could not reach the server. Check your connection and try again.");
   }
 
-  let json: { data?: T; error?: string; code?: string; requestId?: string; details?: unknown } | null = null;
+  let json: { data?: T; meta?: { nextCursor?: string | null; truncated?: boolean }; error?: string; code?: string; requestId?: string; details?: unknown } | null = null;
   try {
     json = await res.json();
   } catch {
@@ -68,5 +73,20 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
       json?.details,
     );
   }
-  return json?.data as T;
+  return { data: json?.data as T, meta: json?.meta ?? {} };
+}
+
+/** A list endpoint that pages: follows nextCursor (up to 10 pages of 200) so nothing is silently cut off at 50. */
+export async function apiFetchAll<T>(path: string, options: Options = {}): Promise<T[]> {
+  const out: T[] = [];
+  let cursor: string | null | undefined;
+  for (let page = 0; page < 10; page++) {
+    const sep = path.includes("?") ? "&" : "?";
+    const url = `${path}${sep}limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+    const { data, meta } = await apiFetchPage<T[]>(url, options);
+    out.push(...data);
+    cursor = meta.nextCursor;
+    if (!cursor) break;
+  }
+  return out;
 }
