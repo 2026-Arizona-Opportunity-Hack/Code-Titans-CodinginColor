@@ -22,11 +22,13 @@ export function StaffShell({
   items,
   userName,
   roleLabel,
+  onSignOut,
   children,
 }: {
   items: NavItem[];
   userName: string;
   roleLabel: string;
+  onSignOut?: () => void;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -52,6 +54,15 @@ export function StaffShell({
           <p className="flex flex-wrap items-center justify-end gap-2 text-sm">
             <span className="font-bold">{userName}</span>
             <span className="rounded-full bg-tint px-2.5 py-0.5 font-bold text-brand">{roleLabel}</span>
+            {onSignOut ? (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="min-h-11 px-1 font-bold text-brand underline underline-offset-2 hover:text-brand-hover"
+              >
+                Sign out
+              </button>
+            ) : null}
           </p>
         </div>
       </header>
