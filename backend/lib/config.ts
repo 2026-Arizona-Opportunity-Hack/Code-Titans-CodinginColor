@@ -6,6 +6,12 @@ export interface AppConfig {
   allowedOrigins: string[];
   /** Cognito MFA mode for staff. Cognito applies MFA per user pool, not per group. */
   staffMfa: "REQUIRED" | "OPTIONAL";
+  /** Region where Bedrock is called for student hints. Independent of the stack's region. */
+  bedrockRegion: string;
+  /** Bedrock foundation model for hints. The IAM policy allows this one model only. */
+  hintModelId: string;
+  /** Hard monthly cap on hints for the whole app, so the Bedrock bill stays predictable. */
+  hintsMonthlyCap: number;
 }
 
 /** Read and validate deployment context. Throws if a required value is missing or invalid. */
@@ -28,7 +34,20 @@ export function readConfig(scope: Construct): AppConfig {
   if (mfa !== "REQUIRED" && mfa !== "OPTIONAL") {
     throw new Error(`Invalid staffMfa: ${mfa}. Use REQUIRED or OPTIONAL.`);
   }
-  return { allowedOrigins, staffMfa: mfa };
+
+  const bedrockRegion = String(scope.node.tryGetContext("bedrockRegion") ?? "us-west-2");
+  if (!/^[a-z]{2}(-[a-z]+)+-\d$/.test(bedrockRegion)) {
+    throw new Error(`Invalid bedrockRegion: ${bedrockRegion}. Use a region name such as us-west-2.`);
+  }
+  const hintModelId = String(scope.node.tryGetContext("hintModelId") ?? "amazon.nova-lite-v1:0");
+  if (!/^[a-z0-9][a-z0-9.:-]{2,100}$/.test(hintModelId) || hintModelId.includes("*")) {
+    throw new Error(`Invalid hintModelId: ${hintModelId}. Use one foundation model ID, with no wildcard.`);
+  }
+  const hintsMonthlyCap = Number(scope.node.tryGetContext("hintsMonthlyCap") ?? 5000);
+  if (!Number.isInteger(hintsMonthlyCap) || hintsMonthlyCap < 0 || hintsMonthlyCap > 1_000_000) {
+    throw new Error(`Invalid hintsMonthlyCap: ${hintsMonthlyCap}. Use a whole number from 0 to 1000000.`);
+  }
+  return { allowedOrigins, staffMfa: mfa, bedrockRegion, hintModelId, hintsMonthlyCap };
 }
 
 export const PROJECT_TAGS: Record<string, string> = {

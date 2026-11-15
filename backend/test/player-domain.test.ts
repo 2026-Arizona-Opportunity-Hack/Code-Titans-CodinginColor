@@ -43,6 +43,33 @@ describe("ReadApi", () => {
   });
 });
 
+describe("student hints", () => {
+  const t = apiTemplate();
+
+  test("the route uses the student authorizer and has its own throttle", () => {
+    t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "POST /v1/student/hints", AuthorizationType: "CUSTOM" });
+    t.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
+      RouteSettings: Match.objectLike({ "POST /v1/student/hints": { ThrottlingRateLimit: 10, ThrottlingBurstLimit: 20 } }),
+    });
+  });
+
+  test("the function may invoke exactly one model, and nothing else in Bedrock", () => {
+    const statements = (Object.values(t.findResources("AWS::IAM::Policy")) as any[]).flatMap((p) => p.Properties.PolicyDocument.Statement);
+    const bedrock = statements.filter((s) => JSON.stringify(s.Action).includes("bedrock:"));
+    expect(bedrock).toHaveLength(1);
+    expect(bedrock[0].Action).toBe("bedrock:InvokeModel");
+    expect(JSON.stringify(bedrock[0].Resource)).toContain("foundation-model/amazon.nova-lite-v1:0");
+    expect(JSON.stringify(bedrock[0].Resource)).not.toContain("*");
+  });
+
+  test("model, region and the monthly cap reach the function", () => {
+    t.hasResourceProperties("AWS::Lambda::Function", {
+      Description: Match.stringLikeRegexp("hints"),
+      Environment: { Variables: Match.objectLike({ BEDROCK_REGION: "us-west-2", HINT_MODEL_ID: "amazon.nova-lite-v1:0", HINTS_MONTHLY_CAP: "5000", HINTS_PER_DAY: "10" }) },
+    });
+  });
+});
+
 describe("StudentPlayerApi", () => {
   const t = apiTemplate();
 

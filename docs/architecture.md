@@ -21,7 +21,7 @@ CIC Problem 1. The platform teaches, the instructor manages. A teacher shares a 
 **Primary: learning gain as the headline metric.** Gain per concept, per class, per cohort, exportable.
 Why: it reuses P0 data (pre/post pairs) and only adds concept tags on questions, so the cost is low and the funder value is high ("students gained 32 points on loops").
 
-**Specified but not committed (stretch):** Socratic hints that log what students struggled with (`POST /v1/student/hints`, `events` table). It reuses the same concept tags. Build it only if the primary pick is finished and demoable.
+**Built as a stretch:** Socratic hints that log what students struggled with (`POST /v1/student/hints`, `events` table). It reuses the same concept tags. Build it only if the primary pick is finished and demoable.
 
 ## 2. Constraints and principles
 
@@ -82,7 +82,7 @@ flowchart LR
 | Files | S3 behind CloudFront (OAC) for curriculum images | Roster CSVs are posted as JSON text, so no upload bucket is needed. |
 | Video | Unlisted YouTube embeds (`youtube-nocookie.com`) | Free bandwidth and captions. |
 | Secrets | Secrets Manager: credential pepper (1 secret now), GitHub token for Amplify (added when hosting is wired up) | About $0.40 per secret per month. Bedrock needs no key; the Lambda role is the credential. |
-| AI (stretch) | Amazon Bedrock, one small model, invoked with the Lambda's IAM role | Decided. Policy names the specific model ARN. Model ID to be confirmed for the deploy region. Hard monthly cap. |
+| AI (hints) | Amazon Bedrock, Amazon Nova Lite (`amazon.nova-lite-v1:0`) in `us-west-2`, invoked with the Lambda's IAM role | The policy allows `InvokeModel` on that one model ARN. Hard monthly cap (`hintsMonthlyCap`, default 5000). |
 | Ops | CloudWatch 14-day retention, one AWS Budget | No WAF, VPC, X-Ray, or custom KMS keys. |
 
 ## 5. Identity and access
@@ -297,7 +297,7 @@ backend/
 - All logs are JSON with IDs only. No names, codes, tokens, or free-text answers.
 - Encryption at rest (DynamoDB, S3 AWS-managed) and TLS in transit (S3 `enforceSSL`).
 - Retention: sessions (8 hours), hints (about 180 days), audit (about 1 year) via DynamoDB TTL. Student data for archived classes is deletable by an admin.
-- AI (stretch, Bedrock): student code is untrusted input in a prompt. Output is checked, rate-limited per student, capped per month, and logged for teachers. Student names are never sent.
+- AI hints (Bedrock): student text is untrusted input in a prompt, passed as quoted data. The model is given the answers only as a "do not say" list, and its reply is checked again on the server (answers, spelled-out letters, long code) before a student sees it. Hints work only on check and worksheet activities, never tests. They are rate-limited per student, capped per month, and logged for teachers for 180 days. Student names are never sent.
 - Pyodide-style client-side code grading (stretch) is tamperable, so it is for formative use only. The docs must say so.
 - Secrets only in Secrets Manager and `.env` (gitignored). The repo's pre-commit hook stays enabled.
 
@@ -324,7 +324,7 @@ Verified from AWS pricing pages: Cognito Essentials free up to 10,000 monthly ac
 | Secrets Manager (1 secret: credential pepper) | $0.40 |
 | S3 + CloudFront (images only) | under $0.50 |
 | CloudWatch Logs (14-day retention) | about $0.25 |
-| Bedrock hints (stretch, capped) | $0 to $1 |
+| Bedrock hints (Nova Lite, capped at 5000 a month) | about $0.15 at the cap |
 
 ## 13. Decisions and open questions
 
@@ -341,5 +341,5 @@ Deferred or open:
 
 7. **Amplify hosting** is deferred. The backend deploys first. The GitHub connection needs a token with access to the hackathon org repo, or we deploy a built bundle.
 8. **"Complete" rule** for a module (submit only vs minimum score), and who writes the matched pre/post questions.
-9. **Bedrock model ID and region.** Confirm which small model is available in the deploy region before writing the IAM policy.
+9. **Bedrock model and region.** Decided: Amazon Nova Lite in `us-west-2`, set by the `hintModelId` and `bedrockRegion` context values.
 10. **Staff MFA.** Cognito MFA is per pool. Decide between required TOTP for all staff (simplest, most secure) and optional TOTP (less friction for partner-school teachers, no admin enforcement). Current default: required.

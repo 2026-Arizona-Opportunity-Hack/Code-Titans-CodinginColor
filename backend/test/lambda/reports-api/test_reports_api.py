@@ -175,3 +175,10 @@ def test_not_started_waits_from_the_later_of_roster_and_assignment_time(api, tab
     tables["CORE_TABLE"].update_item(Key={"pk": f"CLS#{CLS}", "sk": "STU#s6"}, UpdateExpression="SET createdAt = :c",
                                      ExpressionAttributeValues={":c": recent})
     assert api("GET /v1/classes/{classId}/attention")[1]["data"]["notStarted"] == []  # added just now, so not waiting yet
+
+
+def test_students_leaning_on_hints_are_flagged(api, tables):
+    tables["PROGRESS_TABLE"].put_item(Item={"pk": "STU#s5", "sk": "ACT#m1#chk", "status": "in_progress", "attempts": 1, "hintCount": 3,
+                                            "lastActiveAt": NOW_MS})
+    stuck = {s["displayName"]: s["reasons"] for s in api("GET /v1/classes/{classId}/attention")[1]["data"]["stuck"]}
+    assert stuck["Eli M."] == ["asked_for_hints"]

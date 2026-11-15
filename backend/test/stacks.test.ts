@@ -104,3 +104,19 @@ describe("config", () => {
     expect(() => readConfig(new cdk.App({ context: { allowedOrigins: "https://x.com/path" } }))).toThrow(/Invalid origin/);
   });
 });
+
+describe("hint settings", () => {
+  const read = (ctx: Record<string, unknown>) => readConfig(new cdk.App({ context: { allowedOrigins: "http://localhost:3000", ...ctx } }));
+
+  test("default to Nova Lite in us-west-2 with a 5000 hint monthly cap", () => {
+    expect(read({})).toMatchObject({ bedrockRegion: "us-west-2", hintModelId: "amazon.nova-lite-v1:0", hintsMonthlyCap: 5000 });
+  });
+
+  test("can be changed, but not to a wildcard or a malformed value", () => {
+    expect(read({ bedrockRegion: "us-east-1", hintsMonthlyCap: 100 })).toMatchObject({ bedrockRegion: "us-east-1", hintsMonthlyCap: 100 });
+    expect(() => read({ hintModelId: "amazon.*" })).toThrow(/hintModelId/);
+    expect(() => read({ bedrockRegion: "west" })).toThrow(/bedrockRegion/);
+    expect(() => read({ hintsMonthlyCap: -1 })).toThrow(/hintsMonthlyCap/);
+    expect(() => read({ hintsMonthlyCap: 1.5 })).toThrow(/hintsMonthlyCap/);
+  });
+});

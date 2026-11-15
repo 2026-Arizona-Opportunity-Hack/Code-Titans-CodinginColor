@@ -95,7 +95,7 @@ export class ApiStack extends cdk.Stack {
 
     // ---- Domains: add one line per domain construct here. ----
     const studentAuth = new StudentAuthDomain(this, "StudentAuth", ctx);
-    new StudentPlayerApi(this, "StudentPlayer", ctx, studentAuth.authorizer);
+    new StudentPlayerApi(this, "StudentPlayer", ctx, studentAuth.authorizer, config);
     new ReportsApi(this, "Reports", ctx);
     new ReadApi(this, "Read", ctx);
     new AdminDomain(this, "Admin", ctx);

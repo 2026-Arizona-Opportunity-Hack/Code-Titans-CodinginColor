@@ -36,7 +36,8 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 | 403 | `FORBIDDEN`, `MODULE_LOCKED`, `ACTIVITY_LOCKED`, `ASSESSMENT_ALREADY_SUBMITTED` |
 | 404 | `NOT_FOUND` |
 | 409 | `REVISION_CONFLICT`, `DUPLICATE_SUBMISSION`, `ALREADY_PUBLISHED`, `TOO_EARLY` |
-| 429 | `LOGIN_THROTTLED` (with `Retry-After`), `RATE_LIMITED`, `AI_QUOTA_EXCEEDED` |
+| 429 | `LOGIN_THROTTLED` (with `Retry-After`), `RATE_LIMITED`, `HINT_LIMIT_REACHED`, `AI_QUOTA_EXCEEDED` |
+| 503 | `HINTS_UNAVAILABLE` |
 | 500 | `INTERNAL_ERROR` (generic message, details only in logs) |
 
 **Other rules:** JSON only, UTF-8, request bodies capped at 256 KB. Lists take `limit` (default 50, max 200) and `cursor`. Timestamps are ISO 8601 UTC. IDs are opaque strings. `studentId` is a UUID v4 (examples below are shortened). All routes answer `OPTIONS` with CORS headers for the allowlisted origins.
@@ -191,7 +192,7 @@ Roles `I` (member) and `A` unless noted.
 
 Notes for the other section 5 endpoints:
 
-- `attention` returns `{notStarted: [...], stuck: [...]}`. Each row has the student, `moduleId`, `activityId`, and for stuck rows `reasons`: `repeated_attempts`, `taking_longer_than_expected` (needs `estimatedMinutes` on the activity), or `inactive`. Thresholds come from the class `settings` (`stuckFailedAttempts` 3, `stuckTimeMultiplier` 2, `notStartedDays` 1, `inactiveSchoolDays` 3). Inactivity is counted in school days (Monday to Friday).
+- `attention` returns `{notStarted: [...], stuck: [...]}`. Each row has the student, `moduleId`, `activityId`, and for stuck rows `reasons`: `repeated_attempts`, `asked_for_hints` (3 or more hints on the current activity), `taking_longer_than_expected` (needs `estimatedMinutes` on the activity), or `inactive`. Thresholds come from the class `settings` (`stuckFailedAttempts` 3, `stuckTimeMultiplier` 2, `notStartedDays` 1, `inactiveSchoolDays` 3). Inactivity is counted in school days (Monday to Friday).
 - `concepts` rows have the gain fields plus `masteryPct`, the share of post-tested students at or above 80% on that concept ("80% stuck on loops" is `100 - masteryPct`), and `postN`.
 - `review-queue` takes `limit` and `cursor`; each item has a `submissionId` (use it in the review route), the student, and the free-text `answers`. A reviewed submission leaves the queue.
 - `export` returns `text/csv` (not the JSON envelope) with `Content-Disposition: attachment`. Cells starting with `=`, `+`, `-` or `@` are prefixed with `'`. Every export is written to the audit log.
@@ -228,7 +229,7 @@ Student session only. `studentId` and `classId` always come from the session, ne
 | POST | `/student/modules/{moduleId}/activities/{activityId}/heartbeat` | `{seconds}` of active time (credited up to 45 per call) |
 | POST | `/student/modules/{moduleId}/activities/{activityId}/submit` | Submit answers, get grading and the next state |
 | POST | `/student/modules/{moduleId}/activities/{activityId}/complete` | Mark a video or slides activity done |
-| POST | `/student/hints` | **Stretch.** Socratic hint, logs the struggle (below) |
+| POST | `/student/hints` | A Socratic hint on a check or worksheet question (below) |
 
 `POST .../submit`
 
@@ -256,16 +257,24 @@ Student session only. `studentId` and `classId` always come from the session, ne
 - When the last required activity completes, the response includes `moduleUnlocked: "<nextModuleId>"`.
 - Grading uses the `answerKey` stored server-side. Worksheet fields without a key go to the instructor review queue and show as "submitted".
 
-### Stretch: `POST /student/hints`
+### `POST /student/hints`
 
 ```json
-// request
-{ "moduleId": "py-loops", "activityId": "a-code", "code": "for i in range(", "question": "why error?" }
+// request: question or code (at least one). questionId is optional and picks one question.
+{ "moduleId": "py-loops", "activityId": "chk", "questionId": "c1",
+  "question": "I do not get what goes in the blank", "code": "for i in ___(5):" }
 // 200
-{ "data": { "hint": "What do you think range() needs between its parentheses?", "level": 1, "remainingToday": 7 } }
+{ "data": { "hint": "Think about what generates a sequence of numbers.", "level": 1, "remainingToday": 9 } }
 ```
 
-Rate-limited per student per day. A global monthly cap returns 429 `AI_QUOTA_EXCEEDED`. The log entry stores `studentId`, `activityId`, `concept`, hint level, and timestamp. It does not store the student's name. Instructors see a per-concept struggle summary at `GET /classes/{classId}/hints`.
+- **Where it works.** Only `check` and `worksheet` activities, and only when the student could open the activity. Tests (`assessment`) and everything else return 403 `HINTS_NOT_ALLOWED`, so a hint can never change a pretest or post-test score.
+- **Levels.** The first hint on an activity is a gentle question (level 1), the second names the concept (level 2), and the third and later show a tiny worked example on a different problem (level 3).
+- **Limits.** 10 hints per student per day (429 `HINT_LIMIT_REACHED`) and a cap for the whole app per month, `hintsMonthlyCap`, default 5000 (429 `AI_QUOTA_EXCEEDED`). A hint is counted before the model is called and given back if the call fails, which returns 503 `HINTS_UNAVAILABLE`. The route is throttled to 10 per second.
+- **Fields.** `question` up to 500 characters and `code` up to 4000. Unknown fields are rejected.
+- **What the model sees.** The activity title, the question text and choices, the concept, the student's own text, and a "do not say" list of the answers so it can steer around them. It never sees the student's name, an explanation, or the raw answer key. Student text is passed as quoted data.
+- **What the student sees.** The reply is cleaned (echoed tags and labels removed) and checked: it must not contain an answer (also when punctuation is attached or the letters are spelled out), "the answer is", more than a few lines of code, or more than 600 characters. If it fails, the student gets a generic hint for that level instead. The student cannot tell the difference.
+- **Teacher review.** Each hint is logged in the events table under `HINT#<classId>` with the student ID, activity, concepts, level, the student's question, the hint shown, whether it was replaced, and token counts. Entries expire after 180 days. The student's name is not stored. The count of hints per activity (`hintCount`) feeds the "stuck" list in `GET /classes/{id}/attention` (reason `asked_for_hints`, at 3 or more).
+- **Model.** Amazon Nova Lite in `us-west-2` by default (`bedrockRegion`, `hintModelId`). About $0.00003 per hint, so a full 5000 hints is about $0.15.
 
 ---
 
@@ -331,7 +340,7 @@ Generated from the synthesized CDK stack, so it shows what is deployed, not what
 | `/curriculum/*` | `curriculum-api` | Cognito JWT | content rw, core r, assets bucket (write) |
 | `/classes` (create, list, update, members, roster, import, credentials, join code, assignments, unlock) and `GET /students`, `GET /students/{id}` | `class-api` | Cognito JWT | core rw, content r, progress (query and delete, to remove a deleted student), pepper secret (read), Cognito (group check) |
 | `/classes/{id}/progress`, `students/{id}/progress`, `attention`, `modules/{id}/gain`, `concepts`, `review-queue`, `submissions/{id}/review`, `export`, and `/admin/cohorts/{id}/summary` | `reports-api` | Cognito JWT | core r, content r, progress rw (review updates), events w (export audit) |
-| `/student/*` | `student-api` | student session | core r, content r, progress rw |
+| `/student/*` (including `POST /student/hints`) | `student-api` | student session | core r, content r, progress rw, events rw (hint counters and log), Bedrock `InvokeModel` on one named model |
 | `/read/*` | `read-api` | API key | core r, content r, progress r |
 
 Authorizers (not routes):
@@ -350,5 +359,5 @@ Throttling is per route, across all callers. The default for every route is 50 r
 | `POST /auth/student/login` | 5 per second, burst 10 |
 | `POST /student/.../heartbeat` | 30 per second, burst 60 |
 | `/read/*` | 5 per second, burst 10 |
+| `POST /student/hints` | 10 per second, burst 20 |
 
-`POST /student/hints` (stretch) is not built yet. It will add events (w) to `student-api`.
