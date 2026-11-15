@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { ApiError } from "../../lib/api/client";
 import { listUsers } from "../../lib/api/admin";
-import { addClassMember, getClass, rotateJoinCode, updateClass, type ClassDetail } from "../../lib/api/staff";
+import { addClassMember, getClass, rotateJoinCode, updateClass, type ClassDetail, TEACHER_ROLES } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 
 const msg = (e: unknown, f: string) => (e instanceof ApiError ? e.message : f);
@@ -115,5 +115,5 @@ function Body({ token, classId, isAdmin }: { token: string; classId: string; isA
 
 export function ClassSettingsScreen() {
   const classId = useSearchParams().get("id") ?? "";
-  return <StaffPage roles={["instructor", "cic_admin"]}>{({ token, me }) => classId ? <Body token={token} classId={classId} isAdmin={me.role === "cic_admin"} /> : <p role="alert" className="callout callout-danger">No class was chosen.</p>}</StaffPage>;
+  return <StaffPage roles={TEACHER_ROLES}>{({ token, me }) => classId ? <Body token={token} classId={classId} isAdmin={me.role === "cic_admin"} /> : <p role="alert" className="callout callout-danger">No class was chosen.</p>}</StaffPage>;
 }

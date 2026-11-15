@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiError } from "../../lib/api/client";
 import { listModules } from "../../lib/api/curriculum";
-import { getClass } from "../../lib/api/staff";
+import { getClass, TEACHER_ROLES } from "../../lib/api/staff";
 import { Icon, type IconName } from "../common/Icon";
 import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
@@ -133,7 +133,7 @@ function ClassPageBody({ token, classId }: { token: string; classId: string }) {
 export function ClassPage() {
   const classId = useSearchParams().get("id") ?? "";
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>
+    <StaffPage roles={TEACHER_ROLES}>
       {({ token }) => <ClassPageBody token={token} classId={classId} />}
     </StaffPage>
   );

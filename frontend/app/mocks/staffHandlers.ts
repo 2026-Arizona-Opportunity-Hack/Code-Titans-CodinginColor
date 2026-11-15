@@ -57,7 +57,7 @@ export function apiError(status: number, code: string, error: string) {
 }
 
 export function roleOf(request: Request): StaffRole | null {
-  const match = /^Bearer staff_mock_(cic_admin|instructor|reviewer)$/.exec(request.headers.get("Authorization") ?? "");
+  const match = /^Bearer staff_mock_(cic_admin|instructor|external_teacher|reviewer)$/.exec(request.headers.get("Authorization") ?? "");
   return match ? (match[1] as StaffRole) : null;
 }
 
@@ -73,11 +73,11 @@ export const staffHandlers = [
     const me: StaffMe = {
       userId: `usr_${role}`,
       role,
-      displayName: { instructor: "Jordan Lee", cic_admin: "Diana Admin", reviewer: "Riley Reviewer" }[role],
+      displayName: { instructor: "Jordan Lee", external_teacher: "Eli Outside", cic_admin: "Diana Admin", reviewer: "Riley Reviewer" }[role],
       permissions: { canAuthor: role === "cic_admin", canEditAll: role === "cic_admin" },
-      classes: role === "instructor" ? classes.map((c) => ({ classId: c.classId })) : [],
+      classes: role === "instructor" || role === "external_teacher" ? classes.map((c) => ({ classId: c.classId })) : [],
       // ASSUMPTION (see StaffMe in lib/api/staff.ts): not returned by the real backend yet.
-      ...(role === "instructor" ? { orgId: "org_maryvale", orgName: "Maryvale High School" } : { orgId: null, orgName: null }),
+      ...(role === "instructor" || role === "external_teacher" ? { orgId: "org_maryvale", orgName: "Maryvale High School" } : { orgId: null, orgName: null }),
     };
     return HttpResponse.json({ data: me });
   }),

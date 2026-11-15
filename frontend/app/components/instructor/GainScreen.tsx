@@ -8,6 +8,7 @@ import { ApiError } from "../../lib/api/client";
 import { downloadExport } from "../../lib/api/exportCsv";
 import { getModuleGain, getProgress, type GainSummary } from "../../lib/api/reports";
 import { StaffPage } from "../common/StaffPage";
+import { TEACHER_ROLES } from "../../lib/api/staff";
 
 const num = (x: number | null, suffix = "") => (x === null ? "—" : `${x}${suffix}`);
 const signed = (x: number | null) => (x === null ? "—" : `${x > 0 ? "+" : ""}${x}`);
@@ -204,7 +205,7 @@ function GainBody({ token, classId }: { token: string; classId: string }) {
 export function GainScreen() {
   const classId = useSearchParams().get("id") ?? "";
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>
+    <StaffPage roles={TEACHER_ROLES}>
       {({ token }) =>
         classId ? (
           <GainBody token={token} classId={classId} />

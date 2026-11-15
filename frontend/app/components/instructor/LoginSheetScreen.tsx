@@ -9,6 +9,7 @@ import { issueCredentials, type LoginSheet } from "../../lib/api/credentials";
 import { listRoster } from "../../lib/api/roster";
 import { StaffPage } from "../common/StaffPage";
 import { LoginSheetCards } from "./LoginSheetCards";
+import { TEACHER_ROLES } from "../../lib/api/staff";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -123,7 +124,7 @@ function LoginSheetBody({ token, classId }: { token: string; classId: string }) 
 export function LoginSheetScreen() {
   const classId = useSearchParams().get("id") ?? "";
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>
+    <StaffPage roles={TEACHER_ROLES}>
       {({ token }) =>
         classId ? (
           <LoginSheetBody token={token} classId={classId} />

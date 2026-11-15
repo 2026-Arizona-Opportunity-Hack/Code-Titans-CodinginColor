@@ -9,6 +9,7 @@ import type { StaffMe } from "../../lib/api/staff";
 import { Icon } from "../common/Icon";
 import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
+import { TEACHER_ROLES } from "../../lib/api/staff";
 
 type Show = "all" | "published" | "draft" | "mine";
 const SHOW: [Show, string][] = [["all", "All"], ["published", "Published"], ["draft", "Drafts"], ["mine", "Made by me"]];
@@ -213,5 +214,5 @@ function Body({ token, me }: { token: string; me: StaffMe }) {
 
 /** One place for curriculum: browse, create, edit, publish and delete. For admins and instructors. */
 export function CurriculumScreen() {
-  return <StaffPage roles={["instructor", "cic_admin"]}>{({ token, me }) => <Body token={token} me={me} />}</StaffPage>;
+  return <StaffPage roles={TEACHER_ROLES}>{({ token, me }) => <Body token={token} me={me} />}</StaffPage>;
 }

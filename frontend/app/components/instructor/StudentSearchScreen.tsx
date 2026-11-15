@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ApiError } from "../../lib/api/client";
-import { listClasses, searchStudents } from "../../lib/api/staff";
+import { listClasses, searchStudents, TEACHER_ROLES } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 
 function Body({ token }: { token: string }) {
@@ -64,5 +64,5 @@ function Body({ token }: { token: string }) {
 }
 
 export function StudentSearchScreen() {
-  return <StaffPage roles={["instructor", "cic_admin"]}>{({ token }) => <Body token={token} />}</StaffPage>;
+  return <StaffPage roles={TEACHER_ROLES}>{({ token }) => <Body token={token} />}</StaffPage>;
 }

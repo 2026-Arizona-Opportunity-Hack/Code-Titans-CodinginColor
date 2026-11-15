@@ -15,6 +15,7 @@ import {
 import { prepareRosterCsv, TEMPLATE_CSV } from "../../lib/rosterCsv";
 import { StaffPage } from "../common/StaffPage";
 import { RosterImportPreview } from "./RosterImportPreview";
+import { TEACHER_ROLES } from "../../lib/api/staff";
 
 type Step = "choose" | "preview" | "done";
 
@@ -290,7 +291,7 @@ function ImportBody({ token, classId }: { token: string; classId: string }) {
 export function RosterImportWizard() {
   const classId = useSearchParams().get("id") ?? "";
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>
+    <StaffPage roles={TEACHER_ROLES}>
       {({ token }) =>
         classId ? (
           <ImportBody token={token} classId={classId} />

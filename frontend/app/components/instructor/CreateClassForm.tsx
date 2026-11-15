@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { ApiError } from "../../lib/api/client";
-import { createClass, listOrgs, type StaffMe } from "../../lib/api/staff";
+import { createClass, listOrgs, type StaffMe, TEACHER_ROLES } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 import { classHref } from "./ClassList";
 
@@ -111,7 +111,7 @@ function CreateClassBody({ token, me }: { token: string; me: StaffMe }) {
             >
               <option value="">{orgs.isPending ? "Loading schools…" : "Choose a school"}</option>
               {orgs.data
-                ?.filter((org) => org.status !== "archived")
+                ?.filter((org) => org.status !== "archived" && org.kind !== "external")
                 .map((org) => (
                   <option key={org.orgId} value={org.orgId}>
                     {org.name}
@@ -181,6 +181,6 @@ function CreateClassBody({ token, me }: { token: string; me: StaffMe }) {
 
 export function CreateClassForm() {
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>{({ token, me }) => <CreateClassBody token={token} me={me} />}</StaffPage>
+    <StaffPage roles={TEACHER_ROLES}>{({ token, me }) => <CreateClassBody token={token} me={me} />}</StaffPage>
   );
 }

@@ -9,6 +9,7 @@ import { getAttention, getProgress } from "../../lib/api/reports";
 import { StaffPage } from "../common/StaffPage";
 import { AttentionPanel } from "./AttentionPanel";
 import { ProgressTable } from "./ProgressTable";
+import { TEACHER_ROLES } from "../../lib/api/staff";
 
 const normalize = (text: string) => text.trim().replace(/\s+/g, " ").toLowerCase();
 
@@ -131,7 +132,7 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
 export function ProgressScreen() {
   const classId = useSearchParams().get("id") ?? "";
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>
+    <StaffPage roles={TEACHER_ROLES}>
       {({ token }) =>
         classId ? (
           <ProgressBody token={token} classId={classId} />
