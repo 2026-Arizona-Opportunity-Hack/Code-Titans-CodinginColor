@@ -68,9 +68,19 @@ Instructors and CIC staff build modules in a visual editor and publish them with
 </tr>
 </table>
 
+**Draft from a file (AI), step by step.** The screenshots below are from a real run of the live app with a 1.3 MB lecture PDF. The draft took about 25 seconds.
+
 <table>
 <tr>
-<td valign="top"><img src="docs/screenshots/convert-file-dialog.png" alt="Draft from a file (AI): upload a worksheet or slide deck and get a draft module" width="560"><br><sub>Draft from a file (AI): the author uploads a worksheet or deck, then reviews the draft before publishing</sub></td>
+<td width="50%" valign="top"><img src="docs/screenshots/convert-file-dialog.png" alt="Draft from a file (AI): choose a PDF or PowerPoint"><br><sub>1. The author chooses a PDF or PowerPoint</sub></td>
+<td width="50%" valign="top"><img src="docs/screenshots/convert-drafting.png" alt="The AI is drafting the module, with a running timer"><br><sub>2. The AI drafts it in the background, and the author can hide the dialog</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/screenshots/convert-draft-editor.png" alt="The new draft opens in the module editor with a banner asking the author to check every answer"><br><sub>3. The draft opens in the editor. Nothing is visible to students until the author publishes</sub></td>
+<td width="50%" valign="top"><img src="docs/screenshots/convert-draft-pretest.png" alt="The drafted pretest with questions, choices and the marked correct answer"><br><sub>4. Pretest questions with choices and the marked answer, ready to edit</sub></td>
+</tr>
+<tr>
+<td colspan="2" valign="top"><img src="docs/screenshots/convert-draft-worksheet.png" alt="The drafted worksheet with written-answer prompts taken from the file" width="560"><br><sub>5. Worksheet prompts taken from the file. A teacher scores written answers</sub></td>
 </tr>
 </table>
 
