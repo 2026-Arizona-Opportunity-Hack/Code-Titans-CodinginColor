@@ -20,6 +20,26 @@ export type StaffMe = {
   orgId?: string;
 };
 
+/**
+ * ASSUMPTION: api.md names these endpoints but not the class object, and the class API
+ * is not built yet. Fields other than classId and name are treated as optional.
+ */
+export type ClassSummary = {
+  classId: string;
+  name: string;
+  orgId?: string;
+  cohortId?: string;
+  status?: string;
+  joinCode?: string;
+  enrolled?: number;
+  termStart?: string;
+  termEnd?: string;
+};
+
 export function getMe(token: string, signal?: AbortSignal): Promise<StaffMe> {
   return apiFetch<StaffMe>("/me", { token, signal });
+}
+
+export function listClasses(token: string, signal?: AbortSignal): Promise<ClassSummary[]> {
+  return apiFetch<ClassSummary[]>("/classes", { token, signal });
 }
