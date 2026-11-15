@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HintBox } from "./HintBox";
 import { playerMessage } from "../../lib/studentErrors";
 import { sendHeartbeat, submitActivity, type Activity, type Answer, type Question, type StepResult } from "../../lib/api/studentModule";
 import { useActiveTime } from "../../lib/useActiveTime";
@@ -212,6 +213,7 @@ export function QuestionActivity({
           ) : null}
         </div>
       )}
+      {activity.type === "check" ? <HintBox token={token} moduleId={moduleId} activityId={activity.activityId} /> : null}
     </div>
   );
 }
