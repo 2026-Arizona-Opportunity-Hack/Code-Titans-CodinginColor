@@ -26,11 +26,11 @@ const classes: ClassSummary[] = [
   { classId: "cls_02", name: "Period 5", orgId: "org_maryvale", status: "active", joinCode: "R2D9TW", enrolled: 24 },
 ];
 
-function apiError(status: number, code: string, error: string) {
+export function apiError(status: number, code: string, error: string) {
   return HttpResponse.json({ error, code, requestId: "req_mock" }, { status });
 }
 
-function roleOf(request: Request): StaffRole | null {
+export function roleOf(request: Request): StaffRole | null {
   const match = /^Bearer staff_mock_(cic_admin|instructor|reviewer)$/.exec(request.headers.get("Authorization") ?? "");
   return match ? (match[1] as StaffRole) : null;
 }
