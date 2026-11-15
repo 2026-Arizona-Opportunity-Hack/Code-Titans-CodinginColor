@@ -61,11 +61,15 @@ def test_all_tests_passing_completes_the_exercise_and_keeps_the_code(player):
     assert item["status"] == "complete" and item["code"].startswith("def add") and item["selfReported"] is True and item["testsTotal"] == 3
     subs = [i for i in player.tables["PROGRESS_TABLE"].scan()["Items"] if i["sk"].startswith("SUB#code1#")]
     assert len(subs) == 1 and subs[0]["kind"] == "code" and "reviewStatus" not in subs[0] and "gsi2pk" not in subs[0]
-def test_some_failing_tests_keep_it_in_progress_and_a_later_pass_completes_it(player):
-    status, body = sub(player, passed=(True, False, True))
-    assert body["data"]["passed"] is False and body["data"]["scorePct"] == 66.7 and body["data"]["activityState"] == "in_progress"
-    status, body = sub(player, csid="client-sub-002")
-    assert body["data"]["activityState"] == "complete"
+def test_submitting_with_failing_tests_still_lets_the_student_move_on(player):
+    status, body = sub(player, passed=(False, False, False))
+    data = body["data"]
+    assert status == 200 and data["passed"] is False and data["scorePct"] == 0 and data["activityState"] == "complete"
+    assert data["next"]["type"] in ("activity", "module_complete")  # the next step opens
+    status, body = sub(player, passed=(True, False, True), csid="client-sub-002")  # can still improve it
+    assert body["data"]["scorePct"] == 66.7 and body["data"]["activityState"] == "complete"
+    status, body = sub(player, csid="client-sub-004")
+    assert body["data"]["passed"] is True
     sub(player, passed=(False, False, False), csid="client-sub-003")  # a worse later try never undoes it
     item = player.tables["PROGRESS_TABLE"].get_item(Key={"pk": "STU#stu1", "sk": "ACT#m1#code1"})["Item"]
     assert item["status"] == "complete" and float(item["bestScore"]) == 100.0

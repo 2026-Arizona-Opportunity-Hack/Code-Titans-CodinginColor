@@ -179,7 +179,10 @@ def _submit_code(ctx, module_id, activity, body):
         "pk": keys.stu_pk(ctx.student.student_id), "sk": keys.submission_sk(activity["activityId"], ts), "classId": ctx.student.class_id,
         "moduleId": module_id, "activityId": activity["activityId"], "kind": "code", "code": code, "testsPassed": passed,
         "testsTotal": total, "scorePct": pct, "selfReported": True, "submittedAt": ts}))
-    return (COMPLETE if ok else IN_PROGRESS), {"_score": pct, "_extra": {"code": code, "draftCode": code, "testsPassed": passed, "testsTotal": total, "selfReported": True},
+    # Submitting finishes the step even with failing tests, so a student is never stuck on one
+    # exercise. The score, and whether it reached passPct, are kept for the teacher; the student
+    # can keep improving it and submit again (the best score is kept).
+    return COMPLETE, {"_score": pct, "_extra": {"code": code, "draftCode": code, "testsPassed": passed, "testsTotal": total, "selfReported": True},
                                                "recorded": True, "scorePct": pct, "passed": ok, "testsPassed": passed, "testsTotal": total}
 def _record_assessment(ctx, module_id, activity, answers, graded):
     role = activity.get("role")
