@@ -8,7 +8,7 @@ import { listAssignments } from "../../lib/api/assignments";
 import { ApiError } from "../../lib/api/client";
 import type { LoginSheet } from "../../lib/api/credentials";
 import { listModules } from "../../lib/api/curriculum";
-import { addStudent } from "../../lib/api/roster";
+import { GRADE_LEVELS, addStudent } from "../../lib/api/roster";
 import { getClass } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 import { LoginSheetCards } from "./LoginSheetCards";
@@ -22,6 +22,7 @@ function AddStudentBody({ token, classId }: { token: string; classId: string }) 
 
   const [name, setName] = useState("");
   const [schoolId, setSchoolId] = useState("");
+  const [grade, setGrade] = useState("");
   const [startModule, setStartModule] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +53,7 @@ function AddStudentBody({ token, classId }: { token: string; classId: string }) 
         displayName: trimmed,
         ...(schoolId.trim() ? { externalId: schoolId.trim() } : {}),
         ...(startModule ? { startModuleId: startModule } : {}),
+        ...(grade ? { gradeLevel: Number(grade) } : {}),
       });
       setDuplicate(Boolean(added.possibleDuplicateOf));
       setSheet({
@@ -71,6 +73,7 @@ function AddStudentBody({ token, classId }: { token: string; classId: string }) 
     setSheet(null);
     setName("");
     setSchoolId("");
+    setGrade("");
     setDuplicate(false);
   }
 
@@ -113,6 +116,19 @@ function AddStudentBody({ token, classId }: { token: string; classId: string }) 
                 Add a last initial if two students share a first name.
               </p>
               <input id="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} autoComplete="off" aria-describedby="name-hint" className="field mt-1" />
+            </div>
+            <div>
+              <label htmlFor="grade" className="block font-bold">
+                Grade <span className="font-normal text-muted">(optional)</span>
+              </label>
+              <select id="grade" value={grade} onChange={(e) => setGrade(e.target.value)} className="field mt-1 max-w-xs">
+                <option value="">Not set</option>
+                {GRADE_LEVELS.map((g) => (
+                  <option key={g} value={g}>
+                    Grade {g}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label htmlFor="startModule" className="block font-bold">

@@ -14,6 +14,7 @@ function student(classId: string, n: number, displayName: string, extra: Partial
     status: "active",
     startModuleId: null,
     hasCredential: true,
+    gradeLevel: 9 + (n % 4), // grades 9 to 12 for the demo data
     ...extra,
   };
 }
@@ -44,11 +45,12 @@ export function getRoster(classId: string): RosterStudent[] {
   return roster;
 }
 
-export function addStudent(classId: string, displayName: string, externalId: string): RosterStudent {
+export function addStudent(classId: string, displayName: string, externalId: string, gradeLevel: number | null = null): RosterStudent {
   const roster = getRoster(classId);
   const number = roster.reduce((max, s) => Math.max(max, s.rosterNumber), 0) + 1;
   const created = student(classId, number, displayName, {
     externalId: externalId || null,
+    gradeLevel,
     hasCredential: false, // imported students have no login words yet
   });
   roster.push(created);

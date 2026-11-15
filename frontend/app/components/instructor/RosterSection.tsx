@@ -142,6 +142,7 @@ export function RosterSection({ token, classId }: { token: string; classId: stri
                   <tr>
                     <th scope="col" className="px-4 py-3 font-bold">#</th>
                     <th scope="col" className="px-4 py-3 font-bold">Name</th>
+                    <th scope="col" className="px-4 py-3 font-bold">Grade</th>
                     {showSchoolId ? <th scope="col" className="px-4 py-3 font-bold">School ID</th> : null}
                     <th scope="col" className="px-4 py-3 font-bold">Login</th>
                     <th scope="col" className="px-4 py-3 font-bold">Status</th>
@@ -157,6 +158,7 @@ export function RosterSection({ token, classId }: { token: string; classId: stri
                           <span className="ml-2 rounded bg-surface px-2 py-0.5 text-xs font-bold text-brand">Same name</span>
                         ) : null}
                       </th>
+                      <td className="px-4 py-3">{s.gradeLevel ?? "—"}</td>
                       {showSchoolId ? <td className="px-4 py-3">{s.externalId ?? "—"}</td> : null}
                       <td className="px-4 py-3">{s.hasCredential ? "Ready" : "Needs login words"}</td>
                       <td className="px-4 py-3 capitalize">{s.status}</td>

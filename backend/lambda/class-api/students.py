@@ -42,7 +42,8 @@ def search(req: Request):
         for item in load_roster(table, cid):
             if not q or q in normalize_name(item["displayName"]):
                 results.append({"studentId": item["sk"].split("#", 1)[1], "displayName": item["displayName"],
-                                "rosterNumber": int(item["rosterNumber"]), "classId": cid, "status": item["status"]})
+                                "rosterNumber": int(item["rosterNumber"]), "classId": cid, "status": item["status"],
+                                "gradeLevel": int(item["gradeLevel"]) if item.get("gradeLevel") is not None else None})
                 if len(results) >= limit:
                     return Reply(data=results, meta={"nextCursor": None, "truncated": True})
     return Reply(data=results, meta={"nextCursor": None, "truncated": False})

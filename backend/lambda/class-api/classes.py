@@ -29,6 +29,35 @@ def cognito():
     return _cognito
 
 
+def instructors_of(table, class_id: str, names: dict) -> list:
+    """[{userId, name}] for a class. Names come from the membership item, or from Cognito
+    for memberships made before names were stored. `names` caches lookups per request."""
+    out = []
+    for m in db.query_all(table, KeyConditionExpression=Key("pk").eq(f"CLS#{class_id}") & Key("sk").begins_with("INS#")):
+        user_id = m["sk"].split("#", 1)[1]
+        if m.get("name"):
+            names.setdefault(user_id, m["name"])
+        if user_id not in names:
+            names[user_id] = _cognito_name(user_id)
+        out.append({"userId": user_id, "name": names[user_id]})
+    return sorted(out, key=lambda i: i["name"].lower())
+
+
+def _cognito_name(user_id: str) -> str:
+    try:
+        user = cognito().admin_get_user(UserPoolId=os.environ["USER_POOL_ID"], Username=user_id)
+    except ClientError as err:
+        if err.response["Error"]["Code"] == "UserNotFoundException":
+            return "Former instructor"  # the account was deleted
+        return "Instructor"  # a name is nice to have; never fail the class list over it
+    attrs = {a["Name"]: a["Value"] for a in user.get("UserAttributes", [])}
+    return attrs.get("name") or attrs.get("email") or "Instructor"
+
+
+def with_instructors(table, meta: dict, names: dict) -> dict:
+    return dict(public(meta), instructors=instructors_of(table, meta["pk"].split("#", 1)[1], names))
+
+
 def new_join_code() -> str:
     return "".join(secrets.choice(CODE_ALPHABET) for _ in range(6))
 
@@ -46,6 +75,11 @@ def public(meta: dict) -> dict:
 
 def _exists(table, pk: str) -> bool:
     return bool(table.get_item(Key={"pk": pk, "sk": "META"}).get("Item"))
+
+
+def _staff_name(req: Request) -> str:
+    claims = ((req.auth or {}).get("jwt") or {}).get("claims") or {}
+    return str(claims.get("name") or claims.get("email") or "Instructor")[:100]
 
 
 def create_class(req: Request):
@@ -92,7 +126,7 @@ def create_class(req: Request):
                 meta[field] = value
         if cohort_id:
             meta.update(gsi2pk=f"COH#{cohort_id}", gsi2sk=f"CLS#{class_id}")
-        member = {"pk": f"CLS#{class_id}", "sk": f"INS#{staff.user_id}",
+        member = {"pk": f"CLS#{class_id}", "sk": f"INS#{staff.user_id}", "name": _staff_name(req),
                   "gsi1pk": f"USR#{staff.user_id}", "gsi1sk": f"CLS#{class_id}", "addedAt": now}
         lock = {"pk": f"JOIN#{code}", "sk": "META", "classId": class_id}  # keeps codes unique
         try:
@@ -101,7 +135,7 @@ def create_class(req: Request):
                 {"Put": {"TableName": table.name, "Item": member}},
                 {"Put": {"TableName": table.name, "Item": lock, "ConditionExpression": "attribute_not_exists(pk)"}},
             ])
-            return Reply(data=public(meta), status=201)
+            return Reply(data=dict(public(meta), instructors=[{"userId": staff.user_id, "name": member["name"]}]), status=201)
         except ClientError as err:
             if err.response["Error"]["Code"] != "TransactionCanceledException":
                 raise
@@ -121,9 +155,11 @@ def list_classes(req: Request):
         if org_id:
             query["FilterExpression"] = Attr("orgId").eq(validate.safe_id(org_id, "orgId"))
         items, cursor = paging.query_page(table, req, keys, **query)
-        return Reply(data=[public(i) for i in items], meta={"nextCursor": cursor})
+        names = {}
+        return Reply(data=[with_instructors(table, i, names) for i in items], meta={"nextCursor": cursor})
     if not staff.is_instructor:
         raise Forbidden("Only instructors and administrators can list classes")
+    names = {}
     memberships, cursor = paging.query_page(
         table, req, ("pk", "sk", "gsi1pk", "gsi1sk"),
         IndexName="gsi1", KeyConditionExpression=Key("gsi1pk").eq(f"USR#{staff.user_id}"))
@@ -131,7 +167,7 @@ def list_classes(req: Request):
     for m in memberships:
         meta = table.get_item(Key={"pk": m["gsi1sk"], "sk": "META"}).get("Item")
         if meta:
-            classes.append(public(meta))
+            classes.append(with_instructors(table, meta, names))
     return Reply(data=classes, meta={"nextCursor": cursor})
 
 
@@ -154,7 +190,7 @@ def get_class(req: Request):
         KeyConditionExpression=Key("pk").eq(f"CLS#{class_id}") & Key("sk").begins_with("STU#"),
         Select="COUNT")["Count"]
     assignments = [public_assignment(a) for a in load_assignments(table, class_id)]
-    return dict(public(meta), assignments=assignments, counts={"students": students})
+    return dict(with_instructors(table, meta, {}), assignments=assignments, counts={"students": students})
 
 
 def update_class(req: Request):
@@ -207,7 +243,8 @@ def add_member(req: Request):
     if INSTRUCTOR not in [g["GroupName"] for g in groups]:
         raise ValidationError("Only instructors can be added to a class")
     table.put_item(Item={"pk": f"CLS#{class_id}", "sk": f"INS#{user_id}", "gsi1pk": f"USR#{user_id}",
-                         "gsi1sk": f"CLS#{class_id}", "addedAt": utc_now_iso(), "addedBy": admin.user_id})
+                         "gsi1sk": f"CLS#{class_id}", "addedAt": utc_now_iso(), "addedBy": admin.user_id,
+                         "name": _cognito_name(user_id)})
     return Reply(data={"classId": class_id, "userId": user_id}, status=201)
 
 

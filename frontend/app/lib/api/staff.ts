@@ -10,7 +10,9 @@ export type StaffMe = {
   userId: string;
   role: StaffRole;
   displayName: string;
-  permissions: { canAuthor: boolean };
+  /** canAuthor: may create modules and edit their own (admins and every instructor).
+   *  canEditAll: may edit anyone's module (admins, or instructors with the admin-set flag). */
+  permissions: { canAuthor: boolean; canEditAll?: boolean };
   classes: { classId: string }[];
   /**
    * The school an admin assigned to this person (Users screen). Instructors create classes
@@ -39,6 +41,8 @@ export type ClassSummary = {
     inactiveSchoolDays: number;
   };
   createdAt: string;
+  /** Who teaches the class, sorted by name. */
+  instructors?: { userId: string; name: string }[];
 };
 
 /** GET /classes/{classId} adds the student count and assignments to the class. */
@@ -97,7 +101,7 @@ export function rotateJoinCode(token: string, classId: string): Promise<{ classI
   return apiFetch(`/classes/${encodeURIComponent(classId)}/join-code/rotate`, { method: "POST", token });
 }
 
-export type StudentHit = { studentId: string; displayName: string; rosterNumber: number; classId: string; status: "active" | "inactive" };
+export type StudentHit = { studentId: string; displayName: string; rosterNumber: number; classId: string; status: "active" | "inactive"; gradeLevel?: number | null };
 
 /** GET /students?q=&cohortId=&classId=: find students by name. `truncated` means there are more than were returned. */
 /** GET /students. An empty `q` lists every student in the caller's classes (up to 200). */

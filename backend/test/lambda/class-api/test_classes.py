@@ -163,3 +163,34 @@ def test_admins_still_choose_any_school(api, table):
     table.put_item(Item={"pk": "ORG#org_2", "sk": "META", "status": "active"})
     assert make(api, who=ADMIN, orgId="org_2")[1]["data"]["orgId"] == "org_2"
     assert call(api, "POST /v1/classes", {"name": "x"}, who=ADMIN)[0] == 400  # admins must say which school
+
+
+def test_classes_list_their_instructors_by_name(api, table):
+    claims = lambda sub, name: {"jwt": {"claims": {"sub": sub, "cognito:groups": "[instructor]", "name": name}}}
+    from support import api_event as ev
+    resp = api.lambda_handler(ev("POST /v1/classes", {"name": "Period 6"}, auth=claims("ins-1", "Pat Lee")), None)
+    created = json.loads(resp["body"])["data"]
+    assert created["instructors"] == [{"userId": "ins-1", "name": "Pat Lee"}]
+    cid = created["classId"]
+    listed = call(api, "GET /v1/classes", who=INS)[1]["data"]
+    assert listed[0]["instructors"] == [{"userId": "ins-1", "name": "Pat Lee"}]
+    assert call(api, "GET /v1/classes", who=ADMIN)[1]["data"][0]["instructors"][0]["name"] == "Pat Lee"
+    assert call(api, "GET /v1/classes/{classId}", who=INS, path={"classId": cid})[1]["data"]["instructors"][0]["name"] == "Pat Lee"
+
+
+def test_older_memberships_get_the_name_from_cognito(api, pool, table):
+    sub = pool("t@school.org", "instructor")
+    boto3.client("cognito-idp").admin_update_user_attributes(
+        UserPoolId=os.environ["USER_POOL_ID"], Username="t@school.org", UserAttributes=[{"Name": "name", "Value": "Sam Ortiz"}])
+    cid = make(api)[1]["data"]["classId"]
+    table.put_item(Item={"pk": f"CLS#{cid}", "sk": f"INS#{sub}", "gsi1pk": f"USR#{sub}", "gsi1sk": f"CLS#{cid}"})  # no name stored
+    table.put_item(Item={"pk": f"CLS#{cid}", "sk": "INS#gone-user", "gsi1pk": "USR#gone-user", "gsi1sk": f"CLS#{cid}"})
+    names = {i["userId"]: i["name"] for i in call(api, "GET /v1/classes/{classId}", who=ADMIN, path={"classId": cid})[1]["data"]["instructors"]}
+    assert names[sub] == "Sam Ortiz" and names["gone-user"] == "Former instructor"
+
+
+def test_adding_an_instructor_stores_their_name(api, pool, table):
+    cid = make(api)[1]["data"]["classId"]
+    sub = pool("n@school.org", "instructor")
+    call(api, "POST /v1/classes/{classId}/members", {"userId": sub}, path={"classId": cid})
+    assert table.get_item(Key={"pk": f"CLS#{cid}", "sk": f"INS#{sub}"})["Item"]["name"] == "n@school.org"

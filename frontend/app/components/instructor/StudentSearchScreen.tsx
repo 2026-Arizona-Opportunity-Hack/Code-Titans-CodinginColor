@@ -54,7 +54,7 @@ function Body({ token }: { token: string }) {
       <ul className="mt-2 grid gap-2">
         {found.data?.students.map((s) => (
           <li key={s.studentId} className="card flex flex-wrap items-center justify-between gap-2">
-            <span><strong>{s.displayName}</strong> <span className="text-muted">#{s.rosterNumber} · {className(s.classId)}{s.status === "inactive" ? " · inactive" : ""}</span></span>
+            <span><strong>{s.displayName}</strong> <span className="text-muted">#{s.rosterNumber}{s.gradeLevel ? ` · Grade ${s.gradeLevel}` : ""} · {className(s.classId)}{s.status === "inactive" ? " · inactive" : ""}</span></span>
             <Link href={`/instructor/student/?class=${encodeURIComponent(s.classId)}&id=${encodeURIComponent(s.studentId)}`} className="btn btn-secondary">Open<span className="sr-only"> {s.displayName}</span></Link>
           </li>
         ))}

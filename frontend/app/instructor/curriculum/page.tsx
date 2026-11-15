@@ -1,5 +1,5 @@
-import { ModuleListScreen } from "../../components/curriculum/ModuleListScreen";
+import { CurriculumScreen } from "../../components/curriculum/CurriculumScreen";
 
 export default function InstructorCurriculumPage() {
-  return <ModuleListScreen base="/instructor/curriculum" roles={["instructor", "cic_admin"]} />;
+  return <CurriculumScreen />;
 }

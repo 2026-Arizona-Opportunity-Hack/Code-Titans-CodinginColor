@@ -30,7 +30,8 @@ def settings(data: ClassData) -> dict:
 
 def student_row(roster_item: dict) -> dict:
     return {"studentId": ClassData.student_id(roster_item), "displayName": roster_item.get("displayName"),
-            "rosterNumber": roster_item.get("rosterNumber"), "externalId": roster_item.get("externalId")}
+            "rosterNumber": roster_item.get("rosterNumber"), "externalId": roster_item.get("externalId"),
+            "gradeLevel": roster_item.get("gradeLevel")}
 
 
 def find_roster(data: ClassData, student_id: str) -> dict:

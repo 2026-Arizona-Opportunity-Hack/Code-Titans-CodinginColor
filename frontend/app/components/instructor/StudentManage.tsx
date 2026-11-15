@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { unlockModule } from "../../lib/api/assignments";
 import { ApiError } from "../../lib/api/client";
-import { deleteStudent, listDuplicates, mergeStudent, updateStudent } from "../../lib/api/roster";
+import { GRADE_LEVELS, deleteStudent, listDuplicates, mergeStudent, updateStudent } from "../../lib/api/roster";
 import type { StudentDetail } from "../../lib/api/reports";
 
 const msg = (e: unknown, f: string) => (e instanceof ApiError ? e.message : f);
@@ -14,6 +14,7 @@ export function StudentManage({ token, classId, detail, isAdmin, onMerged }: { t
   const qc = useQueryClient();
   const s = detail.student;
   const [name, setName] = useState(s.displayName);
+  const [grade, setGrade] = useState(s.gradeLevel ? String(s.gradeLevel) : "");
   const [moduleId, setModuleId] = useState("");
   const [into, setInto] = useState("");
   const [done, setDone] = useState("");
@@ -25,11 +26,12 @@ export function StudentManage({ token, classId, detail, isAdmin, onMerged }: { t
   const locked = detail.modules.filter((m) => m.state === "locked" || m.state === "catch_up");
 
   const rename = useMutation({ mutationFn: () => updateStudent(token, classId, s.studentId, { displayName: name.trim() }), onSuccess: ok("Name saved.") });
+  const saveGrade = useMutation({ mutationFn: () => updateStudent(token, classId, s.studentId, { gradeLevel: grade ? Number(grade) : null }), onSuccess: ok("Grade saved.") });
   const status = useMutation({ mutationFn: () => updateStudent(token, classId, s.studentId, { status: detail.status === "active" ? "inactive" : "active" }), onSuccess: ok("Saved.") });
   const unlock = useMutation({ mutationFn: () => unlockModule(token, classId, s.studentId, moduleId), onSuccess: ok("Module unlocked for this student.") });
   const merge = useMutation({ mutationFn: () => mergeStudent(token, classId, s.studentId, into), onSuccess: () => { qc.invalidateQueries({ queryKey: ["roster"] }); onMerged(); } });
   const remove = useMutation({ mutationFn: () => deleteStudent(token, classId, s.studentId), onSuccess: () => { qc.invalidateQueries({ queryKey: ["roster"] }); onMerged(); } });
-  const error = [rename, status, unlock, merge, remove].find((m) => m.isError)?.error;
+  const error = [rename, saveGrade, status, unlock, merge, remove].find((m) => m.isError)?.error;
 
   return (
     <section aria-labelledby="manage-h" className="card mt-8">
@@ -40,6 +42,14 @@ export function StudentManage({ token, classId, detail, isAdmin, onMerged }: { t
           <input id="stu-name" className="field mt-1 w-64 max-w-full" value={name} maxLength={100} onChange={(e) => { setName(e.target.value); setDone(""); }} />
         </div>
         <button type="button" className="btn btn-secondary" disabled={rename.isPending || !name.trim() || name.trim() === s.displayName} onClick={() => rename.mutate()}>Save name</button>
+        <div>
+          <label htmlFor="stu-grade" className="block font-bold">Grade</label>
+          <select id="stu-grade" className="field mt-1" value={grade} onChange={(e) => { setGrade(e.target.value); setDone(""); }}>
+            <option value="">Not set</option>
+            {GRADE_LEVELS.map((g) => <option key={g} value={g}>Grade {g}</option>)}
+          </select>
+        </div>
+        <button type="button" className="btn btn-secondary" disabled={saveGrade.isPending || grade === (s.gradeLevel ? String(s.gradeLevel) : "")} onClick={() => saveGrade.mutate()}>Save grade</button>
         <button type="button" className="btn btn-secondary" disabled={status.isPending} onClick={() => status.mutate()}>{detail.status === "active" ? "Mark inactive" : "Mark active"}</button>
       </div>
 

@@ -24,6 +24,7 @@ function newClass(fields: Pick<ClassSummary, "classId" | "name" | "orgId" | "joi
     currentModuleId: null,
     settings: { stuckFailedAttempts: 3, stuckTimeMultiplier: 2, notStartedDays: 1, inactiveSchoolDays: 3 },
     createdAt: "2026-08-01T00:00:00Z",
+    instructors: [{ userId: "u-inst-00001", name: "Demo Teacher" }],
     ...fields,
   };
 }
@@ -73,7 +74,7 @@ export const staffHandlers = [
       userId: `usr_${role}`,
       role,
       displayName: { instructor: "Jordan Lee", cic_admin: "Diana Admin", reviewer: "Riley Reviewer" }[role],
-      permissions: { canAuthor: role === "cic_admin" },
+      permissions: { canAuthor: role === "cic_admin" || role === "instructor", canEditAll: role === "cic_admin" },
       classes: role === "instructor" ? classes.map((c) => ({ classId: c.classId })) : [],
       // ASSUMPTION (see StaffMe in lib/api/staff.ts): not returned by the real backend yet.
       ...(role === "instructor" ? { orgId: "org_maryvale", orgName: "Maryvale High School" } : { orgId: null, orgName: null }),

@@ -25,6 +25,12 @@ function ClassCard({ item }: { item: ClassSummary }) {
           {item.name}
         </Link>
       </h2>
+      {item.instructors && item.instructors.length > 0 ? (
+        <p className="mt-1 font-bold text-ink">
+          <span className="sr-only">{item.instructors.length === 1 ? "Instructor: " : "Instructors: "}</span>
+          {item.instructors.map((i) => i.name).join(", ")}
+        </p>
+      ) : null}
       {facts.length > 0 ? <p className="mt-1 text-muted">{facts.join(" · ")}</p> : null}
       {item.joinCode ? (
         <p className="mt-2 text-sm text-muted">

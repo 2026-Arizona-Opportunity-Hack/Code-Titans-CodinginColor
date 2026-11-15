@@ -55,19 +55,15 @@ def test_create_validation(api, body):
     assert call(api, "POST /v1/curriculum/modules", body)[0] == 400
 
 
-def test_authors_can_create_and_others_cannot(api):
+def test_every_instructor_can_create_but_reviewers_cannot(api):
     assert create(api, who=AUTHOR)[0] == 201
-    assert create(api, "Other", who=INS)[0] == 403
-    assert create(api, "Other", who=REV)[0] == 403
+    assert create(api, "Other", who=INS)[0] == 201
+    assert create(api, "Third", who=REV)[0] == 403
 
 
-def test_authoring_permission_comes_from_the_stored_flag_not_the_token(api, table):
-    table.put_item(Item={"pk": "USR#ins-plain", "sk": "META", "canAuthor": False})
-    assert create(api, who=INS)[0] == 403
-    table.put_item(Item={"pk": "USR#ins-plain", "sk": "META", "canAuthor": True})
-    assert create(api, who=INS)[0] == 201
+def test_reviewers_never_write_even_with_the_flag(api, table):
     table.put_item(Item={"pk": "USR#rev-1", "sk": "META", "canAuthor": True})
-    assert create(api, "Rev", who=REV)[0] == 403  # reviewers never write
+    assert create(api, "Rev", who=REV)[0] == 403
 
 
 def test_list_filters_and_who_sees_what(api):
@@ -79,8 +75,8 @@ def test_list_filters_and_who_sees_what(api):
     assert names(ADMIN, status="draft") == ["Draft Only"]
     assert sorted(names(ADMIN, status="all")) == ["Draft Only", "Live One"]
     assert names(INS) == ["Live One"] and names(REV) == ["Live One"]
-    for who in (INS, REV):
-        assert call(api, "GET /v1/curriculum/modules", who=who, query={"status": "draft"})[0] == 403
+    assert names(INS, status="all") == ["Live One"]  # someone else's draft stays private
+    assert call(api, "GET /v1/curriculum/modules", who=REV, query={"status": "draft"})[0] == 403
     assert call(api, "GET /v1/curriculum/modules", query={"status": "nope"})[0] == 400
 
 
@@ -92,7 +88,7 @@ def test_list_flags_unpublished_changes_for_authors_only(api):
     boto3.resource("dynamodb").Table("content").update_item(
         Key={"pk": "MOD#live-one", "sk": "META"}, UpdateExpression="SET revision = :r", ExpressionAttributeValues={":r": 2})
     assert call(api, "GET /v1/curriculum/modules")[1]["data"][0]["hasUnpublishedChanges"] is True
-    assert "hasUnpublishedChanges" not in call(api, "GET /v1/curriculum/modules", who=INS)[1]["data"][0]
+    assert "hasUnpublishedChanges" not in call(api, "GET /v1/curriculum/modules", who=REV)[1]["data"][0]
 
 
 def test_list_paginates(api):
