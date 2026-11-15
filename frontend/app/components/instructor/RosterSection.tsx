@@ -5,11 +5,16 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ApiError } from "../../lib/api/client";
 import { listDuplicates, listRoster } from "../../lib/api/roster";
+import { Icon } from "../common/Icon";
 
 type StatusFilter = "active" | "inactive" | "all";
 
 const normalize = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
-const fieldClass = "mt-1 min-h-11 rounded-lg border-2 border-muted bg-surface px-3 py-2";
+const STATUS_CHOICES: { value: StatusFilter; label: string }[] = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "all", label: "Everyone" },
+];
 
 /** The class's students: search, status filter, and a flag on names that appear more than once. */
 export function RosterSection({ token, classId }: { token: string; classId: string }) {
@@ -41,17 +46,16 @@ export function RosterSection({ token, classId }: { token: string; classId: stri
   const importHref = `/instructor/class/import/?id=${encodeURIComponent(classId)}`;
 
   return (
-    <section aria-labelledby="roster-heading" className="mt-10">
-      <h2 id="roster-heading" className="text-2xl">
-        Students
-      </h2>
-
-      {roster.isPending ? (
-        <div role="status" aria-label="Loading students" className="mt-4 h-40 animate-pulse rounded-xl bg-tint" />
-      ) : null}
-
+    <section aria-labelledby="roster-heading" className="mt-12">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 id="roster-heading" className="flex items-center gap-3">
+          Students
+          {roster.data ? <span className="badge badge-muted">{roster.data.length}</span> : null}
+        </h2>
+      </div>
+      {roster.isPending ? <div role="status" aria-label="Loading students" className="skeleton h-48" /> : null}
       {roster.isError ? (
-        <div role="alert" className="mt-4 rounded-xl border-2 border-danger p-5">
+        <div role="alert" className="callout callout-danger">
           <p className="font-bold text-danger">We couldn&apos;t load the students.</p>
           <p className="mt-1 text-muted">{roster.error instanceof ApiError ? roster.error.message : "Please try again."}</p>
           <button type="button" className="btn btn-secondary mt-4" onClick={() => roster.refetch()}>
@@ -59,109 +63,120 @@ export function RosterSection({ token, classId }: { token: string; classId: stri
           </button>
         </div>
       ) : null}
-
       {roster.data && roster.data.length === 0 ? (
-        <div className="mt-4 rounded-xl border border-line p-8 text-center">
+        <div className="empty">
+          <span className="icon-tile">
+            <Icon name="students" className="size-6" />
+          </span>
           <p className="text-lg font-bold">No students yet.</p>
-          <p className="mt-1 text-muted">Add your class list from a CSV file to get started.</p>
-          <Link href={importHref} className="btn btn-primary mt-4">
+          <p className="text-muted">Add your class list from a CSV file to get started.</p>
+          <Link href={importHref} className="btn btn-primary mt-2">
+            <Icon name="upload" className="size-5" />
             Add students from a CSV
           </Link>
         </div>
       ) : null}
-
       {roster.data && roster.data.length > 0 ? (
         <>
-          {needLogin > 0 ? (
-            <div className="callout mt-4">
-              <p className="font-bold text-brand">
-                {needLogin} {needLogin === 1 ? "student needs" : "students need"} login words
-              </p>
-              <p className="text-sm text-muted">
-                They can&apos;t open their lessons yet.{" "}
-                <Link href={`/instructor/class/login-sheet/?id=${encodeURIComponent(classId)}`}>Create login words</Link>
-              </p>
-            </div>
-          ) : null}
-
-          {sameName.size > 0 ? (
-            <div className="mt-4 rounded-xl border-l-8 border-accent bg-tint p-4">
-              <p className="font-bold text-brand">Some students share a name</p>
-              <p className="text-sm text-muted">
-                That is fine, since each has their own number. Check they are not the same person:{" "}
-                {(duplicates.data ?? [])
-                  .map((g) => `${g.displayName} (${g.students.map((s) => `#${s.rosterNumber}`).join(", ")})`)
-                  .join("; ")}
-                .
-              </p>
-            </div>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-end gap-4">
-            <div>
-              <label htmlFor="roster-search" className="block font-bold">
+          <div className="mb-4 flex flex-col gap-3">
+            {needLogin > 0 ? (
+              <div className="callout flex items-start gap-3">
+                <Icon name="info" className="mt-0.5 size-5 text-brand" />
+                <div>
+                  <p className="font-bold text-brand">
+                    {needLogin} {needLogin === 1 ? "student needs" : "students need"} login words
+                  </p>
+                  <p className="text-sm text-muted">
+                    They can&apos;t open their lessons yet.{" "}
+                    <Link href={`/instructor/class/login-sheet/?id=${encodeURIComponent(classId)}`}>Create login words</Link>
+                  </p>
+                </div>
+              </div>
+            ) : null}
+            {sameName.size > 0 ? (
+              <div className="callout flex items-start gap-3">
+                <Icon name="info" className="mt-0.5 size-5 text-brand" />
+                <div>
+                  <p className="font-bold text-brand">Some students share a name</p>
+                  <p className="text-sm text-muted">
+                    That is fine, since each has their own number. Check they are not the same person:{" "}
+                    {(duplicates.data ?? [])
+                      .map((g) => `${g.displayName} (${g.students.map((s) => `#${s.rosterNumber}`).join(", ")})`)
+                      .join("; ")}
+                    .
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="relative w-72 max-w-full">
+              <label htmlFor="roster-search" className="sr-only">
                 Search by name
               </label>
+              <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted" />
               <input
                 id="roster-search"
                 type="search"
+                placeholder="Search by name"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 autoComplete="off"
-                className={`${fieldClass} w-64 max-w-full`}
+                className="field pl-10"
               />
             </div>
-            <div>
-              <label htmlFor="roster-status" className="block font-bold">
-                Show
-              </label>
-              <select
-                id="roster-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as StatusFilter)}
-                className={fieldClass}
-              >
-                <option value="active">Active students</option>
-                <option value="inactive">Inactive students</option>
-                <option value="all">Everyone</option>
-              </select>
+            <div role="group" aria-label="Show" className="flex flex-wrap gap-2">
+              {STATUS_CHOICES.map((c) => (
+                <button key={c.value} type="button" className="chip" aria-pressed={status === c.value} onClick={() => setStatus(c.value)}>
+                  {c.label}
+                </button>
+              ))}
             </div>
           </div>
-
-          <p aria-live="polite" className="mt-3 text-sm text-muted">
+          <p aria-live="polite" className="mb-2 text-sm text-muted">
             Showing {visible.length} of {roster.data.length} students
           </p>
-
           {visible.length === 0 ? (
-            <p className="mt-2 rounded-xl border border-line p-5 text-muted">No students match.</p>
+            <div className="empty">
+              <p className="font-bold">No students match.</p>
+              <p className="text-sm text-muted">Try a different name or filter.</p>
+            </div>
           ) : (
-            <div className="mt-2 overflow-x-auto rounded-xl border border-line">
-              <table className="w-full border-collapse text-left">
+            <div className="table-wrap">
+              <table className="table-brand">
                 <caption className="sr-only">Students in this class</caption>
-                <thead className="bg-brand text-on-brand">
+                <thead>
                   <tr>
-                    <th scope="col" className="px-4 py-3 font-bold">#</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Name</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Grade</th>
-                    {showSchoolId ? <th scope="col" className="px-4 py-3 font-bold">School ID</th> : null}
-                    <th scope="col" className="px-4 py-3 font-bold">Login</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Status</th>
+                    <th scope="col">#</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Grade</th>
+                    {showSchoolId ? <th scope="col">School ID</th> : null}
+                    <th scope="col">Login</th>
+                    <th scope="col">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visible.map((s) => (
-                    <tr key={s.studentId} className="even:bg-tint">
-                      <td className="px-4 py-3">{s.rosterNumber}</td>
-                      <th scope="row" className="px-4 py-3 font-bold">
+                    <tr key={s.studentId}>
+                      <td className="text-muted">{s.rosterNumber}</td>
+                      <th scope="row">
                         {s.displayName}
                         {s.status === "active" && sameName.has(normalize(s.displayName)) ? (
-                          <span className="ml-2 rounded bg-surface px-2 py-0.5 text-xs font-bold text-brand">Same name</span>
+                          <span className="badge badge-warn ml-2">Same name</span>
                         ) : null}
                       </th>
-                      <td className="px-4 py-3">{s.gradeLevel ?? "—"}</td>
-                      {showSchoolId ? <td className="px-4 py-3">{s.externalId ?? "—"}</td> : null}
-                      <td className="px-4 py-3">{s.hasCredential ? "Ready" : "Needs login words"}</td>
-                      <td className="px-4 py-3 capitalize">{s.status}</td>
+                      <td>{s.gradeLevel ?? "—"}</td>
+                      {showSchoolId ? <td>{s.externalId ?? "—"}</td> : null}
+                      <td>
+                        {s.hasCredential ? (
+                          <span className="badge badge-dot">Ready</span>
+                        ) : (
+                          <span className="badge badge-warn badge-dot">Needs login words</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge badge-dot capitalize ${s.status === "active" ? "" : "badge-muted"}`}>{s.status}</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
