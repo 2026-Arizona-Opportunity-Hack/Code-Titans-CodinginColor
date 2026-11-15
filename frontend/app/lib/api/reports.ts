@@ -156,3 +156,8 @@ export const reviewSubmission = (token: string, classId: string, submissionId: s
     `/classes/${encodeURIComponent(classId)}/submissions/${encodeURIComponent(submissionId)}/review`,
     { method: "PUT", token, body },
   );
+
+/** GET /classes/{classId}/concepts: gain and mastery per concept across the class's modules. */
+export type ConceptsReport = { definitions: Record<string, string>; concepts: ConceptGain[] };
+export const getConcepts = (token: string, classId: string, signal?: AbortSignal) =>
+  apiFetch<ConceptsReport>(`/classes/${encodeURIComponent(classId)}/concepts`, { token, signal });

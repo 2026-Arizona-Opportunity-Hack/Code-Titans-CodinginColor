@@ -68,6 +68,9 @@ function ClassPageBody({ token, classId }: { token: string; classId: string }) {
             <Link href={`/instructor/class/gain/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
               Learning gain
             </Link>
+            <Link href={`/instructor/class/concepts/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
+              Concepts
+            </Link>
             <Link href={`/instructor/class/review/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
               Worksheets to review
             </Link>
