@@ -9,7 +9,7 @@ import { ApiError } from "../../lib/api/client";
 import type { LoginSheet } from "../../lib/api/credentials";
 import { listModules } from "../../lib/api/curriculum";
 import { GRADE_LEVELS, addStudent } from "../../lib/api/roster";
-import { getClass } from "../../lib/api/staff";
+import { getClass, TEACHER_ROLES } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 import { LoginSheetCards } from "./LoginSheetCards";
 
@@ -176,7 +176,7 @@ function AddStudentBody({ token, classId }: { token: string; classId: string }) 
 export function AddStudentScreen() {
   const classId = useSearchParams().get("id") ?? "";
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>
+    <StaffPage roles={TEACHER_ROLES}>
       {({ token }) =>
         classId ? (
           <AddStudentBody token={token} classId={classId} />

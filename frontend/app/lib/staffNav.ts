@@ -4,6 +4,7 @@ import type { StaffRole } from "./api/staff";
 export const ROLE_LABEL: Record<StaffRole, string> = {
   cic_admin: "CIC admin",
   instructor: "Instructor",
+  external_teacher: "External teacher",
   reviewer: "Reviewer",
 };
 
@@ -11,13 +12,15 @@ export const ROLE_LABEL: Record<StaffRole, string> = {
 export const ROLE_HOME: Record<StaffRole, string> = {
   cic_admin: "/instructor/",
   instructor: "/instructor/",
+  external_teacher: "/instructor/",
   reviewer: "/reviewer/",
 };
 
 /**
  * Sidebar items per role (docs/architecture.md section 5). Items without `ready`
  * show as disabled "Soon" until their screens are built. Curriculum covers browsing
- * and authoring for admins and instructors.
+ * for everyone, and authoring for admins and curriculum-author instructors. External teachers
+ * get the teaching items only: CIC sees usage of their classes, never their students.
  */
 export function navFor(role: StaffRole): NavItem[] {
   if (role === "reviewer") {

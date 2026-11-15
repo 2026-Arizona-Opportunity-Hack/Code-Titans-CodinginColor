@@ -3,7 +3,9 @@ import { apiFetch, apiFetchAll, apiFetchPage } from "./client";
 // Calls for staff (instructor, CIC admin, reviewer): GET /me, plus the class endpoints
 // in docs/api.md section 4. Staff use a Cognito token as the Bearer token.
 
-export type StaffRole = "cic_admin" | "instructor" | "reviewer";
+export type StaffRole = "cic_admin" | "instructor" | "external_teacher" | "reviewer";
+/** Roles that run classes: CIC admins, CIC instructors, and external teachers (who see only their own classes). */
+export const TEACHER_ROLES: StaffRole[] = ["instructor", "external_teacher", "cic_admin"];
 
 /** Matches the backend's GET /v1/me (backend/lambda/admin-api). */
 export type StaffMe = {
@@ -29,6 +31,8 @@ export type ClassSummary = {
   name: string;
   orgId: string;
   cohortId: string | null;
+  /** "external" classes belong to a partner-school teacher: CIC sees usage only. */
+  ownerKind?: "cic" | "external";
   status: "active" | "archived";
   joinCode: string;
   termStart: string | null;
@@ -60,7 +64,7 @@ export type CreateClassInput = {
 };
 
 // Matches the backend's GET /v1/admin/orgs (backend/lambda/admin-api/admin_orgs.py).
-export type Org = { orgId: string; name: string; status?: "active" | "archived"; createdAt?: string };
+export type Org = { orgId: string; name: string; kind?: "cic" | "external"; status?: "active" | "archived"; createdAt?: string };
 
 export function getMe(token: string, signal?: AbortSignal): Promise<StaffMe> {
   return apiFetch<StaffMe>("/me", { token, signal });

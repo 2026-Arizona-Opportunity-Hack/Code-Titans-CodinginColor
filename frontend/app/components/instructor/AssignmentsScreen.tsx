@@ -7,7 +7,7 @@ import { useState } from "react";
 import { assignModule, listAssignments, unassignModule, updateAssignment } from "../../lib/api/assignments";
 import { ApiError } from "../../lib/api/client";
 import { listModules } from "../../lib/api/curriculum";
-import { getClass, updateClass } from "../../lib/api/staff";
+import { getClass, updateClass, TEACHER_ROLES } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 import { AssignmentRow } from "./AssignmentRow";
 
@@ -196,7 +196,7 @@ function AssignmentsBody({ token, classId }: { token: string; classId: string })
 export function AssignmentsScreen() {
   const classId = useSearchParams().get("id") ?? "";
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>
+    <StaffPage roles={TEACHER_ROLES}>
       {({ token }) =>
         classId ? (
           <AssignmentsBody token={token} classId={classId} />

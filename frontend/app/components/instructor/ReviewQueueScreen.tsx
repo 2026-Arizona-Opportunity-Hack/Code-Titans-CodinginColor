@@ -7,6 +7,7 @@ import { useState, type FormEvent } from "react";
 import { ApiError } from "../../lib/api/client";
 import { getReviewQueue, reviewSubmission, type ReviewItem } from "../../lib/api/reports";
 import { StaffPage } from "../common/StaffPage";
+import { TEACHER_ROLES } from "../../lib/api/staff";
 
 function ReviewCard({ token, classId, item }: { token: string; classId: string; item: ReviewItem }) {
   const qc = useQueryClient();
@@ -97,7 +98,7 @@ function Body({ token, classId }: { token: string; classId: string }) {
 export function ReviewQueueScreen() {
   const classId = useSearchParams().get("id") ?? "";
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>
+    <StaffPage roles={TEACHER_ROLES}>
       {({ token }) => classId ? <Body token={token} classId={classId} /> : <p role="alert" className="callout callout-danger">No class was chosen. Open this page from a class.</p>}
     </StaffPage>
   );

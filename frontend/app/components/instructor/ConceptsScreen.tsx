@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ApiError } from "../../lib/api/client";
 import { getConcepts } from "../../lib/api/reports";
 import { StaffPage } from "../common/StaffPage";
+import { TEACHER_ROLES } from "../../lib/api/staff";
 
 const num = (x: number | null, s = "") => (x === null ? "—" : `${x}${s}`);
 
@@ -46,5 +47,5 @@ function Body({ token, classId }: { token: string; classId: string }) {
 
 export function ConceptsScreen() {
   const classId = useSearchParams().get("id") ?? "";
-  return <StaffPage roles={["instructor", "cic_admin"]}>{({ token }) => classId ? <Body token={token} classId={classId} /> : <p role="alert" className="callout callout-danger">No class was chosen.</p>}</StaffPage>;
+  return <StaffPage roles={TEACHER_ROLES}>{({ token }) => classId ? <Body token={token} classId={classId} /> : <p role="alert" className="callout callout-danger">No class was chosen.</p>}</StaffPage>;
 }

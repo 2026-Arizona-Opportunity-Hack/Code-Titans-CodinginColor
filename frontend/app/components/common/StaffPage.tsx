@@ -90,7 +90,7 @@ export function StaffPage({
       items={navFor(me.role)}
       userName={me.displayName || "Staff"}
       roleLabel={ROLE_LABEL[me.role]}
-      schoolName={me.role === "instructor" || me.orgId ? (me.orgName ?? null) : undefined}
+      schoolName={me.role === "instructor" || me.role === "external_teacher" || me.orgId ? (me.orgName ?? null) : undefined}
       onSignOut={onSignOut}
     >
       {roles.includes(me.role) ? (

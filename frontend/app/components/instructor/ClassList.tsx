@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ApiError } from "../../lib/api/client";
 import { useState } from "react";
 import { listCohorts, listSchools } from "../../lib/api/admin";
-import { listClasses, type ClassSummary } from "../../lib/api/staff";
+import { listClasses, type ClassSummary, TEACHER_ROLES } from "../../lib/api/staff";
 import { Icon } from "../common/Icon";
 import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
@@ -148,5 +148,5 @@ function ClassListBody({ token, isAdmin }: { token: string; isAdmin: boolean }) 
 }
 
 export function ClassList() {
-  return <StaffPage roles={["instructor", "cic_admin"]}>{({ token, me }) => <ClassListBody token={token} isAdmin={me.role === "cic_admin"} />}</StaffPage>;
+  return <StaffPage roles={TEACHER_ROLES}>{({ token, me }) => <ClassListBody token={token} isAdmin={me.role === "cic_admin"} />}</StaffPage>;
 }

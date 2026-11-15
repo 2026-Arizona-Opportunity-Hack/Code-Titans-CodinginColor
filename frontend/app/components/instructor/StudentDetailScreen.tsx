@@ -7,6 +7,7 @@ import { ApiError } from "../../lib/api/client";
 import { getStudentDetail, type ActivityDetail, type StudentDetail } from "../../lib/api/reports";
 import { StaffPage } from "../common/StaffPage";
 import { StudentManage } from "./StudentManage";
+import { TEACHER_ROLES } from "../../lib/api/staff";
 
 const TYPE: Record<ActivityDetail["type"], string> = {
   video: "Video",
@@ -152,7 +153,7 @@ export function StudentDetailScreen() {
   const classId = params.get("class") ?? "";
   const studentId = params.get("id") ?? "";
   return (
-    <StaffPage roles={["instructor", "cic_admin"]}>
+    <StaffPage roles={TEACHER_ROLES}>
       {({ token, me }) =>
         classId && studentId ? (
           <DetailBody token={token} classId={classId} studentId={studentId} isAdmin={me.role === "cic_admin"} />
