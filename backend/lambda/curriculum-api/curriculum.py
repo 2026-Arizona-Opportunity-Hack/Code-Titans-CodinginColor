@@ -15,9 +15,10 @@ from botocore.exceptions import ClientError
 from access import can_author, require_author
 from cic import db, paging, validate
 from cic.authz import require_staff
-from cic.errors import Forbidden, NotFound, ValidationError
+from cic.errors import Conflict, Forbidden, NotFound, ValidationError
 from cic.http import Reply, Request
 from cic.ids import utc_now_iso
+from moduledoc import check_draft, concepts_in, estimated_minutes, to_decimal
 from templates import TEMPLATES
 
 STATUS_FILTERS = ("draft", "published", "all")
@@ -116,7 +117,52 @@ def get_module(req: Request):
     return {**snapshot["module"], "version": version}
 
 
+def _expected_revision(req: Request) -> int:
+    raw = (req.headers.get("if-match") or "").strip()
+    raw = raw[2:] if raw.startswith("W/") else raw
+    raw = raw.strip('"')
+    if not raw.isdigit():
+        raise ValidationError("An If-Match header with the draft's current revision is required")
+    return int(raw)
+
+
+def save_draft(req: Request):
+    staff = require_author(req.auth)
+    module_id = module_id_from(req)
+    expected = _expected_revision(req)
+    doc = to_decimal(req.json())
+    problems = check_draft(doc, module_id)
+    if problems:
+        raise ValidationError("The module has problems that must be fixed before saving", details=problems)
+
+    table = db.get_table(db.CONTENT)
+    key = {"pk": f"MOD#{module_id}", "sk": "DRAFT"}
+    current = table.get_item(Key=key).get("Item")
+    if not current:
+        raise NotFound("Module not found")
+    new_revision, now = expected + 1, utc_now_iso()
+    try:
+        table.meta.client.transact_write_items(TransactItems=[
+            {"Put": {"TableName": table.name,
+                     "Item": {**key, "module": doc, "revision": new_revision, "updatedAt": now, "updatedBy": staff.user_id},
+                     "ConditionExpression": "#r = :expected",
+                     "ExpressionAttributeNames": {"#r": "revision"}, "ExpressionAttributeValues": {":expected": expected}}},
+            {"Update": {"TableName": table.name, "Key": meta_key(module_id),
+                        "UpdateExpression": "SET title = :t, concepts = :c, estimatedMinutes = :m, revision = :r, updatedAt = :u",
+                        "ExpressionAttributeValues": {":t": doc["title"], ":c": concepts_in(doc), ":m": estimated_minutes(doc),
+                                                      ":r": new_revision, ":u": now}}},
+        ])
+    except ClientError as err:
+        if err.response["Error"]["Code"] != "TransactionCanceledException":
+            raise
+        latest = table.get_item(Key=key).get("Item", current)
+        raise Conflict("Someone else saved this module. Reload it before saving again",
+                       code="REVISION_CONFLICT", details={"currentRevision": int(latest["revision"])})
+    return {"revision": new_revision, "updatedAt": now}
+
+
 ROUTES = {
+    "PUT /v1/curriculum/modules/{moduleId}/draft": save_draft,
     "GET /v1/curriculum/modules": list_modules,
     "POST /v1/curriculum/modules": create_module,
     "GET /v1/curriculum/modules/{moduleId}": get_module,
