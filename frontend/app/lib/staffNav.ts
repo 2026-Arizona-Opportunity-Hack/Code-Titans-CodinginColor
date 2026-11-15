@@ -27,7 +27,7 @@ export function navFor(role: StaffRole, canAuthor: boolean): NavItem[] {
     { label: "Classes", href: "/instructor/", ready: true },
     { label: "Curriculum", href: "/instructor/curriculum/", ready: true },
   ];
-  if (canAuthor) items.push({ label: "Author", href: "/author/" });
+  if (canAuthor) items.push({ label: "Author", href: "/author/", ready: true });
   if (role === "cic_admin") {
     items.push(
       { label: "Cohorts", href: "/admin/cohorts/" },

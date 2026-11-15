@@ -9,6 +9,8 @@ export class ApiError extends Error {
     public readonly requestId?: string,
     /** Seconds from the Retry-After header on a 429, when the browser can read it. */
     public readonly retryAfterSeconds?: number,
+    /** Extra detail from the server, such as the list of problems when a module fails validation. */
+    public readonly details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -21,6 +23,8 @@ type Options = {
   /** Bearer token: a student session token or a staff Cognito token. */
   token?: string | null;
   signal?: AbortSignal;
+  /** Sent as If-Match, for saving a draft against the revision that was loaded. */
+  ifMatch?: number;
 };
 
 /**
@@ -30,6 +34,7 @@ type Options = {
 export async function apiFetch<T>(path: string, options: Options = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  if (options.ifMatch !== undefined) headers["If-Match"] = String(options.ifMatch);
   if (options.token) headers.Authorization = `Bearer ${options.token}`;
 
   let res: Response;
@@ -45,7 +50,7 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
     throw new ApiError(0, "NETWORK_ERROR", "Could not reach the server. Check your connection and try again.");
   }
 
-  let json: { data?: T; error?: string; code?: string; requestId?: string } | null = null;
+  let json: { data?: T; error?: string; code?: string; requestId?: string; details?: unknown } | null = null;
   try {
     json = await res.json();
   } catch {
@@ -60,6 +65,7 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
       json?.error ?? "Something went wrong. Please try again.",
       json?.requestId,
       Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+      json?.details,
     );
   }
   return json?.data as T;
