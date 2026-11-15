@@ -54,3 +54,43 @@ def seeded(table):
                              "status": "active", "credVersion": 1,
                              "credHmac": credential_hmac("cls_01", words[sid])})
     return words
+
+
+# ---- All four tables, for Lambdas that read content and progress as well as core ----
+def _create_table(client, name, gsis):
+    attrs = {"pk", "sk"} | {a for g in gsis for a in (f"{g}pk", f"{g}sk")}
+    kwargs = {
+        "TableName": name, "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": [{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}],
+        "AttributeDefinitions": [{"AttributeName": a, "AttributeType": "S"} for a in sorted(attrs)],
+    }
+    if gsis:
+        kwargs["GlobalSecondaryIndexes"] = [
+            {"IndexName": g, "Projection": {"ProjectionType": "ALL"},
+             "KeySchema": [{"AttributeName": f"{g}pk", "KeyType": "HASH"}, {"AttributeName": f"{g}sk", "KeyType": "RANGE"}]}
+            for g in gsis]
+    client.create_table(**kwargs)
+
+
+@pytest.fixture
+def tables(monkeypatch):
+    """content, core, progress and events tables in moto, with the same keys and GSIs as DataStack."""
+    import boto3
+    from moto import mock_aws
+    from cic import classdata, db
+
+    names = {"CONTENT_TABLE": "content", "CORE_TABLE": "core", "PROGRESS_TABLE": "progress", "EVENTS_TABLE": "events"}
+    for env, name in names.items():
+        monkeypatch.setenv(env, name)
+    with mock_aws():
+        client = boto3.client("dynamodb")
+        _create_table(client, "content", ["gsi1"])
+        _create_table(client, "core", ["gsi1", "gsi2", "gsi3"])
+        _create_table(client, "progress", ["gsi1", "gsi2"])
+        _create_table(client, "events", [])
+        db._resource = None
+        db._tables.clear()
+        classdata._MODULE_CACHE.clear()  # published versions are cached in production; tests reuse ids
+        yield {env: db.get_table(env) for env in names}
+        db._tables.clear()
+        db._resource = None
