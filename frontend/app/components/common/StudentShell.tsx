@@ -5,7 +5,7 @@ import { BrandMark } from "./BrandMark";
 import { Footer } from "./Footer";
 
 /**
- * Page frame for students: a slim header and one centered column. It is designed
+ * Page frame for students: a sticky header and one centered column. It is designed
  * phone-first (students use phones outside class) and has no sidebar. Students
  * have no accounts, so "Not you? Sign out" matters on shared computers.
  */
@@ -20,14 +20,20 @@ export function StudentShell({
   onSignOut?: () => void;
   children: ReactNode;
 }) {
+  const initial = studentName.trim().charAt(0).toUpperCase();
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b-2 border-brand bg-surface">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3">
+      <header className="site-header">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">
           <BrandMark />
           <div className="flex flex-wrap items-center gap-x-3 text-sm">
             {className ? <span className="text-muted">{className}</span> : null}
-            <span className="font-bold">Hi {studentName}</span>
+            <span className="inline-flex items-center gap-2 font-bold">
+              <span aria-hidden="true" className="grid size-8 place-items-center rounded-full bg-brand text-on-brand">
+                {initial}
+              </span>
+              Hi {studentName}
+            </span>
             {onSignOut ? (
               <button
                 type="button"
@@ -40,7 +46,7 @@ export function StudentShell({
           </div>
         </div>
       </header>
-      <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
+      <main id="main" className="rise mx-auto w-full max-w-3xl flex-1 px-4 py-10">
         {children}
       </main>
       <Footer />
