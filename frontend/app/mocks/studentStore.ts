@@ -16,11 +16,11 @@ const mcq = (id: string, prompt: string, choices: string[], key: string, concept
   return { questionId: id, type: "mcq", prompt, points: 1, concept, choices: choices.map((text, i) => ({ id: "abcd"[i], text })), ...extra };
 };
 const base = { state: "locked" as ActivityState };
-function light(moduleId: string, title: string, concept: string): StudentModule {
+function light(moduleId: string, title: string, concept: string, minSeconds = 0): StudentModule {
   return {
     moduleId, title, moduleVersion: 1, state: "available", percent: 0,
     lessons: [{ lessonId: "l1", title: "Lesson 1", activities: [
-      { ...base, activityId: "a-vid", type: "video", title: "Watch", provider: "youtube", videoId: VIDEO, minSeconds: 0 },
+      { ...base, activityId: "a-vid", type: "video", title: "Watch", provider: "youtube", videoId: VIDEO, minSeconds },
       { ...base, activityId: "a-chk", type: "check", title: "Check your understanding", passPct: 50,
         questions: [mcq(`${moduleId}-c1`, `What is the main idea of ${title}?`, ["The right answer", "A wrong answer", "Another wrong one"], "a", concept)] },
       { ...base, activityId: "a-exit", type: "exit", title: "Exit question",
@@ -56,7 +56,7 @@ const loops: StudentModule = {
 KEYS["f2"] = "5"; // the number worksheet field has a key; f1 does not, so it goes to the teacher for review
 
 export const DOCS: Record<string, StudentModule> = Object.fromEntries(
-  [light("py-intro", "Intro to Python", "variables"), loops, light("py-functions", "Functions", "functions"), light("py-lists", "Lists", "lists")].map(
+  [light("py-intro", "Intro to Python", "variables", 3), loops, light("py-functions", "Functions", "functions"), light("py-lists", "Lists", "lists")].map(
     (m) => [m.moduleId, m],
   ),
 );
