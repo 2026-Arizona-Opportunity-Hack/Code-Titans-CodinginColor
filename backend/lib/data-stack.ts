@@ -19,6 +19,7 @@ export class DataStack extends cdk.Stack {
     super(scope, id, props);
 
     this.contentTable = this.table("ContentTable");
+    this.gsi(this.contentTable, "gsi1"); // module list: LIST#MOD -> MOD#<id> (META items only)
 
     this.coreTable = this.table("CoreTable", { ttl: true });
     this.gsi(this.coreTable, "gsi1"); // my classes: USR#<sub> -> CLS#<id>
