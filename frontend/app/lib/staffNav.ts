@@ -32,7 +32,7 @@ export function navFor(role: StaffRole, canAuthor: boolean): NavItem[] {
     items.push(
       { label: "Cohorts", href: "/admin/cohorts/" },
       { label: "Schools", href: "/admin/schools/" },
-      { label: "Users", href: "/admin/users/" },
+      { label: "Users", href: "/admin/users/", ready: true },
       { label: "API keys", href: "/admin/api-keys/", ready: true },
       { label: "Audit log", href: "/admin/audit/", ready: true },
     );
