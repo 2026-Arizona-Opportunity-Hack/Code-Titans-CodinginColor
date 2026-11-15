@@ -57,7 +57,6 @@ Screens below use sample data (made-up names), except the two public pages, whic
 | Frontend | **Next.js 16** (App Router, static export), **React 19**, **TypeScript 5** | Pure static site, so hosting is a folder of files |
 | Styling | **Tailwind CSS 4**, CIC brand tokens in `frontend/app/globals.css` | Atkinson Hyperlegible font for readability |
 | Data fetching | **TanStack Query 5** | Caching, retries, loading and error states |
-| Demo data | **Mock Service Worker 2** | The whole UI runs offline against fake data |
 | In-browser Python | **Pyodide 314** (Python in WebAssembly) in a Web Worker | Runs student code on the student's device, loaded from the jsDelivr CDN |
 | API | **Amazon API Gateway** (HTTP API) | JWT authorizer for staff, Lambda authorizers for students and API keys |
 | Compute | **AWS Lambda**, **Python 3.12**, one function per domain, one shared layer | Handlers stay thin; rules live in `cic.*` modules |
@@ -267,7 +266,7 @@ Honest list of what remains before this is a finished product:
 
 - [Harsh Tita](https://github.com/iamharshtita)
 - [Rashi Sharma](https://github.com/rashi-24)
-- [Sreeram S](https://github.com/sreeram2001)
+- [Sreeram Saravana Prasad](https://github.com/sreeram2001)
 - [Shashwat Dwivedi](https://github.com/shash-kernels)
 
 ## License
