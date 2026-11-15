@@ -7,15 +7,20 @@ import { DomainContext, addRoutes } from "./context";
 export class ClassesDomain extends Construct {
   constructor(scope: Construct, id: string, ctx: DomainContext) {
     super(scope, id);
+    // Where students open the login page: the first non-localhost allowed origin (the hosted
+    // app), else localhost for local development. Used to build the login sheet link.
+    const origins = ctx.defaults.allowedOrigins;
+    const appUrl = origins.find((o) => !o.includes("localhost")) ?? origins[0];
     const fn = createPythonFunction(this, "ClassApiFunction", ctx.defaults, {
       dir: "class-api",
       description: "Classes, roster and assignments",
-      timeout: cdk.Duration.seconds(15),
+      timeout: cdk.Duration.seconds(30), // issuing words for a whole class updates each student
       environment: {
         CORE_TABLE: ctx.tables.core.tableName,
         CONTENT_TABLE: ctx.tables.content.tableName,
         PROGRESS_TABLE: ctx.tables.progress.tableName,
         USER_POOL_ID: ctx.userPool.userPoolId,
+        APP_URL: appUrl,
       },
     });
     ctx.tables.core.grantReadWriteData(fn);
@@ -40,6 +45,8 @@ export class ClassesDomain extends Construct {
         "GET /v1/students/{studentId}",
         "GET /v1/students",
         "POST /v1/classes/{classId}/roster/import",
+        "POST /v1/classes/{classId}/credentials",
+        "POST /v1/classes/{classId}/join-code/rotate",
       ],
       ctx.staffAuthorizer,
     );
