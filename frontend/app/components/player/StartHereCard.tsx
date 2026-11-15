@@ -4,11 +4,14 @@ import { Icon } from "../common/Icon";
 /** The one big next step on the student's home page, from the server's resume pointer. */
 export function StartHereCard({
   title,
+  label = "Start here",
   detail,
   actionLabel,
   href,
 }: {
   title: string;
+  /** The small badge above the title. */
+  label?: string;
   detail?: string;
   actionLabel: string;
   href: string;
@@ -18,7 +21,7 @@ export function StartHereCard({
       aria-labelledby="start-heading"
       className="callout rise relative overflow-hidden bg-gradient-to-br from-tint to-white p-6 shadow-[var(--shadow-sm)] sm:p-8"
     >
-      <p className="badge bg-surface">Start here</p>
+      <p className="badge bg-surface">{label}</p>
       <h2 id="start-heading" className="mt-3 text-3xl">
         {title}
       </h2>

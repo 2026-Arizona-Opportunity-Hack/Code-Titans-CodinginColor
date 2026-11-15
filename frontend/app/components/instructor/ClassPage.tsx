@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiError } from "../../lib/api/client";
+import { listModules } from "../../lib/api/curriculum";
 import { getClass } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 import { RosterSection } from "./RosterSection";
@@ -17,6 +18,10 @@ function ClassPageBody({ token, classId }: { token: string; classId: string }) {
     enabled: Boolean(classId),
     retry: false,
   });
+
+  const modules = useQuery({ queryKey: ["modules", token], queryFn: ({ signal }) => listModules(token, signal), retry: false });
+  const startId = item.data?.currentModuleId ?? null;
+  const startTitle = startId ? (modules.data?.find((m) => m.moduleId === startId)?.title ?? startId) : null;
 
   return (
     <>
@@ -46,12 +51,18 @@ function ClassPageBody({ token, classId }: { token: string; classId: string }) {
               {item.data.counts.students} {item.data.counts.students === 1 ? "student" : "students"}
             </span>
           </p>
+          <p className="mt-2 text-muted">
+            Students who join late start at:{" "}
+            <strong className="text-ink">{startTitle ?? "the first module (none chosen)"}</strong>
+            {" · "}
+            <Link href={`/instructor/class/assignments/?id=${encodeURIComponent(classId)}`}>Change</Link>
+          </p>
           <p className="mt-6 flex flex-wrap gap-3">
             <Link href={`/instructor/class/import/?id=${encodeURIComponent(classId)}`} className="btn btn-primary">
               Add students from a CSV
             </Link>
             <Link href={`/instructor/class/add-student/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
-              Add a student
+              Add a student who joined late
             </Link>
             <Link href={`/instructor/class/login-sheet/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
               Login sheet

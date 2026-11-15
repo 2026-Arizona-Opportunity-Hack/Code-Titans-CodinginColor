@@ -67,6 +67,11 @@ export function StudentHomeScreen() {
   const data = home.data;
   const resume = data?.resume ?? null;
   const resumeModule = resume ? data?.modules.find((m) => m.moduleId === resume.moduleId) : undefined;
+  const catchUpCount = data?.modules.filter((m) => m.state === "catch_up").length ?? 0;
+  // Earlier modules exist only for someone who joined after the class started (docs/architecture.md 7.2).
+  const startedHere = (resumeModule?.percent ?? 0) > 0;
+  const lateJoiner = catchUpCount > 0 && !startedHere;
+  const cardLabel = startedHere ? "Pick up where you left off" : lateJoiner ? "Your class is here" : "Start here";
   const detail = resumeModule?.state === "in_progress" ? `${resumeModule.percent}% complete` : undefined;
 
   return (
@@ -87,8 +92,16 @@ export function StudentHomeScreen() {
 
       {data ? (
         <>
+          {lateJoiner ? (
+            <p role="status" className="callout rise mb-4 p-4 text-lg">
+              <span className="font-bold text-brand">Welcome!</span> Your class is already working on{" "}
+              <strong>{resumeModule?.title ?? "its current lesson"}</strong>, so that&apos;s where you begin. The earlier lessons are
+              optional. Do them whenever you like.
+            </p>
+          ) : null}
           {resume ? (
             <StartHereCard
+              label={cardLabel}
               title={resumeModule?.title ?? "Your next lesson"}
               detail={detail}
               actionLabel={resumeModule?.state === "in_progress" ? "Continue" : "Start"}
