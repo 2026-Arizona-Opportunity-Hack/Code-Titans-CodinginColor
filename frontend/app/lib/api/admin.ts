@@ -52,3 +52,32 @@ export const inviteUser = (token: string, body: { email: string; name: string; r
 /** PATCH /admin/users/{userId}: change role, canAuthor, or disable/enable. */
 export const updateUser = (token: string, userId: string, body: { role?: StaffUser["role"]; canAuthor?: boolean; enabled?: boolean }) =>
   apiFetch<StaffUser>(`/admin/users/${encodeURIComponent(userId)}`, { method: "PATCH", token, body });
+
+export type School = { orgId: string; name: string; status: "active" | "archived"; createdAt?: string };
+export type Cohort = { cohortId: string; name: string; status: "active" | "archived"; createdAt: string; orgId?: string; classIds?: string[] };
+
+export const listSchools = (token: string, signal?: AbortSignal) => apiFetch<School[]>("/admin/orgs", { token, signal });
+export const createSchool = (token: string, name: string) => apiFetch<School>("/admin/orgs", { method: "POST", token, body: { name } });
+export const updateSchool = (token: string, orgId: string, body: { name?: string; status?: School["status"] }) =>
+  apiFetch<School>(`/admin/orgs/${encodeURIComponent(orgId)}`, { method: "PATCH", token, body });
+
+export const listCohorts = (token: string, signal?: AbortSignal) => apiFetch<Cohort[]>("/admin/cohorts", { token, signal });
+export const createCohort = (token: string, body: { name: string; orgId?: string }) => apiFetch<Cohort>("/admin/cohorts", { method: "POST", token, body });
+/** classIds is the full list: classes missing from it are removed, and a listed class leaves any other cohort. */
+export const updateCohort = (token: string, cohortId: string, body: { name?: string; status?: Cohort["status"]; classIds?: string[] }) =>
+  apiFetch<Cohort>(`/admin/cohorts/${encodeURIComponent(cohortId)}`, { method: "PATCH", token, body });
+
+type Gain = { nEnrolled: number | null; n: number; meanPre: number | null; meanPost: number | null; meanGain: number | null; normalizedGain: number | null };
+export type CohortSummary = {
+  cohortId: string;
+  enrolled: number;
+  classes: number;
+  assignedModules: number;
+  completion: { completionPct: number | null; startedPct: number | null };
+  learningGain: Gain;
+  byModule: (Gain & { moduleId: string; title: string; completionPct: number | null })[];
+  byClass: (Gain & { classId: string; name: string; enrolled: number; completionPct: number | null })[];
+  definitions: Record<string, string>;
+};
+export const getCohortSummary = (token: string, cohortId: string, signal?: AbortSignal) =>
+  apiFetch<CohortSummary>(`/admin/cohorts/${encodeURIComponent(cohortId)}/summary`, { token, signal });

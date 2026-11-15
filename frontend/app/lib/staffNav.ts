@@ -30,8 +30,8 @@ export function navFor(role: StaffRole, canAuthor: boolean): NavItem[] {
   if (canAuthor) items.push({ label: "Author", href: "/author/", ready: true });
   if (role === "cic_admin") {
     items.push(
-      { label: "Cohorts", href: "/admin/cohorts/" },
-      { label: "Schools", href: "/admin/schools/" },
+      { label: "Cohorts", href: "/admin/cohorts/", ready: true },
+      { label: "Schools", href: "/admin/schools/", ready: true },
       { label: "Users", href: "/admin/users/", ready: true },
       { label: "API keys", href: "/admin/api-keys/", ready: true },
       { label: "Audit log", href: "/admin/audit/", ready: true },
