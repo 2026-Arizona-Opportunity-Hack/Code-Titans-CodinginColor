@@ -12,7 +12,11 @@ const IDLE_AFTER_MS = 60_000;
  * report, so a tab left open overnight earns nothing (docs/architecture.md section 7.4).
  * `flush` sends what is pending now.
  */
-export function useActiveTime(send: (seconds: number) => Promise<unknown>, enabled: boolean, countsWithoutInput = false) {
+export function useActiveTime(send: (seconds: number) => Promise<unknown>, enabled: boolean, countsWithoutInput = false, onSecond?: () => void) {
+  const onSecondRef = useRef(onSecond);
+  useEffect(() => {
+    onSecondRef.current = onSecond;
+  });
   const pending = useRef(0);
   const lastInput = useRef(0); // set when counting starts
   const sendRef = useRef(send);
@@ -41,6 +45,7 @@ export function useActiveTime(send: (seconds: number) => Promise<unknown>, enabl
       if (document.visibilityState !== "visible") return;
       if (!countsWithoutInput && Date.now() - lastInput.current > IDLE_AFTER_MS) return; // walked away
       pending.current += 1;
+      onSecondRef.current?.();
       if (pending.current >= 30) void flush();
     }, 1000);
     const onVisibility = () => {

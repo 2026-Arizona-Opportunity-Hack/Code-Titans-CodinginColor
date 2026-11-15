@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ApiError } from "../../lib/api/client";
 import { completeActivity, sendHeartbeat, type Activity, type StepResult } from "../../lib/api/studentModule";
 import { useActiveTime } from "../../lib/useActiveTime";
 import { playerMessage } from "../../lib/studentErrors";
@@ -31,7 +32,17 @@ export function WatchActivity({
   const [slide, setSlide] = useState(0);
   const slides = activity.type === "slides" ? (activity.slides ?? []) : [];
 
-  const flush = useActiveTime((seconds) => sendHeartbeat(token, moduleId, activity.activityId, seconds), !done, activity.type === "video"); // watching a video needs no clicks
+  const needed = activity.minSeconds ?? 0;
+  // Seconds counted so far: what the server already has, plus what this page has counted since.
+  const [counted, setCounted] = useState(activity.activeSeconds ?? 0);
+  const left = Math.max(0, needed - counted);
+  const flush = useActiveTime(
+    (seconds) => sendHeartbeat(token, moduleId, activity.activityId, seconds),
+    !done,
+    true, // watching a video or reading slides needs no clicks; time still only counts while the tab is visible
+    () => setCounted((c) => c + 1),
+  );
+  const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   async function markDone() {
     setBusy(true);
@@ -40,6 +51,11 @@ export function WatchActivity({
       await flush(); // make sure the server has the time spent before it checks the minimum
       onDone(await completeActivity(token, moduleId, activity.activityId));
     } catch (err) {
+      if (err instanceof ApiError && err.code === "TOO_EARLY") {
+        // The server's count is the truth; line the countdown up with it.
+        const details = err.details as { secondsCounted?: number } | undefined;
+        if (typeof details?.secondsCounted === "number") setCounted(details.secondsCounted);
+      }
       setError(playerMessage(err));
     } finally {
       setBusy(false);
@@ -93,9 +109,23 @@ export function WatchActivity({
             <Icon name="check" className="size-4" /> You finished this step
           </p>
         ) : (
-          <button type="button" className="btn btn-primary" onClick={markDone} disabled={busy}>
-            {busy ? "Saving…" : "I've finished this step"}
-          </button>
+          <div>
+            {left > 0 ? (
+              <div className="mb-3 max-w-md">
+                <p className="text-sm font-bold">
+                  {activity.type === "video" ? "Watch" : "Read"} for {clock(left)} more to finish this step
+                </p>
+                {/* Visual only: announcing every second would flood screen readers. */}
+                <div aria-hidden="true" className="mt-1 h-2 overflow-hidden rounded-full bg-tint">
+                  <div className="h-full bg-brand transition-[width]" style={{ width: `${Math.min(100, (counted / needed) * 100)}%` }} />
+                </div>
+                <p className="mt-1 text-xs text-muted">Time counts while this page is open on screen.</p>
+              </div>
+            ) : null}
+            <button type="button" className="btn btn-primary" onClick={markDone} disabled={busy || left > 0}>
+              {busy ? "Saving…" : left > 0 ? `Available in ${clock(left)}` : "I've finished this step"}
+            </button>
+          </div>
         )}
       </div>
     </div>

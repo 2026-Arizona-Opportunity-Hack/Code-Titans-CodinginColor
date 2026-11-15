@@ -96,8 +96,12 @@ def complete_activity(req):
         raise ValidationError("Only video and slides are marked done this way")
     svc.assert_open(ctx, module_id, activity_id)
     spent = int((ctx.act_items.get((module_id, activity_id)) or {}).get("activeSeconds", 0))
-    if spent < int(activity.get("minSeconds", 0)):
-        raise Conflict("Keep watching before marking this done", code="TOO_EARLY")
+    needed = int(activity.get("minSeconds", 0))
+    if spent < needed:
+        left = needed - spent
+        raise Conflict(f"Keep going: about {left // 60} min {left % 60} s left before you can mark this done" if left >= 60
+                       else f"Keep going: about {left} more seconds before you can mark this done",
+                       code="TOO_EARLY", details={"secondsLeft": left, "secondsNeeded": needed, "secondsCounted": spent})
     return _commit(ctx, module_id, activity_id, COMPLETE, {})
 
 
