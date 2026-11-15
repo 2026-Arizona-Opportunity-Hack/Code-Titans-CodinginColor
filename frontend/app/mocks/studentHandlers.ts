@@ -51,7 +51,27 @@ register({
   },
 });
 
+const hintsToday = new Map<string, number>();
+const HINTS = ["What is the question asking you to find? Say it in your own words first.", "This is about repeating something a set number of times. Which word starts that?", "Try a tiny example: if you repeat 2 times, what would the output look like? Now do the same with your number."];
+
 export const studentHandlers = [
+  http.post(`${env.apiUrl}/student/hints`, async ({ request }) => {
+    const me = personFromToken(request.headers.get("Authorization"));
+    if (!me) return unauthenticated();
+    const b = (await request.json().catch(() => ({}))) as { moduleId?: string; activityId?: string; question?: string; code?: string };
+    if (!b.question?.trim() && !b.code?.trim()) return studentError(400, "VALIDATION_ERROR", "Say what you are stuck on, or include your code");
+    const doc = studentModule(me.studentId, String(b.moduleId));
+    const activity = doc?.lessons.flatMap((l) => l.activities).find((a) => a.activityId === b.activityId);
+    if (!doc || !activity) return studentError(404, "NOT_FOUND", "Activity not found");
+    if (activity.type !== "check" && activity.type !== "worksheet") return studentError(403, "HINTS_NOT_ALLOWED", "Hints are not available for this activity");
+    if (activity.state === "locked") return studentError(403, "ACTIVITY_LOCKED", "Finish the earlier activities first");
+    const used = hintsToday.get(me.studentId) ?? 0;
+    if (used >= 10) return studentError(429, "HINT_LIMIT_REACHED", "You have used all your hints for today");
+    hintsToday.set(me.studentId, used + 1);
+    const level = (Math.min(3, (used % 3) + 1)) as 1 | 2 | 3;
+    return HttpResponse.json({ data: { hint: HINTS[level - 1], level, remainingToday: 9 - used } });
+  }),
+
   http.post(`${env.apiUrl}/auth/student/login`, async ({ request }) => {
     if (failures >= MAX_FAILURES) {
       return studentError(429, "LOGIN_THROTTLED", "Too many attempts. Try again later.", { "Retry-After": "300" });
