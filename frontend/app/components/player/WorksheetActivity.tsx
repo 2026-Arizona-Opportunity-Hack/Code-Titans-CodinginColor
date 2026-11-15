@@ -5,6 +5,7 @@ import { playerMessage } from "../../lib/studentErrors";
 import { saveDraft, sendHeartbeat, submitActivity, type Activity, type Answer, type StepResult } from "../../lib/api/studentModule";
 import { useActiveTime } from "../../lib/useActiveTime";
 import { Icon } from "../common/Icon";
+import { HintBox } from "./HintBox";
 import { InlineCode } from "./InlineCode";
 import { Markdown } from "./Markdown";
 
@@ -161,6 +162,7 @@ export function WorksheetActivity({
           Answer every question to submit.
         </p>
       ) : null}
+      <HintBox token={token} moduleId={moduleId} activityId={activity.activityId} />
     </div>
   );
 }
