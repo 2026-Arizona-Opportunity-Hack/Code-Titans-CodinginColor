@@ -145,6 +145,8 @@ describe("CurriculumDomain", () => {
     "GET /v1/curriculum/modules/{moduleId}",
     "DELETE /v1/curriculum/modules/{moduleId}",
     "GET /v1/curriculum/modules/{moduleId}/classes",
+    "POST /v1/curriculum/modules/from-file",
+    "GET /v1/curriculum/conversions/{jobId}",
     "PUT /v1/curriculum/modules/{moduleId}/draft",
     "POST /v1/curriculum/modules/{moduleId}/publish",
     "GET /v1/curriculum/modules/{moduleId}/versions",
@@ -216,3 +218,14 @@ describe("ApiStack stage", () => {
     for (const id of routes) expect(stage.DependsOn).toContain(id);
   });
 });
+
+describe("Worksheet converter permissions", () => {
+  test("it may call only Claude Haiku 4.5 and Nova Pro, in named US regions", () => {
+    const statements = (Object.values(apiTemplate().findResources("AWS::IAM::Policy")) as any[]).flatMap((p) => p.Properties.PolicyDocument.Statement);
+    const ai = statements.filter((s) => JSON.stringify(s.Resource).includes("claude-haiku-4-5"));
+    expect(ai).toHaveLength(1);
+    expect(ai[0].Action).toBe("bedrock:InvokeModel");
+    expect(JSON.stringify(ai[0].Resource)).not.toContain("*");
+  });
+});
+
