@@ -11,6 +11,7 @@ import { DataStack } from "./data-stack";
 import { DomainContext, addRoutes } from "./domains/context";
 import { AdminDomain } from "./domains/admin";
 import { ClassesDomain } from "./domains/classes";
+import { CurriculumDomain } from "./domains/curriculum";
 import { StudentAuthDomain } from "./domains/student-auth";
 import { createPythonFunction, hostArchitecture } from "./lambda-factory";
 
@@ -92,6 +93,7 @@ export class ApiStack extends cdk.Stack {
     new StudentAuthDomain(this, "StudentAuth", ctx);
     new AdminDomain(this, "Admin", ctx);
     new ClassesDomain(this, "Classes", ctx);
+    new CurriculumDomain(this, "Curriculum", ctx);
 
     new cdk.CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint, description: "HTTP API base URL (append /v1)" });
   }

@@ -124,3 +124,28 @@ describe("ClassesDomain", () => {
     expect(p).not.toContain("cognito-idp:AdminCreateUser");
   });
 });
+
+describe("CurriculumDomain", () => {
+  const t = apiTemplate();
+
+  test.each([
+    "GET /v1/curriculum/modules",
+    "POST /v1/curriculum/modules",
+    "GET /v1/curriculum/modules/{moduleId}",
+  ])("%s requires the Cognito JWT authorizer", (routeKey) => {
+    t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
+  });
+
+  test("the curriculum function can write content but only read the core table", () => {
+    const policies = Object.values(t.findResources("AWS::IAM::Policy")) as any[];
+    const policy = policies.find((x) => JSON.stringify(x).includes("CurriculumApiFunction"));
+    const statements = [].concat(policy.Properties.PolicyDocument.Statement) as any[];
+    const actionsFor = (table: string) =>
+      statements
+        .filter((st) => JSON.stringify(st.Resource).includes(table))
+        .flatMap((st) => [].concat(st.Action));
+    expect(actionsFor("ContentTable")).toContain("dynamodb:PutItem");
+    expect(actionsFor("CoreTable")).toContain("dynamodb:GetItem");
+    expect(actionsFor("CoreTable")).not.toContain("dynamodb:PutItem");
+  });
+});
