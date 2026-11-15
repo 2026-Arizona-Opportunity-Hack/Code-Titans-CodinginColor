@@ -30,14 +30,14 @@ def table():
     with mock_aws():
         db._resource = None
         db._tables.clear()
-        attrs = ("pk", "sk", "gsi1pk", "gsi1sk", "gsi3pk", "gsi3sk")
+        attrs = ("pk", "sk", "gsi1pk", "gsi1sk", "gsi2pk", "gsi2sk", "gsi3pk", "gsi3sk")
         gsi = lambda n: {"IndexName": n, "Projection": {"ProjectionType": "ALL"}, "KeySchema": [
             {"AttributeName": f"{n}pk", "KeyType": "HASH"}, {"AttributeName": f"{n}sk", "KeyType": "RANGE"}]}
         t = boto3.resource("dynamodb").create_table(
             TableName="core", BillingMode="PAY_PER_REQUEST",
             KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}],
             AttributeDefinitions=[{"AttributeName": a, "AttributeType": "S"} for a in attrs],
-            GlobalSecondaryIndexes=[gsi("gsi1"), gsi("gsi3")])
+            GlobalSecondaryIndexes=[gsi("gsi1"), gsi("gsi2"), gsi("gsi3")])
         yield t
 
 

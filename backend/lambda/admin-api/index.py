@@ -1,6 +1,8 @@
-"""Staff identity and (in later parts) admin routes. Cognito JWT authorizer in front."""
+"""Staff identity and admin routes (orgs, cohorts). Cognito JWT authorizer in front."""
 from boto3.dynamodb.conditions import Key
 
+from admin_cohorts import ROUTES as COHORT_ROUTES
+from admin_orgs import ROUTES as ORG_ROUTES
 from cic import db
 from cic.authz import ADMIN, INSTRUCTOR, REVIEWER, require_staff
 from cic.http import Request, make_handler
@@ -33,4 +35,4 @@ def me(req: Request):
     }
 
 
-lambda_handler = make_handler({"GET /v1/me": me})
+lambda_handler = make_handler({"GET /v1/me": me, **ORG_ROUTES, **COHORT_ROUTES})
