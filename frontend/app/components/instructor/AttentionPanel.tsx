@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Attention, StuckReason } from "../../lib/api/reports";
+import { Icon } from "../common/Icon";
 import { studentHref } from "./ProgressTable";
 
 // Plain-language versions of the server's reasons (docs/api.md section 5).
@@ -16,7 +17,8 @@ export function AttentionPanel({ attention, titleOf, classId }: { attention: Att
 
   if (stuck.length === 0 && notStarted.length === 0) {
     return (
-      <p role="status" className="callout mt-6 font-bold text-brand">
+      <p role="status" className="callout mt-6 flex items-center gap-3 font-bold text-brand">
+        <Icon name="check" className="size-5" />
         Nobody needs attention right now.
       </p>
     );
@@ -25,15 +27,16 @@ export function AttentionPanel({ attention, titleOf, classId }: { attention: Att
   return (
     <section aria-labelledby="attention-heading" className="mt-6">
       <h2 id="attention-heading">Needs attention</h2>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
         <div className="card">
-          <h3>
-            Stuck <span className="badge ml-1 badge-warn">{stuck.length}</span>
+          <h3 className="flex items-center gap-2">
+            <Icon name="alert" className="size-5 text-warning" />
+            Stuck <span className="badge badge-warn">{stuck.length}</span>
           </h3>
           {stuck.length === 0 ? <p className="mt-2 text-muted">Nobody is stuck.</p> : null}
-          <ul className="mt-3 flex flex-col gap-3">
+          <ul className="mt-3 flex flex-col divide-y divide-hairline">
             {stuck.map((s) => (
-              <li key={s.studentId}>
+              <li key={s.studentId} className="py-3 first:pt-0 last:pb-0">
                 <p className="font-bold">
                   <Link href={studentHref(classId, s.studentId)}>{s.displayName}</Link>{" "}
                   <span className="font-normal text-muted">#{s.rosterNumber}</span>
@@ -52,13 +55,14 @@ export function AttentionPanel({ attention, titleOf, classId }: { attention: Att
         </div>
 
         <div className="card">
-          <h3>
-            Not started <span className="badge badge-muted ml-1">{notStarted.length}</span>
+          <h3 className="flex items-center gap-2">
+            <Icon name="calendar" className="size-5 text-muted" />
+            Not started <span className="badge badge-muted">{notStarted.length}</span>
           </h3>
           {notStarted.length === 0 ? <p className="mt-2 text-muted">Everyone has started.</p> : null}
-          <ul className="mt-3 flex flex-col gap-3">
+          <ul className="mt-3 flex flex-col divide-y divide-hairline">
             {notStarted.map((s) => (
-              <li key={s.studentId}>
+              <li key={s.studentId} className="py-3 first:pt-0 last:pb-0">
                 <p className="font-bold">
                   <Link href={studentHref(classId, s.studentId)}>{s.displayName}</Link>{" "}
                   <span className="font-normal text-muted">#{s.rosterNumber}</span>

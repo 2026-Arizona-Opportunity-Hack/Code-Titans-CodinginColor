@@ -7,32 +7,34 @@ import { useState } from "react";
 import { ApiError } from "../../lib/api/client";
 import { downloadExport } from "../../lib/api/exportCsv";
 import { getModuleGain, getProgress, type GainSummary } from "../../lib/api/reports";
+import { Icon } from "../common/Icon";
+import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
+import { StatGrid } from "../common/StatGrid";
 import { TEACHER_ROLES } from "../../lib/api/staff";
 
 const num = (x: number | null, suffix = "") => (x === null ? "—" : `${x}${suffix}`);
 const signed = (x: number | null) => (x === null ? "—" : `${x > 0 ? "+" : ""}${x}`);
 
 function Tiles({ summary }: { summary: GainSummary }) {
-  const tiles: [string, string][] = [
-    ["Students with both tests", summary.nEnrolled === null ? String(summary.n) : `${summary.n} of ${summary.nEnrolled}`],
-    ["Average before", num(summary.meanPre, "%")],
-    ["Average after", num(summary.meanPost, "%")],
-    ["Average gain", `${signed(summary.meanGain)}${summary.meanGain === null ? "" : " points"}`],
-    ["Normalized gain", num(summary.normalizedGain)],
-  ];
   return (
-    <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
-      {tiles.map(([label, value]) => (
-        <div key={label} className="card">
-          <dt className="text-sm text-muted">{label}</dt>
-          <dd className="mt-1 text-2xl font-bold text-brand">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <StatGrid
+      className="mt-6"
+      items={[
+        { label: "Students with both tests", value: summary.nEnrolled === null ? String(summary.n) : `${summary.n} of ${summary.nEnrolled}`, icon: "students" },
+        { label: "Average before", value: num(summary.meanPre, "%"), icon: "target" },
+        { label: "Average after", value: num(summary.meanPost, "%"), icon: "check" },
+        { label: "Average gain", value: `${signed(summary.meanGain)}${summary.meanGain === null ? "" : " pts"}`, icon: "trending" },
+        { label: "Normalized gain", value: num(summary.normalizedGain), icon: "chart" },
+      ]}
+    />
   );
 }
-
+/** A signed gain as a pill: green for an improvement, amber for a drop, grey when there is nothing to compare. */
+function GainBadge({ value }: { value: number | null }) {
+  if (value === null) return <span className="text-muted">—</span>;
+  return <span className={`badge ${value > 0 ? "" : value < 0 ? "badge-warn" : "badge-muted"}`}>{signed(value)}</span>;
+}
 function GainBody({ token, classId }: { token: string; classId: string }) {
   const classHref = `/instructor/class/?id=${encodeURIComponent(classId)}`;
   const [chosen, setChosen] = useState("");
@@ -68,18 +70,17 @@ function GainBody({ token, classId }: { token: string; classId: string }) {
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-4 text-sm">
-        <Link href={classHref}>← Back to class</Link>
-      </nav>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1>Learning gain</h1>
-          <p className="mt-1 text-muted">How much students improved between the pretest and the post-test.</p>
-        </div>
-        <button type="button" className="btn btn-secondary" onClick={exportCsv} disabled={exporting}>
-          {exporting ? "Preparing…" : "Download CSV"}
-        </button>
-      </div>
+      <PageHeader
+        back={{ href: classHref, label: "Back to class" }}
+        title="Learning gain"
+        description="How much students improved between the pretest and the post-test."
+        actions={
+          <button type="button" className="btn btn-secondary" onClick={exportCsv} disabled={exporting}>
+            <Icon name="spreadsheet" className="size-5" />
+            {exporting ? "Preparing…" : "Download CSV"}
+          </button>
+        }
+      />
       {exportError ? (
         <p role="alert" className="callout callout-danger mt-4 font-bold text-danger">
           {exportError}
@@ -93,17 +94,18 @@ function GainBody({ token, classId }: { token: string; classId: string }) {
         </p>
       ) : null}
       {progress.data && modules.length === 0 ? (
-        <div className="card mt-6 max-w-xl">
-          <p className="font-bold">No modules are assigned yet.</p>
-          <Link href={`/instructor/class/assignments/?id=${encodeURIComponent(classId)}`} className="btn btn-primary mt-4">
+        <div className="empty">
+          <span className="icon-tile"><Icon name="book" className="size-6" /></span>
+          <h2 className="text-lg">No modules are assigned yet</h2>
+          <Link href={`/instructor/class/assignments/?id=${encodeURIComponent(classId)}`} className="btn btn-primary mt-2">
             Assigned modules
           </Link>
         </div>
       ) : null}
 
       {modules.length > 0 ? (
-        <div className="mt-6 max-w-sm">
-          <label htmlFor="gain-module" className="block font-bold">
+        <div className="max-w-sm">
+          <label htmlFor="gain-module" className="label">
             Module
           </label>
           <select id="gain-module" className="field mt-1" value={moduleId} onChange={(e) => setChosen(e.target.value)}>
@@ -125,8 +127,15 @@ function GainBody({ token, classId }: { token: string; classId: string }) {
 
       {g ? (
         <>
-          <Tiles summary={g.class} />
-          {g.class.n === 0 ? <p className="callout mt-4">No student has both tests yet, so there is no gain to show.</p> : null}
+          {g.class.n === 0 ? (
+            <div className="empty mt-6">
+              <span className="icon-tile"><Icon name="chart" className="size-6" /></span>
+              <h2 className="text-lg">No gain to show yet</h2>
+              <p className="max-w-md text-muted">Gain needs a pretest and a post-test from the same student. It appears as students finish both.</p>
+            </div>
+          ) : (
+            <Tiles summary={g.class} />
+          )}
           <details className="mt-4 text-sm text-muted">
             <summary className="cursor-pointer font-bold text-brand">How these numbers are worked out</summary>
             <ul className="mt-2 list-disc pl-6">
@@ -138,41 +147,44 @@ function GainBody({ token, classId }: { token: string; classId: string }) {
             </ul>
           </details>
 
-          <h2 className="mt-8">By concept</h2>
-          {lowItems.length > 0 ? (
-            <p className="callout mt-2 text-sm">Concepts marked &ldquo;few questions&rdquo; have fewer than 3 test questions, so read them with care.</p>
+          {g.byConcept.length > 0 ? (
+            <>
+              <h2 className="mt-10">By concept</h2>
+              {lowItems.length > 0 ? (
+                <p className="callout mt-2 text-sm">Concepts marked &ldquo;few questions&rdquo; have fewer than 3 test questions, so read them with care.</p>
+              ) : null}
+              <div className="table-wrap mt-3">
+                <table className="table-brand">
+                  <caption className="sr-only">Learning gain for each concept in this module</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Concept</th>
+                      <th scope="col">Students</th>
+                      <th scope="col">Before</th>
+                      <th scope="col">After</th>
+                      <th scope="col">Gain</th>
+                      <th scope="col">At 80% or above</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.byConcept.map((c) => (
+                      <tr key={c.concept}>
+                        <th scope="row">
+                          {c.concept} {c.lowItemCount ? <span className="badge badge-muted">few questions</span> : null}
+                        </th>
+                        <td>{c.n}</td>
+                        <td>{num(c.meanPre, "%")}</td>
+                        <td>{num(c.meanPost, "%")}</td>
+                        <td><GainBadge value={c.meanGain} /></td>
+                        <td>{num(c.masteryPct, "%")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : null}
-          <div className="table-wrap mt-3">
-            <table className="table-brand">
-              <caption className="sr-only">Learning gain for each concept in this module</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Concept</th>
-                  <th scope="col">Students</th>
-                  <th scope="col">Before</th>
-                  <th scope="col">After</th>
-                  <th scope="col">Gain</th>
-                  <th scope="col">At 80% or above</th>
-                </tr>
-              </thead>
-              <tbody>
-                {g.byConcept.map((c) => (
-                  <tr key={c.concept}>
-                    <th scope="row">
-                      {c.concept} {c.lowItemCount ? <span className="badge badge-muted">few questions</span> : null}
-                    </th>
-                    <td>{c.n}</td>
-                    <td>{num(c.meanPre, "%")}</td>
-                    <td>{num(c.meanPost, "%")}</td>
-                    <td>{signed(c.meanGain)}</td>
-                    <td>{num(c.masteryPct, "%")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <h2 className="mt-8">By student</h2>
+          <h2 className="mt-10">By student</h2>
           <div className="table-wrap mt-3">
             <table className="table-brand">
               <caption className="sr-only">Pretest and post-test score for each student</caption>
@@ -188,9 +200,9 @@ function GainBody({ token, classId }: { token: string; classId: string }) {
                 {g.students.map((s) => (
                   <tr key={s.studentId}>
                     <th scope="row">{s.displayName}</th>
-                    <td>{s.pre === null ? "not taken" : `${s.pre}%`}</td>
-                    <td>{s.post === null ? "not taken" : `${s.post}%`}</td>
-                    <td>{signed(s.gain)}</td>
+                    <td>{s.pre === null ? <span className="text-muted">Not taken</span> : `${s.pre}%`}</td>
+                    <td>{s.post === null ? <span className="text-muted">Not taken</span> : `${s.post}%`}</td>
+                    <td><GainBadge value={s.gain} /></td>
                   </tr>
                 ))}
               </tbody>
