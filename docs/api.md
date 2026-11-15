@@ -320,24 +320,35 @@ Query parameters: `from` and `to` (dates like `2026-11-15`, UTC, both inclusive)
 
 ## 8. Route to Lambda to authorizer map
 
-| Route prefix | Lambda | Authorizer | Table access |
-|---|---|---|---|
-| `/auth/student/*` | `auth-student` | none (throttled) | core (rw), credential pepper (read secret) |
-| `/me`, `/admin/*` (except cohort summary), including API keys and the audit list | `admin-api` | Cognito JWT | core (rw), events (rw), Cognito admin actions |
-| `/curriculum/*` | `curriculum-api` | Cognito JWT | content (rw), events (w), assets bucket (put) |
-| `/classes` (CRUD, roster, credentials, assignments) | `class-api` | Cognito JWT | core (rw), progress (r), events (w), credential pepper (read secret) |
-| `/classes/*/progress, attention, modules/*/gain, concepts, review-queue, submissions/*/review, export` and `/admin/cohorts/*/summary` | `reports-api` | Cognito JWT | core (r), content (r), progress (rw: review updates), events (w: export audit) |
-| `/student/*` | `student-api` | `authorizer-student` | core (r), content (r), progress (rw) |
-| `/read/*` | `read-api` | `authorizer-apikey` | core (r), content (r), progress (r) |
-| (authorizer) student sessions | `authorizer-student` | n/a | core (r) |
-| (authorizer) API keys | `authorizer-apikey` | n/a | core (rw: records `lastUsedAt`) |
+Generated from the synthesized CDK stack, so it shows what is deployed, not what was planned. Table access is the DynamoDB actions the function's IAM role allows: **r** read, **w** write.
 
-Throttling (per route, across all callers). Default for every route: 50 requests per second, burst 100.
+| Routes | Lambda | Authorizer | Access |
+|---|---|---|---|
+| `GET /health` | `health` | none (public) | none |
+| `POST /auth/student/login` | `auth-student` | none (public, throttled) | core rw, pepper secret (read) |
+| `POST /auth/student/logout` | `auth-student` | student session | same as login |
+| `GET /me`, `/admin/orgs`, `/admin/cohorts`, `/admin/users`, `/admin/api-keys`, `/admin/audit` | `admin-api` | Cognito JWT | core rw, events rw, Cognito admin actions |
+| `/curriculum/*` | `curriculum-api` | Cognito JWT | content rw, core r, assets bucket (write) |
+| `/classes` (create, list, update, members, roster, import, credentials, join code, assignments, unlock) and `GET /students`, `GET /students/{id}` | `class-api` | Cognito JWT | core rw, content r, progress (query and delete, to remove a deleted student), pepper secret (read), Cognito (group check) |
+| `/classes/{id}/progress`, `students/{id}/progress`, `attention`, `modules/{id}/gain`, `concepts`, `review-queue`, `submissions/{id}/review`, `export`, and `/admin/cohorts/{id}/summary` | `reports-api` | Cognito JWT | core r, content r, progress rw (review updates), events w (export audit) |
+| `/student/*` | `student-api` | student session | core r, content r, progress rw |
+| `/read/*` | `read-api` | API key | core r, content r, progress r |
+
+Authorizers (not routes):
+
+| Authorizer | Lambda | Access | Cache |
+|---|---|---|---|
+| Student session (`Authorization: Bearer ses_...`) | `authorizer-student` | core r | 60 s |
+| API key (`X-Api-Key`) | `authorizer-apikey` | core rw (records `lastUsedAt`) | 60 s |
+
+Cognito JWT authorizer is built in to API Gateway and has no Lambda.
+
+Throttling is per route, across all callers. The default for every route is 50 requests per second with a burst of 100.
 
 | Routes | Limit |
 |---|---|
-| `/auth/*` | tighter, set by the login endpoint's owner |
+| `POST /auth/student/login` | 5 per second, burst 10 |
 | `POST /student/.../heartbeat` | 30 per second, burst 60 |
 | `/read/*` | 5 per second, burst 10 |
 
-`POST /student/hints` (stretch) will add events (w) to `student-api`.
+`POST /student/hints` (stretch) is not built yet. It will add events (w) to `student-api`.
