@@ -7,6 +7,7 @@ import boto3
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
+from assignments import load_assignments, public as public_assignment
 from cic import db, paging, validate
 from cic.authz import INSTRUCTOR, require_admin, require_class_access, require_staff
 from cic.errors import Conflict, Forbidden, NotFound, ValidationError
@@ -143,7 +144,8 @@ def get_class(req: Request):
     students = table.query(
         KeyConditionExpression=Key("pk").eq(f"CLS#{class_id}") & Key("sk").begins_with("STU#"),
         Select="COUNT")["Count"]
-    return dict(public(meta), assignments=[], counts={"students": students})
+    assignments = [public_assignment(a) for a in load_assignments(table, class_id)]
+    return dict(public(meta), assignments=assignments, counts={"students": students})
 
 
 def update_class(req: Request):
