@@ -18,7 +18,7 @@
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
-    "allowedOrigins": "http://localhost:3000",
+    "allowedOrigins": "https://main.d3voqx7r17ipz6.amplifyapp.com,http://localhost:3000",
     "staffMfa": "REQUIRED",
     "bedrockRegion": "us-west-2",
     "hintModelId": "amazon.nova-lite-v1:0",
