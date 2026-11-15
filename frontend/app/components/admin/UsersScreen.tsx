@@ -32,7 +32,7 @@ function UserRow({ token, user, schools }: { token: string; user: StaffUser; sch
         {user.role === "instructor" ? (
           <label className="flex items-center gap-2">
             <input type="checkbox" className="size-5" checked={user.canAuthor} disabled={change.isPending} onChange={(e) => change.mutate({ canAuthor: e.target.checked })} />
-            Can edit all curriculum
+            Curriculum author
           </label>
         ) : user.role === "cic_admin" ? "Always" : "No"}
       </td>
@@ -104,7 +104,7 @@ function Body({ token }: { token: string }) {
           </>
         ) : null}
         {role === "instructor" ? (
-          <label className="mt-3 flex items-center gap-2"><input type="checkbox" className="size-5" checked={canAuthor} onChange={(e) => setCanAuthor(e.target.checked)} /> Can edit all curriculum, not only their own modules</label>
+          <label className="mt-3 flex items-center gap-2"><input type="checkbox" className="size-5" checked={canAuthor} onChange={(e) => setCanAuthor(e.target.checked)} /> Curriculum author: can create and edit every module</label>
         ) : null}
         {invite.isError ? <p role="alert" className="mt-2 font-bold text-danger">{msg(invite.error, "The invitation could not be sent.")}</p> : null}
         {invited ? <p role="status" className="callout mt-3 font-bold">Invitation sent to {invited}.</p> : null}
@@ -118,7 +118,7 @@ function Body({ token }: { token: string }) {
         <div className="table-wrap mt-3">
           <table className="table-brand">
             <caption className="sr-only">Staff users</caption>
-            <thead><tr><th scope="col">Person</th><th scope="col">Role</th><th scope="col">Edit all curriculum</th><th scope="col">School</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+            <thead><tr><th scope="col">Person</th><th scope="col">Role</th><th scope="col">Curriculum author</th><th scope="col">School</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>{users.data.map((u) => <UserRow key={u.userId} token={token} user={u} schools={schools} />)}</tbody>
           </table>
         </div>

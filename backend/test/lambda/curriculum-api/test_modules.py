@@ -55,9 +55,11 @@ def test_create_validation(api, body):
     assert call(api, "POST /v1/curriculum/modules", body)[0] == 400
 
 
-def test_every_instructor_can_create_but_reviewers_cannot(api):
+def test_only_authors_can_create_modules(api):
     assert create(api, who=AUTHOR)[0] == 201
-    assert create(api, "Other", who=INS)[0] == 201
+    assert create(api, "Admin's", who=ADMIN)[0] == 201
+    status, body = create(api, "Other", who=INS)  # an instructor an admin has not made an author
+    assert status == 403 and "curriculum authors" in body["error"]
     assert create(api, "Third", who=REV)[0] == 403
 
 
@@ -75,8 +77,9 @@ def test_list_filters_and_who_sees_what(api):
     assert names(ADMIN, status="draft") == ["Draft Only"]
     assert sorted(names(ADMIN, status="all")) == ["Draft Only", "Live One"]
     assert names(INS) == ["Live One"] and names(REV) == ["Live One"]
-    assert names(INS, status="all") == ["Live One"]  # someone else's draft stays private
-    assert call(api, "GET /v1/curriculum/modules", who=REV, query={"status": "draft"})[0] == 403
+    assert sorted(names(AUTHOR, status="all")) == ["Draft Only", "Live One"]  # authors see every draft
+    assert names(INS, status="all") == ["Live One"]  # a non-author asking for drafts just gets what is published
+    assert names(REV, status="draft") == ["Live One"]
     assert call(api, "GET /v1/curriculum/modules", query={"status": "nope"})[0] == 400
 
 

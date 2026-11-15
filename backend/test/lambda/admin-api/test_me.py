@@ -21,14 +21,14 @@ def test_admin_can_author(admin, table):
     assert body["data"]["role"] == "cic_admin" and body["data"]["permissions"]["canAuthor"] is True
 
 
-def test_instructor_can_author_but_not_edit_all_by_default_and_lists_classes(admin, table):
+def test_instructor_is_not_an_author_by_default_and_lists_classes(admin, table):
     table.put_item(Item={"pk": "CLS#cls_01", "sk": "INS#u1", "gsi1pk": "USR#u1", "gsi1sk": "CLS#cls_01"})
     _, body = call(admin, "[instructor]")
-    assert body["data"]["permissions"] == {"canAuthor": True, "canEditAll": False}
+    assert body["data"]["permissions"] == {"canAuthor": False, "canEditAll": False}
     assert body["data"]["classes"] == [{"classId": "cls_01"}]
 
 
-def test_instructor_with_can_author_flag(admin, table):
+def test_instructor_an_admin_made_an_author(admin, table):
     table.put_item(Item={"pk": "USR#u1", "sk": "META", "canAuthor": True})
     _, body = call(admin, "[instructor]")
     assert body["data"]["permissions"] == {"canAuthor": True, "canEditAll": True}

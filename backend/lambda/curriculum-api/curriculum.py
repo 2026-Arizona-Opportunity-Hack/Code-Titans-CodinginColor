@@ -12,7 +12,7 @@ import uuid
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
-from access import can_author, can_edit, can_edit_all, require_author, require_edit
+from access import can_author, can_edit, require_author, require_edit
 from cic import audit, db, paging, validate
 from cic.authz import require_staff
 from cic.errors import Conflict, Forbidden, NotFound, ValidationError
@@ -60,18 +60,15 @@ def list_modules(req: Request):
     staff = require_staff(req.auth)
     authoring = can_author(staff)
     status = validate.choice(req.query, "status", STATUS_FILTERS) or "published"
-    if status != "published" and not authoring:
-        raise Forbidden("Only authors can list unpublished modules")
+    if not authoring:
+        status = "published"  # anyone can browse; only authors see drafts
     query = {"IndexName": "gsi1", "KeyConditionExpression": Key("gsi1pk").eq("LIST#MOD")}
     if status == "published":
         query["FilterExpression"] = Attr("latestVersion").gt(0)
     elif status == "draft":
         query["FilterExpression"] = Attr("latestVersion").eq(0)
     items, cursor = paging.query_page(db.get_table(db.CONTENT), req, ("pk", "sk", "gsi1pk", "gsi1sk"), **query)
-    edit_all = authoring and can_edit_all(staff)
-    if authoring and not edit_all:  # other people's unpublished drafts stay private to them
-        items = [i for i in items if int(i["latestVersion"]) > 0 or i.get("createdBy") == staff.user_id]
-    return Reply(data=[public_meta(i, authoring, staff, edit_all) for i in items], meta={"nextCursor": cursor})
+    return Reply(data=[public_meta(i, authoring, staff, authoring) for i in items], meta={"nextCursor": cursor})
 
 
 def create_module(req: Request):
@@ -265,12 +262,12 @@ def get_version(req: Request):
 
 def list_concepts(req: Request):
     staff = require_staff(req.auth)
-    edit_all = can_author(staff) and can_edit_all(staff)
+    authoring = can_author(staff)
     counts: dict = {}
     for meta in db.query_all(db.get_table(db.CONTENT), IndexName="gsi1", KeyConditionExpression=Key("gsi1pk").eq("LIST#MOD")):
         unpublished = int(meta["latestVersion"]) < 1
-        if unpublished and not (edit_all or meta.get("createdBy") == staff.user_id):
-            continue  # someone else's draft
+        if unpublished and not authoring:
+            continue  # drafts are for authors
         for concept in meta.get("concepts", []):
             counts[concept] = counts.get(concept, 0) + 1
     return [{"concept": c, "moduleCount": n} for c, n in sorted(counts.items())]

@@ -12,6 +12,8 @@ import { StaffPage } from "../common/StaffPage";
 
 type Show = "all" | "published" | "draft" | "mine";
 const SHOW: [Show, string][] = [["all", "All"], ["published", "Published"], ["draft", "Drafts"], ["mine", "Made by me"]];
+// People who are not authors only ever see published modules, so those two filters would be empty for them.
+const AUTHOR_ONLY: Show[] = ["draft", "mine"];
 const errorText = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
 const editHref = (id: string) => `/author/edit/?id=${encodeURIComponent(id)}`;
 const viewHref = (id: string) => `/instructor/curriculum/module/?id=${encodeURIComponent(id)}`;
@@ -84,8 +86,9 @@ function DeleteButton({ token, m }: { token: string; m: ModuleSummary }) {
 }
 
 function ModuleCard({ token, me, m }: { token: string; me: StaffMe; m: ModuleSummary }) {
-  const canEdit = m.canEdit !== false;
-  const canDelete = me.role === "cic_admin" || m.createdBy === me.userId;
+  const author = me.permissions.canAuthor;
+  const canEdit = author && m.canEdit !== false;
+  const canDelete = author && (me.role === "cic_admin" || m.createdBy === me.userId);
   const mine = m.createdBy === me.userId;
   return (
     <li className="card card-interactive flex flex-col gap-3">
@@ -133,7 +136,7 @@ function Body({ token, me }: { token: string; me: StaffMe }) {
   const [show, setShow] = useState<Show>("all");
   const [text, setText] = useState("");
   const [concept, setConcept] = useState("");
-  const modules = useQuery({ queryKey: ["author-modules", token], queryFn: ({ signal }) => listModulesFor(token, "all", signal), retry: false, refetchOnMount: "always" });
+  const modules = useQuery({ queryKey: ["author-modules", token], queryFn: ({ signal }) => listModulesFor(token, me.permissions.canAuthor ? "all" : "published", signal), retry: false, refetchOnMount: "always" });
   const concepts = useQuery({ queryKey: ["concepts", token], queryFn: ({ signal }) => listConcepts(token, signal), retry: false });
   const needle = text.trim().toLowerCase();
   const shown = useMemo(() => (modules.data ?? [])
@@ -147,8 +150,12 @@ function Body({ token, me }: { token: string; me: StaffMe }) {
     <>
       <PageHeader
         title="Curriculum"
-        description={`Browse modules, or create your own. You can edit the modules you made${me.permissions.canEditAll ? " and everyone else's" : ""}. Published versions never change, so students never lose their place.`}
-        actions={<NewModuleDialog token={token} />}
+        description={
+          me.permissions.canAuthor
+            ? "Browse every module, create new ones, and update any of them. Published versions never change, so students never lose their place."
+            : "Browse the published modules and assign them to your classes. Only curriculum authors change modules."
+        }
+        actions={me.permissions.canAuthor ? <NewModuleDialog token={token} /> : undefined}
       />
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1 sm:max-w-sm">
@@ -166,7 +173,7 @@ function Body({ token, me }: { token: string; me: StaffMe }) {
           </div>
         ) : null}
         <div role="group" aria-label="Show" className="flex flex-wrap gap-2 sm:ml-auto">
-          {SHOW.map(([value, label]) => (
+          {SHOW.filter(([value]) => me.permissions.canAuthor || !AUTHOR_ONLY.includes(value)).map(([value, label]) => (
             <button key={value} type="button" aria-pressed={show === value} onClick={() => setShow(value)} className="chip">
               {label}
             </button>

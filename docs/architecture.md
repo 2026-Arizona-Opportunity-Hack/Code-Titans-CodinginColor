@@ -101,7 +101,7 @@ Authorization is enforced in the Lambda, using the verified identity from the au
 - Instructor endpoints call `require_class_member(user, classId)` before any read or write.
 - Student endpoints take `studentId` and `classId` from the authorizer context, never from the request body or path.
 - Only `cic_admin` can manage users, cohorts, schools, and API keys.
-- **Curriculum writes** (create, edit draft, publish) are allowed for `cic_admin` and for any staff user with the **`canAuthor`** flag. An admin sets the flag per user (default off, so partner-school teachers cannot edit shared curriculum). It is a permission, not a fifth role. `GET /me` returns it so the UI can show or hide authoring. Every publish is written to the audit log. Reviewers can never write.
+- **Curriculum writes** (create, edit draft, publish, images) are allowed for `cic_admin` and for instructors with the **`canAuthor`** flag, who are called **curriculum authors**. An admin sets the flag per user (default off). An author can see and update every module CIC has made, not only their own. Instructors without the flag only assign published modules. It is a permission, not a fifth role. `GET /me` returns it so the UI can show or hide authoring. Every publish is written to the audit log. Reviewers can never write.
 - Student-facing module payloads are sanitized: answer keys and explanations are removed server-side.
 
 ### Student access

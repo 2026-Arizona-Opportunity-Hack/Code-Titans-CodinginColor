@@ -65,10 +65,10 @@ def test_the_largest_allowed_size_is_accepted(api):
     assert call(api, {"contentType": "image/png", "size": 5 * 1024 * 1024})[0] == 200
 
 
-def test_instructors_can_ask_for_upload_urls_but_reviewers_cannot(api):
+def test_only_authors_can_ask_for_upload_urls(api):
     ok = {"contentType": "image/png", "size": 10}
     assert call(api, ok, who=AUTHOR)[0] == 200
-    assert call(api, ok, who=INS)[0] == 200
+    assert call(api, ok, who=INS)[0] == 403  # an instructor who is not an author
     assert call(api, ok, who=REV)[0] == 403
 
 
