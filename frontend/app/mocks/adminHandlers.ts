@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
-import type { ApiKey, AuditEntry } from "../lib/api/admin";
+import type { AccessRequest, ApiKey, AuditEntry, Usage } from "../lib/api/admin";
 import { register } from "./persist";
 import { apiError, roleOf } from "./staffHandlers";
 
@@ -16,6 +16,15 @@ const audit: AuditEntry[] = [
 register({ key: "adminKeys", snapshot: () => keys, restore: (d: ApiKey[]) => keys.splice(0, keys.length, ...d) });
 register({ key: "adminAudit", snapshot: () => audit, restore: (d: AuditEntry[]) => audit.splice(0, audit.length, ...d) });
 
+const requests: AccessRequest[] = [
+  { requestId: "req_000000000001", name: "Sam Rivera", email: "sam@desertprep.example", organization: "Desert Prep", note: "Grade 9 intro to coding", status: "pending", createdAt: "2026-11-13T18:00:00Z", decidedAt: null, orgId: null },
+];
+register({ key: "accessRequests", snapshot: () => requests, restore: (d: AccessRequest[]) => requests.splice(0, requests.length, ...d) });
+const usage: Usage = {
+  generatedAt: "2026-11-14T12:00:00Z", activeWindowDays: 7, totals: { schools: 1, classes: 1, students: 24, studentsActiveLast7Days: 17 },
+  schools: [{ orgId: "org_desertprep", name: "Desert Prep", status: "active", teachers: ["Pat Lee"], classes: 1, students: 24, studentsActiveLast7Days: 17, lastActivityAt: "2026-11-14T09:30:00Z",
+    classList: [{ name: "Intro CS", status: "active", createdAt: "2026-09-01T00:00:00Z", teachers: ["Pat Lee"], students: 24, modulesAssigned: 3, studentsActiveLast7Days: 17, lastActivityAt: "2026-11-14T09:30:00Z" }] }],
+};
 const rand = (n: number, chars: string) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 const now = () => new Date().toISOString().replace(/\.\d+Z$/, "Z");
 
@@ -31,6 +40,31 @@ function adminOnly(request: Request) {
 }
 
 export const adminHandlers = [
+  http.get(`${env.apiUrl}/admin/access-requests`, ({ request }) => {
+    const denied = adminOnly(request);
+    if (denied) return denied;
+    const status = new URL(request.url).searchParams.get("status") ?? "pending";
+    return HttpResponse.json({ data: requests.filter((r) => r.status === status), meta: { nextCursor: null } });
+  }),
+  http.post(`${env.apiUrl}/admin/access-requests/:requestId/approve`, ({ request, params }) => {
+    const denied = adminOnly(request);
+    if (denied) return denied;
+    const r = requests.find((x) => x.requestId === params.requestId);
+    if (!r) return apiError(404, "NOT_FOUND", "Request not found");
+    if (r.status !== "pending") return apiError(409, "CONFLICT", "This request has already been decided");
+    Object.assign(r, { status: "approved", decidedAt: now(), orgId: "org_desertprep" });
+    return HttpResponse.json({ data: r });
+  }),
+  http.post(`${env.apiUrl}/admin/access-requests/:requestId/deny`, ({ request, params }) => {
+    const denied = adminOnly(request);
+    if (denied) return denied;
+    const r = requests.find((x) => x.requestId === params.requestId);
+    if (!r) return apiError(404, "NOT_FOUND", "Request not found");
+    if (r.status !== "pending") return apiError(409, "CONFLICT", "This request has already been decided");
+    Object.assign(r, { status: "denied", decidedAt: now() });
+    return HttpResponse.json({ data: r });
+  }),
+  http.get(`${env.apiUrl}/admin/usage`, ({ request }) => adminOnly(request) ?? HttpResponse.json({ data: usage })),
   http.get(`${env.apiUrl}/admin/api-keys`, ({ request }) => adminOnly(request) ?? HttpResponse.json({ data: keys, meta: { nextCursor: null } })),
 
   http.post(`${env.apiUrl}/admin/api-keys`, async ({ request }) => {

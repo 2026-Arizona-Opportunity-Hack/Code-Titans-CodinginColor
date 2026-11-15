@@ -24,9 +24,10 @@ export const cohortHandlers = [
   http.post(`${env.apiUrl}/admin/orgs`, async ({ request }) => {
     const denied = adminOnly(request);
     if (denied) return denied;
-    const name = ((await request.json().catch(() => ({}))) as { name?: string }).name?.trim();
+    const body = (await request.json().catch(() => ({}))) as { name?: string; kind?: "cic" | "external" };
+    const name = body.name?.trim();
     if (!name) return apiError(400, "VALIDATION_ERROR", "name is required");
-    const school: School = { orgId: `org_${rand(12)}`, name, status: "active", createdAt: new Date().toISOString() };
+    const school: School = { orgId: `org_${rand(12)}`, name, kind: body.kind === "external" ? "external" : "cic", status: "active", createdAt: new Date().toISOString() };
     ORGS.push(school);
     return HttpResponse.json({ data: school }, { status: 201 });
   }),

@@ -10,6 +10,8 @@ const ACTIONS: Record<string, string> = {
   api_key_created: "Created an API key",
   api_key_revoked: "Revoked an API key",
   export: "Exported class data",
+  access_request_approved: "Approved an access request",
+  access_request_denied: "Denied an access request",
 };
 
 function Body({ token }: { token: string }) {

@@ -21,6 +21,7 @@ function SchoolRow({ token, school }: { token: string; school: School }) {
         <label htmlFor={`school-${school.orgId}`} className="sr-only">School name</label>
         <input id={`school-${school.orgId}`} className="field max-w-sm" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
       </th>
+      <td>{school.kind === "external" ? <span className="badge badge-muted">External</span> : <span className="badge">CIC</span>}</td>
       <td>{archived ? <span className="badge badge-muted">Archived</span> : <span className="badge">Active</span>}</td>
       <td className="flex flex-wrap gap-2">
         <button type="button" className="btn btn-secondary" disabled={save.isPending || !name.trim() || name.trim() === school.name} onClick={() => save.mutate({ name: name.trim() })}>Save name<span className="sr-only"> for {school.name}</span></button>
@@ -34,19 +35,25 @@ function SchoolRow({ token, school }: { token: string; school: School }) {
 function Body({ token }: { token: string }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
+  const [kind, setKind] = useState<School["kind"]>("cic");
   const schools = useQuery({ queryKey: ["schools", token], queryFn: ({ signal }) => listSchools(token, signal), retry: false, refetchOnMount: "always" });
   const create = useMutation({
-    mutationFn: () => createSchool(token, name.trim()),
+    mutationFn: () => createSchool(token, name.trim(), kind),
     onSuccess: () => { setName(""); qc.invalidateQueries({ queryKey: ["schools", token] }); },
   });
   const submit = (e: FormEvent) => { e.preventDefault(); if (name.trim()) create.mutate(); };
   return (
     <>
       <h1>Schools</h1>
-      <p className="mt-1 text-muted">Partner schools. Every class belongs to one.</p>
+      <p className="mt-1 text-muted">Every class belongs to a school. External schools belong to teachers outside CIC: CIC sees how much they are used, and nothing about their students.</p>
       <form onSubmit={submit} className="card mt-6 max-w-xl">
         <label htmlFor="school-new" className="block font-bold">Add a school</label>
         <input id="school-new" className="field mt-1" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+        <label htmlFor="school-kind" className="mt-3 block font-bold">Kind</label>
+        <select id="school-kind" className="field mt-1 max-w-sm" value={kind} onChange={(e) => setKind(e.target.value as School["kind"])}>
+          <option value="cic">CIC (CIC instructors teach here)</option>
+          <option value="external">External (a partner teacher runs their own classes)</option>
+        </select>
         {create.isError ? <p role="alert" className="mt-2 font-bold text-danger">{msg(create.error, "The school could not be added.")}</p> : null}
         <button type="submit" className="btn btn-primary mt-4" disabled={!name.trim() || create.isPending}>{create.isPending ? "Adding…" : "Add school"}</button>
       </form>
@@ -56,7 +63,7 @@ function Body({ token }: { token: string }) {
         <div className="table-wrap mt-6">
           <table className="table-brand">
             <caption className="sr-only">Partner schools</caption>
-            <thead><tr><th scope="col">Name</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+            <thead><tr><th scope="col">Name</th><th scope="col">Kind</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>{schools.data.map((s) => <SchoolRow key={s.orgId} token={token} school={s} />)}</tbody>
           </table>
         </div>

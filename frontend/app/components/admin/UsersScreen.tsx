@@ -7,7 +7,9 @@ import { ApiError } from "../../lib/api/client";
 import { listOrgs, type Org } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 
-const ROLES: [NonNullable<StaffUser["role"]>, string][] = [["instructor", "Instructor"], ["reviewer", "Reviewer"], ["cic_admin", "CIC admin"]];
+const ROLES: [NonNullable<StaffUser["role"]>, string][] = [["instructor", "Instructor"], ["external_teacher", "External teacher"], ["reviewer", "Reviewer"], ["cic_admin", "CIC admin"]];
+/** External teachers belong to external schools, and instructors to CIC schools. */
+const schoolsFor = (role: StaffUser["role"], schools: Org[]) => schools.filter((o) => (o.kind === "external") === (role === "external_teacher"));
 const msg = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
 
 function UserRow({ token, user, schools }: { token: string; user: StaffUser; schools: Org[] }) {
@@ -37,13 +39,13 @@ function UserRow({ token, user, schools }: { token: string; user: StaffUser; sch
         ) : user.role === "cic_admin" ? "Always" : "No"}
       </td>
       <td>
-        {user.role === "instructor" ? (
+        {user.role === "instructor" || user.role === "external_teacher" ? (
           <>
             <label htmlFor={`${id}-school`} className="sr-only">School for {user.name || user.email}</label>
             <select id={`${id}-school`} className="field" value={user.orgId ?? ""} disabled={change.isPending}
               onChange={(e) => change.mutate({ orgId: e.target.value || null })}>
               <option value="">No school (can&apos;t create classes)</option>
-              {schools.filter((o) => o.status !== "archived" || o.orgId === user.orgId).map((o) => <option key={o.orgId} value={o.orgId}>{o.name}</option>)}
+              {schoolsFor(user.role, schools).filter((o) => o.status !== "archived" || o.orgId === user.orgId).map((o) => <option key={o.orgId} value={o.orgId}>{o.name}</option>)}
             </select>
           </>
         ) : (schools.find((o) => o.orgId === user.orgId)?.name ?? "—")}
@@ -64,15 +66,16 @@ function Body({ token }: { token: string }) {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<"instructor" | "reviewer" | "cic_admin">("instructor");
+  const [role, setRole] = useState<NonNullable<StaffUser["role"]>>("instructor");
   const [canAuthor, setCanAuthor] = useState(false);
   const [orgId, setOrgId] = useState("");
   const [invited, setInvited] = useState("");
   const orgs = useQuery({ queryKey: ["orgs", token], queryFn: ({ signal }) => listOrgs(token, signal), retry: false });
   const schools = orgs.data ?? [];
+  const hasSchool = role === "instructor" || role === "external_teacher";
   const users = useQuery({ queryKey: ["users", token], queryFn: ({ signal }) => listUsers(token, signal), retry: false, refetchOnMount: "always" });
   const invite = useMutation({
-    mutationFn: () => inviteUser(token, { email: email.trim(), name: name.trim(), role, ...(role === "instructor" && canAuthor ? { canAuthor: true } : {}), ...(role === "instructor" && orgId ? { orgId } : {}) }),
+    mutationFn: () => inviteUser(token, { email: email.trim(), name: name.trim(), role, ...(role === "instructor" && canAuthor ? { canAuthor: true } : {}), ...(hasSchool && orgId ? { orgId } : {}) }),
     onSuccess: (u) => { setInvited(u.email); setEmail(""); setName(""); setCanAuthor(false); setOrgId(""); qc.invalidateQueries({ queryKey: ["users", token] }); },
   });
   const submit = (e: FormEvent) => { e.preventDefault(); setInvited(""); if (email.trim() && name.trim()) invite.mutate(); };
@@ -90,16 +93,16 @@ function Body({ token }: { token: string }) {
         <label htmlFor="inv-email" className="mt-3 block font-bold">Email</label>
         <input id="inv-email" type="email" className="field mt-1" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
         <label htmlFor="inv-role" className="mt-3 block font-bold">Role</label>
-        <select id="inv-role" className="field mt-1 max-w-xs" value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
+        <select id="inv-role" className="field mt-1 max-w-xs" value={role} onChange={(e) => { setRole(e.target.value as typeof role); setOrgId(""); }}>
           {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        {role === "instructor" ? (
+        {hasSchool ? (
           <>
             <label htmlFor="inv-school" className="mt-3 block font-bold">School</label>
-            <p id="inv-school-h" className="text-sm text-muted">Instructors create classes in this school. You can change it later.</p>
+            <p id="inv-school-h" className="text-sm text-muted">{role === "external_teacher" ? "They create classes in this external school. It is required." : "Instructors create classes in this school. You can change it later."}</p>
             <select id="inv-school" className="field mt-1 max-w-sm" value={orgId} onChange={(e) => setOrgId(e.target.value)} aria-describedby="inv-school-h">
-              <option value="">No school yet</option>
-              {schools.filter((o) => o.status !== "archived").map((o) => <option key={o.orgId} value={o.orgId}>{o.name}</option>)}
+              <option value="">{role === "external_teacher" ? "Choose a school" : "No school yet"}</option>
+              {schoolsFor(role, schools).filter((o) => o.status !== "archived").map((o) => <option key={o.orgId} value={o.orgId}>{o.name}</option>)}
             </select>
           </>
         ) : null}
@@ -108,7 +111,7 @@ function Body({ token }: { token: string }) {
         ) : null}
         {invite.isError ? <p role="alert" className="mt-2 font-bold text-danger">{msg(invite.error, "The invitation could not be sent.")}</p> : null}
         {invited ? <p role="status" className="callout mt-3 font-bold">Invitation sent to {invited}.</p> : null}
-        <button type="submit" className="btn btn-primary mt-4" disabled={invite.isPending || !email.trim() || !name.trim()}>{invite.isPending ? "Sending…" : "Send invitation"}</button>
+        <button type="submit" className="btn btn-primary mt-4" disabled={invite.isPending || !email.trim() || !name.trim() || (role === "external_teacher" && !orgId)}>{invite.isPending ? "Sending…" : "Send invitation"}</button>
       </form>
 
       <h2 className="mt-8">Everyone</h2>

@@ -36,6 +36,8 @@ export function navFor(role: StaffRole): NavItem[] {
       { label: "Cohorts", href: "/admin/cohorts/", ready: true, icon: "layers", section: "Administer" },
       { label: "Schools", href: "/admin/schools/", ready: true, icon: "school" },
       { label: "Users", href: "/admin/users/", ready: true, icon: "shield" },
+      { label: "Access requests", href: "/admin/access-requests/", ready: true, icon: "userPlus" },
+      { label: "Usage", href: "/admin/usage/", ready: true, icon: "chart" },
       { label: "API keys", href: "/admin/api-keys/", ready: true, icon: "key" },
       { label: "Audit log", href: "/admin/audit/", ready: true, icon: "audit" },
     );
