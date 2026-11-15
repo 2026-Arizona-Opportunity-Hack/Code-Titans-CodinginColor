@@ -99,7 +99,7 @@ export class ApiStack extends cdk.Stack {
     new ReportsApi(this, "Reports", ctx);
     new ReadApi(this, "Read", ctx);
     new AdminDomain(this, "Admin", ctx);
-    new ClassesDomain(this, "Classes", ctx);
+    new ClassesDomain(this, "Classes", ctx, studentAuth.pepper);
     new CurriculumDomain(this, "Curriculum", ctx);
 
     new cdk.CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint, description: "HTTP API base URL (append /v1)" });

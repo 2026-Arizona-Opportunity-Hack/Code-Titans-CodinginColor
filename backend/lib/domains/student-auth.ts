@@ -14,16 +14,18 @@ import { DomainContext, addRoutes } from "./context";
  */
 export class StudentAuthDomain extends Construct {
   public readonly authorizer: apigwv2.IHttpRouteAuthorizer;
+  /** The credential pepper. Every function that issues or checks student words needs read access. */
+  public readonly pepper: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, ctx: DomainContext) {
     super(scope, id);
 
     // Mixed into every credential hash. Retained: losing it invalidates every student login.
-    const pepper = new secretsmanager.Secret(this, "CredentialPepper", {
+    const pepper = (this.pepper = new secretsmanager.Secret(this, "CredentialPepper", {
       description: "HMAC pepper for student secret words",
       generateSecretString: { passwordLength: 48, excludePunctuation: true },
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
+    }));
 
     const authorizerFn = createPythonFunction(this, "AuthorizerFunction", ctx.defaults, {
       dir: "authorizer-student",
