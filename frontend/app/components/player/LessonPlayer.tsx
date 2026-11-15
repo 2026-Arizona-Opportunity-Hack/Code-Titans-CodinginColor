@@ -11,6 +11,7 @@ import { Icon } from "../common/Icon";
 import { PublicShell } from "../common/PublicShell";
 import { StudentShell } from "../common/StudentShell";
 import { Markdown } from "./Markdown";
+import { CatchUpBanner } from "./CatchUpBanner";
 import { ModuleComplete } from "./ModuleComplete";
 import { QuestionActivity } from "./QuestionActivity";
 import { WatchActivity } from "./WatchActivity";
@@ -85,6 +86,7 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
         </Link>
       </nav>
       <h1>{lesson.data.title}</h1>
+      {lesson.data.state === "catch_up" ? <CatchUpBanner token={token} /> : null}
       <div className="mt-3 flex items-center gap-3">
         <progress className="meter" value={lesson.data.percent} max={100} aria-label={`${lesson.data.title} progress`} />
         <span className="shrink-0 text-sm font-bold text-muted">{lesson.data.percent}%</span>
