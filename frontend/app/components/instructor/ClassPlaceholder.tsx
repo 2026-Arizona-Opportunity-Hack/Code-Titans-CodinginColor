@@ -43,6 +43,11 @@ function ClassPlaceholderBody({ token, classId }: { token: string; classId: stri
               Class code <span className="font-mono font-bold text-ink">{item.data.joinCode}</span>
             </p>
           ) : null}
+          <p className="mt-6">
+            <Link href={`/instructor/class/import/?id=${encodeURIComponent(classId)}`} className="btn btn-primary">
+              Add students from a CSV
+            </Link>
+          </p>
           <p className="mt-6 rounded-xl border border-line p-5 text-muted">
             The class dashboard (roster, student links and progress) is coming in the next steps.
           </p>
