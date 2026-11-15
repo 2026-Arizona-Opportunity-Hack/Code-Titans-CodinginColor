@@ -21,8 +21,8 @@ function Body({ token, moduleId }: { token: string; moduleId: string }) {
         <div className="table-wrap mt-6">
           <table className="table-brand">
             <caption className="sr-only">Published versions, newest first</caption>
-            <thead><tr><th scope="col">Version</th><th scope="col">Published</th><th scope="col">By</th></tr></thead>
-            <tbody>{versions.data.map((v) => <tr key={v.version}><th scope="row">{v.version}</th><td>{new Date(v.publishedAt).toLocaleString()}</td><td>{v.publishedBy}</td></tr>)}</tbody>
+            <thead><tr><th scope="col">Version</th><th scope="col">Published</th><th scope="col">By</th><th scope="col"><span className="sr-only">Open</span></th></tr></thead>
+            <tbody>{versions.data.map((v) => <tr key={v.version}><th scope="row">{v.version}</th><td>{new Date(v.publishedAt).toLocaleString()}</td><td>{v.publishedBy}</td><td><Link href={`/author/versions/view/?id=${encodeURIComponent(moduleId)}&v=${v.version}`} className="btn btn-secondary">View<span className="sr-only"> version {v.version}</span></Link></td></tr>)}</tbody>
           </table>
         </div>
       ) : null}

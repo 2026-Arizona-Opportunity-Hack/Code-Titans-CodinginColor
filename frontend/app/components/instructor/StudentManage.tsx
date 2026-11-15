@@ -4,13 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { unlockModule } from "../../lib/api/assignments";
 import { ApiError } from "../../lib/api/client";
-import { listDuplicates, mergeStudent, updateStudent } from "../../lib/api/roster";
+import { deleteStudent, listDuplicates, mergeStudent, updateStudent } from "../../lib/api/roster";
 import type { StudentDetail } from "../../lib/api/reports";
 
 const msg = (e: unknown, f: string) => (e instanceof ApiError ? e.message : f);
 
 /** Rename, deactivate, unlock a module early, or merge a duplicate. Each is one API call. */
-export function StudentManage({ token, classId, detail, onMerged }: { token: string; classId: string; detail: StudentDetail; onMerged: () => void }) {
+export function StudentManage({ token, classId, detail, isAdmin, onMerged }: { token: string; classId: string; detail: StudentDetail; isAdmin: boolean; onMerged: () => void }) {
   const qc = useQueryClient();
   const s = detail.student;
   const [name, setName] = useState(s.displayName);
@@ -28,7 +28,8 @@ export function StudentManage({ token, classId, detail, onMerged }: { token: str
   const status = useMutation({ mutationFn: () => updateStudent(token, classId, s.studentId, { status: detail.status === "active" ? "inactive" : "active" }), onSuccess: ok("Saved.") });
   const unlock = useMutation({ mutationFn: () => unlockModule(token, classId, s.studentId, moduleId), onSuccess: ok("Module unlocked for this student.") });
   const merge = useMutation({ mutationFn: () => mergeStudent(token, classId, s.studentId, into), onSuccess: () => { qc.invalidateQueries({ queryKey: ["roster"] }); onMerged(); } });
-  const error = [rename, status, unlock, merge].find((m) => m.isError)?.error;
+  const remove = useMutation({ mutationFn: () => deleteStudent(token, classId, s.studentId), onSuccess: () => { qc.invalidateQueries({ queryKey: ["roster"] }); onMerged(); } });
+  const error = [rename, status, unlock, merge, remove].find((m) => m.isError)?.error;
 
   return (
     <section aria-labelledby="manage-h" className="card mt-8">
@@ -65,6 +66,13 @@ export function StudentManage({ token, classId, detail, onMerged }: { token: str
             </select>
           </div>
           <button type="button" className="btn btn-secondary" disabled={!into || merge.isPending} onClick={() => { if (window.confirm(`Merge #${s.rosterNumber} into the chosen student? #${s.rosterNumber} is removed and their progress moves over.`)) merge.mutate(); }}>Merge</button>
+        </div>
+      ) : null}
+
+      {isAdmin ? (
+        <div className="mt-5">
+          <button type="button" className="btn btn-secondary" disabled={remove.isPending} onClick={() => { if (window.confirm(`Delete ${s.displayName} #${s.rosterNumber} and all their progress? This can't be undone.`)) remove.mutate(); }}>Delete this student</button>
+          <p className="mt-1 text-sm text-muted">Only CIC admins can do this. To keep their results, mark them inactive instead.</p>
         </div>
       ) : null}
 

@@ -3,6 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ApiError } from "../../lib/api/client";
+import { useState } from "react";
+import { listCohorts, listSchools } from "../../lib/api/admin";
 import { listClasses, type ClassSummary } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 
@@ -33,10 +35,14 @@ function ClassCard({ item }: { item: ClassSummary }) {
   );
 }
 
-function ClassListBody({ token }: { token: string }) {
+function ClassListBody({ token, isAdmin }: { token: string; isAdmin: boolean }) {
+  const [orgId, setOrgId] = useState("");
+  const [cohortId, setCohortId] = useState("");
+  const schools = useQuery({ queryKey: ["schools", token], queryFn: ({ signal }) => listSchools(token, signal), enabled: isAdmin, retry: false });
+  const cohorts = useQuery({ queryKey: ["cohorts", token], queryFn: ({ signal }) => listCohorts(token, signal), enabled: isAdmin, retry: false });
   const classes = useQuery({
-    queryKey: ["classes", token],
-    queryFn: ({ signal }) => listClasses(token, signal),
+    queryKey: ["classes", token, orgId, cohortId],
+    queryFn: ({ signal }) => listClasses(token, signal, { orgId, cohortId }),
     retry: false,
   });
 
@@ -51,6 +57,25 @@ function ClassListBody({ token }: { token: string }) {
           New class
         </Link>
       </div>
+
+      {isAdmin ? (
+        <div className="mt-6 flex flex-wrap gap-4">
+          <div>
+            <label htmlFor="f-school" className="block font-bold">School</label>
+            <select id="f-school" className="field mt-1" value={orgId} onChange={(e) => setOrgId(e.target.value)}>
+              <option value="">All schools</option>
+              {schools.data?.map((s) => <option key={s.orgId} value={s.orgId}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="f-cohort" className="block font-bold">Cohort</label>
+            <select id="f-cohort" className="field mt-1" value={cohortId} onChange={(e) => setCohortId(e.target.value)}>
+              <option value="">All cohorts</option>
+              {cohorts.data?.map((c) => <option key={c.cohortId} value={c.cohortId}>{c.name}</option>)}
+            </select>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-8">
         {classes.isPending ? (
@@ -95,5 +120,5 @@ function ClassListBody({ token }: { token: string }) {
 }
 
 export function ClassList() {
-  return <StaffPage roles={["instructor", "cic_admin"]}>{({ token }) => <ClassListBody token={token} />}</StaffPage>;
+  return <StaffPage roles={["instructor", "cic_admin"]}>{({ token, me }) => <ClassListBody token={token} isAdmin={me.role === "cic_admin"} />}</StaffPage>;
 }

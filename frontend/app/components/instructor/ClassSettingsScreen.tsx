@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { ApiError } from "../../lib/api/client";
-import { getClass, rotateJoinCode, updateClass, type ClassDetail } from "../../lib/api/staff";
+import { listUsers } from "../../lib/api/admin";
+import { addClassMember, getClass, rotateJoinCode, updateClass, type ClassDetail } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 
 const msg = (e: unknown, f: string) => (e instanceof ApiError ? e.message : f);
@@ -16,7 +17,29 @@ const LIMITS = [
   ["inactiveSchoolDays", "School days without activity before a student shows as inactive", 1, 14],
 ] as const;
 
-function Form({ token, cls }: { token: string; cls: ClassDetail }) {
+function AddInstructor({ token, classId }: { token: string; classId: string }) {
+  const [userId, setUserId] = useState("");
+  const [added, setAdded] = useState("");
+  const users = useQuery({ queryKey: ["users", token], queryFn: ({ signal }) => listUsers(token, signal), retry: false });
+  const add = useMutation({ mutationFn: () => addClassMember(token, classId, userId), onSuccess: () => { setAdded(users.data?.find((u) => u.userId === userId)?.name ?? "The instructor"); setUserId(""); } });
+  const instructors = users.data?.filter((u) => u.role === "instructor" && u.enabled) ?? [];
+  return (
+    <section className="card mt-6 max-w-xl" aria-labelledby="inst-h">
+      <h2 id="inst-h" className="text-lg">Add an instructor</h2>
+      <p className="text-sm text-muted">Gives another instructor access to this class. Only CIC admins see this.</p>
+      <label htmlFor="inst-pick" className="mt-3 block font-bold">Instructor</label>
+      <select id="inst-pick" className="field mt-1 max-w-sm" value={userId} onChange={(e) => { setUserId(e.target.value); setAdded(""); }}>
+        <option value="">Choose an instructor</option>
+        {instructors.map((u) => <option key={u.userId} value={u.userId}>{u.name || u.email}</option>)}
+      </select>
+      {add.isError ? <p role="alert" className="mt-2 font-bold text-danger">{msg(add.error, "Could not add them.")}</p> : null}
+      <div aria-live="polite">{added ? <p className="mt-2 font-bold text-brand">{added} can now open this class.</p> : null}</div>
+      <button type="button" className="btn btn-secondary mt-3" disabled={!userId || add.isPending} onClick={() => add.mutate()}>Add to class</button>
+    </section>
+  );
+}
+
+function Form({ token, cls, isAdmin }: { token: string; cls: ClassDetail; isAdmin: boolean }) {
   const qc = useQueryClient();
   const [name, setName] = useState(cls.name);
   const [values, setValues] = useState<Record<string, string>>(Object.fromEntries(LIMITS.map(([k]) => [k, String(cls.settings[k])])));
@@ -72,11 +95,12 @@ function Form({ token, cls }: { token: string; cls: ClassDetail }) {
         {archive.isError ? <p role="alert" className="mt-2 font-bold text-danger">{msg(archive.error, "Could not change the class.")}</p> : null}
         <button type="button" className="btn btn-secondary mt-3" disabled={archive.isPending} onClick={() => archive.mutate()}>{cls.status === "active" ? "Archive class" : "Restore class"}</button>
       </section>
+      {isAdmin ? <AddInstructor token={token} classId={cls.classId} /> : null}
     </>
   );
 }
 
-function Body({ token, classId }: { token: string; classId: string }) {
+function Body({ token, classId, isAdmin }: { token: string; classId: string; isAdmin: boolean }) {
   const cls = useQuery({ queryKey: ["class", token, classId], queryFn: ({ signal }) => getClass(token, classId, signal), retry: false });
   return (
     <>
@@ -84,12 +108,12 @@ function Body({ token, classId }: { token: string; classId: string }) {
       <h1>Class settings</h1>
       {cls.isPending ? <div role="status" aria-label="Loading" className="skeleton mt-6 h-40" /> : null}
       {cls.isError ? <p role="alert" className="callout callout-danger mt-6 font-bold text-danger">{msg(cls.error, "We couldn't load this class.")}</p> : null}
-      {cls.data ? <Form key={classId} token={token} cls={cls.data} /> : null}
+      {cls.data ? <Form key={classId} token={token} cls={cls.data} isAdmin={isAdmin} /> : null}
     </>
   );
 }
 
 export function ClassSettingsScreen() {
   const classId = useSearchParams().get("id") ?? "";
-  return <StaffPage roles={["instructor", "cic_admin"]}>{({ token }) => classId ? <Body token={token} classId={classId} /> : <p role="alert" className="callout callout-danger">No class was chosen.</p>}</StaffPage>;
+  return <StaffPage roles={["instructor", "cic_admin"]}>{({ token, me }) => classId ? <Body token={token} classId={classId} isAdmin={me.role === "cic_admin"} /> : <p role="alert" className="callout callout-danger">No class was chosen.</p>}</StaffPage>;
 }
