@@ -16,7 +16,7 @@ const LINK_FAILED = "This link didn't work. Ask your teacher for a new one, or t
 const FORM_FAILED = "That didn't work. Check your login sheet, or ask your teacher for help.";
 const DEFAULT_LOCKOUT_SECONDS = 300; // 5 minutes, per docs/architecture.md section 5
 
-const inputClass = "mt-1 min-h-11 w-full rounded-lg border-2 border-muted bg-surface px-3 py-2";
+const inputClass = "field mt-1";
 
 function normalizeCode(value: string) {
   return value.trim().toUpperCase();
@@ -130,8 +130,9 @@ export function StudentEntry() {
   if (opening) {
     return (
       <PublicShell>
-        <h1 className="text-3xl">Opening your lesson…</h1>
-        <p role="status" className="mt-3 text-muted">
+        <h1>Opening your lesson…</h1>
+        <p role="status" className="mt-4 flex items-center gap-3 text-muted">
+          <span aria-hidden="true" className="inline-block size-5 animate-spin rounded-full border-2 border-brand border-t-transparent" />
           One moment while we find your class.
         </p>
       </PublicShell>
@@ -142,14 +143,14 @@ export function StudentEntry() {
 
   return (
     <PublicShell>
-      <h1 className="text-3xl">Open your lesson</h1>
+      <h1>Open your lesson</h1>
       <p className="mt-2 text-muted">
         Use the link your teacher gave you. If you don&apos;t have it, enter the class code and secret words from your
         login sheet.
       </p>
 
       {expired && !message ? (
-        <p role="status" className="mt-6 rounded-lg border-l-8 border-accent bg-tint p-4">
+        <p role="status" className="callout mt-6">
           Your session ended. Open your link again to continue, or enter your class code and secret words.
         </p>
       ) : null}
@@ -198,14 +199,14 @@ export function StudentEntry() {
         </div>
 
         {message ? (
-          <p role="alert" className="rounded-lg border-2 border-danger p-3 font-bold text-danger">
+          <p role="alert" className="callout callout-danger font-bold text-danger">
             {message}
           </p>
         ) : null}
 
         {locked ? (
           <div>
-            <p role="alert" className="rounded-lg border-2 border-danger p-3 font-bold text-danger">
+            <p role="alert" className="callout callout-danger font-bold text-danger">
               Too many tries. Please wait before trying again.
             </p>
             {/* Visual countdown only: announcing every second would flood screen readers. */}

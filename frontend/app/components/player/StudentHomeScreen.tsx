@@ -13,10 +13,10 @@ import { StartHereCard } from "./StartHereCard";
 
 function HomeSkeleton() {
   return (
-    <div role="status" aria-label="Loading your path" className="animate-pulse space-y-4">
-      <div className="h-36 rounded-xl bg-tint" />
-      <div className="h-16 rounded-xl bg-tint" />
-      <div className="h-16 rounded-xl bg-tint" />
+    <div role="status" aria-label="Loading your path" className="space-y-4">
+      <div className="skeleton h-44" />
+      <div className="skeleton h-20" />
+      <div className="skeleton h-20" />
     </div>
   );
 }
@@ -71,12 +71,12 @@ export function StudentHomeScreen() {
 
   return (
     <StudentShell studentName={session.student.displayName} onSignOut={onSignOut}>
-      <h1 className="mb-6 text-3xl">Your learning path</h1>
+      <h1 className="mb-8">Your learning path</h1>
 
       {home.isPending || unauthorized ? <HomeSkeleton /> : null}
 
       {home.isError && !unauthorized ? (
-        <div role="alert" className="rounded-xl border-2 border-danger p-5">
+        <div role="alert" className="callout callout-danger">
           <p className="font-bold text-danger">We couldn&apos;t load your lessons.</p>
           <p className="mt-1 text-muted">{home.error instanceof ApiError ? home.error.message : "Please try again."}</p>
           <button type="button" className="btn btn-secondary mt-4" onClick={() => home.refetch()}>
@@ -95,11 +95,11 @@ export function StudentHomeScreen() {
               href={`${moduleHref(resume.moduleId)}&a=${encodeURIComponent(resume.activityId)}`}
             />
           ) : data.modules.length > 0 ? (
-            <p role="status" className="rounded-xl border-l-8 border-accent bg-tint p-6 font-bold text-brand">
+            <p role="status" className="callout rise p-6 text-lg font-bold text-brand">
               You&apos;ve finished everything assigned so far. Nice work!
             </p>
           ) : (
-            <p role="status" className="rounded-xl border border-line p-6">
+            <p role="status" className="card rise p-6">
               Your teacher hasn&apos;t assigned any lessons yet. Check back soon.
             </p>
           )}

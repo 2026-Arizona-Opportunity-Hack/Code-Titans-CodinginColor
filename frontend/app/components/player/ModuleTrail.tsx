@@ -1,13 +1,19 @@
 import Link from "next/link";
 import type { HomeModule, ModuleState } from "../../lib/api/student";
+import { Icon, type IconName } from "../common/Icon";
 
 // Every state has an icon AND a text label, so meaning never depends on color alone.
-const STATE: Record<ModuleState, { glyph: string; label: (pct: number) => string }> = {
-  complete: { glyph: "✓", label: () => "Complete" },
-  in_progress: { glyph: "●", label: (pct) => `In progress · ${pct}%` },
-  available: { glyph: "○", label: () => "Ready to start" },
-  locked: { glyph: "🔒", label: () => "Locked · finish the module before it first" },
-  catch_up: { glyph: "↺", label: () => "Catch up · optional" },
+const STATE: Record<ModuleState, { icon: IconName; circle: string; badge: string; label: (pct: number) => string }> = {
+  complete: { icon: "check", circle: "bg-brand text-on-brand", badge: "badge", label: () => "Complete" },
+  in_progress: { icon: "play", circle: "bg-tint text-brand", badge: "badge", label: (pct) => `In progress · ${pct}%` },
+  available: { icon: "play", circle: "bg-tint text-brand", badge: "badge", label: () => "Ready to start" },
+  locked: {
+    icon: "lock",
+    circle: "bg-line/30 text-muted",
+    badge: "badge badge-muted",
+    label: () => "Locked · finish the module before it first",
+  },
+  catch_up: { icon: "history", circle: "bg-tint text-brand", badge: "badge badge-warn", label: () => "Catch up · optional" },
 };
 
 export function moduleHref(moduleId: string) {
@@ -20,31 +26,24 @@ function ModuleCard({ module }: { module: HomeModule }) {
   const showProgress = module.state === "in_progress" || module.state === "complete";
 
   return (
-    <li
-      className={`relative flex items-center gap-4 rounded-xl border border-line bg-surface p-4 ${
-        open ? "hover:bg-tint" : ""
-      }`}
-    >
-      <span aria-hidden="true" className="w-7 text-center text-xl font-bold text-brand">
-        {info.glyph}
+    <li className={`card relative flex items-center gap-4 ${open ? "card-interactive" : "bg-canvas shadow-none"}`}>
+      <span aria-hidden="true" className={`grid size-11 shrink-0 place-items-center rounded-full ${info.circle}`}>
+        <Icon name={info.icon} />
       </span>
       <div className="min-w-0 flex-1">
         {open ? (
           // The link covers the whole card (after:inset-0) so the tap target is large.
-          <Link href={moduleHref(module.moduleId)} className="font-bold after:absolute after:inset-0">
+          <Link href={moduleHref(module.moduleId)} className="text-lg font-bold no-underline after:absolute after:inset-0">
             {module.title}
           </Link>
         ) : (
-          <p className="font-bold">{module.title}</p>
+          <p className="text-lg font-bold text-muted">{module.title}</p>
         )}
-        <p className="text-sm text-muted">{info.label(module.percent)}</p>
+        <p className="mt-1">
+          <span className={info.badge}>{info.label(module.percent)}</span>
+        </p>
         {showProgress ? (
-          <progress
-            value={module.percent}
-            max={100}
-            aria-label={`${module.title} progress`}
-            className="mt-2 h-2 w-full accent-accent"
-          />
+          <progress value={module.percent} max={100} aria-label={`${module.title} progress`} className="meter mt-3" />
         ) : null}
       </div>
     </li>
@@ -59,8 +58,8 @@ export function ModuleTrail({ modules }: { modules: HomeModule[] }) {
   return (
     <>
       {main.length > 0 ? (
-        <section aria-labelledby="path-heading" className="mt-10">
-          <h2 id="path-heading" className="mb-3 text-xl">
+        <section aria-labelledby="path-heading" className="rise rise-2 mt-12">
+          <h2 id="path-heading" className="mb-4">
             Your path
           </h2>
           <ol className="flex flex-col gap-3">
@@ -72,11 +71,12 @@ export function ModuleTrail({ modules }: { modules: HomeModule[] }) {
       ) : null}
 
       {catchUp.length > 0 ? (
-        <details className="mt-8 rounded-xl border border-line bg-surface p-4">
-          <summary className="min-h-11 cursor-pointer py-2 font-bold text-brand">
-            Catch up (optional) · {catchUp.length}
+        <details className="card rise rise-3 mt-8 [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-bold text-brand">
+            <span>Catch up (optional) · {catchUp.length}</span>
+            <span aria-hidden="true" className="text-xl leading-none">+</span>
           </summary>
-          <p className="mb-3 text-muted">Earlier modules you can open any time. Nothing waits on them.</p>
+          <p className="mb-4 mt-2 text-muted">Earlier modules you can open any time. Nothing waits on them.</p>
           <ol className="flex flex-col gap-3">
             {catchUp.map((m) => (
               <ModuleCard key={m.moduleId} module={m} />

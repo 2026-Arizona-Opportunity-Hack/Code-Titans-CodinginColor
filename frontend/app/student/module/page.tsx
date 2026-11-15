@@ -15,7 +15,7 @@ function ModulePlaceholder() {
 
   return (
     <StudentShell studentName={session.student.displayName}>
-      <h1 className="text-3xl">Lesson player</h1>
+      <h1>Lesson player</h1>
       <p className="mt-3 text-muted">
         The lesson player is coming in the next step. You opened module &quot;{params.get("id") ?? "?"}&quot;.
       </p>
