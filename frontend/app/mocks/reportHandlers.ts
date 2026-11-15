@@ -128,6 +128,16 @@ function moduleGain(classId: string, moduleId: string): ModuleGain | null {
   return { definitions: DEFINITIONS, moduleId, class: summarize(pairs, active.length), byConcept, students };
 }
 
+/** One class's completion and gain, for the cohort summary. */
+export function classRollup(classId: string) {
+  const m = progressMatrix(classId);
+  const cells = m.students.flatMap((s) => m.modules.map((x) => s.modules[x.moduleId]));
+  const complete = cells.filter((c) => c.state === "complete").length;
+  const started = cells.filter((c) => c.percent > 0).length;
+  const modules = m.modules.map((x) => ({ id: x.moduleId, title: x.title, g: moduleGain(classId, x.moduleId)! }));
+  return { enrolled: m.students.length, cells: cells.length, complete, started, modules };
+}
+
 function exportCsv(classId: string, kind: string): string {
   if (kind === "progress") {
     const m = progressMatrix(classId);
