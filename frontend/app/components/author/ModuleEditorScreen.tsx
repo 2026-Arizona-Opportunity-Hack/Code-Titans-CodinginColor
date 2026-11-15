@@ -16,6 +16,7 @@ import { ModuleClassesPanel } from "./ModuleClassesPanel";
 const ADDABLE: [DocActivity["type"], string][] = [["video", "Video"], ["slides", "Slides (PDF, PowerPoint or Google Slides)"], ["check", "Check"], ["worksheet", "Worksheet"], ["code", "Coding exercise (Python)"], ["exit", "Exit question"]];
 
 function Editor({ token, moduleId, initial, onReload }: { token: string; moduleId: string; initial: ModuleDoc; onReload: () => void }) {
+  const drafted = useSearchParams().get("drafted") === "1";
   const qc = useQueryClient();
   const concepts = useQuery({ queryKey: ["concepts", token], queryFn: ({ signal }) => listConcepts(token, signal), retry: false });
   const versions = useQuery({ queryKey: ["versions", token, moduleId], queryFn: ({ signal }) => listVersions(token, moduleId, signal), retry: false });
@@ -95,6 +96,12 @@ function Editor({ token, moduleId, initial, onReload }: { token: string; moduleI
       {doc ? (
         <>
           <datalist id="concept-options">{concepts.data?.map((c) => <option key={c.concept} value={c.concept} />)}</datalist>
+          {drafted && revision === 1 ? (
+            <p role="status" className="callout mb-4">
+              <strong>Drafted by AI from your file.</strong> Check every question and answer, add a YouTube video or remove that step,
+              then Save draft and Publish. Students see nothing until you publish.
+            </p>
+          ) : null}
           <PageHeader
             back={{ href: "/instructor/curriculum/", label: "Back to Curriculum" }}
             title={doc.title || "Untitled module"}

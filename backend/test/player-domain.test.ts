@@ -55,7 +55,8 @@ describe("student hints", () => {
 
   test("the function may invoke exactly one model, and nothing else in Bedrock", () => {
     const statements = (Object.values(t.findResources("AWS::IAM::Policy")) as any[]).flatMap((p) => p.Properties.PolicyDocument.Statement);
-    const bedrock = statements.filter((s) => JSON.stringify(s.Action).includes("bedrock:"));
+    // The hint model's statement (the curriculum converter has its own, checked in api-domains).
+    const bedrock = statements.filter((s) => JSON.stringify(s.Action).includes("bedrock:") && JSON.stringify(s.Resource).includes("nova-lite"));
     expect(bedrock).toHaveLength(1);
     expect(bedrock[0].Action).toBe("bedrock:InvokeModel");
     expect(JSON.stringify(bedrock[0].Resource)).toContain("foundation-model/amazon.nova-lite-v1:0");

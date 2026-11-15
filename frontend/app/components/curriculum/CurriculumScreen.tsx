@@ -10,6 +10,7 @@ import { Icon } from "../common/Icon";
 import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
 import { TEACHER_ROLES } from "../../lib/api/staff";
+import { ConvertFileDialog } from "./ConvertFileDialog";
 
 type Show = "all" | "published" | "draft" | "mine";
 const SHOW: [Show, string][] = [["all", "All"], ["published", "Published"], ["draft", "Drafts"], ["mine", "Made by me"]];
@@ -156,7 +157,7 @@ function Body({ token, me }: { token: string; me: StaffMe }) {
             ? "Browse every module, create new ones, and update any of them. Published versions never change, so students never lose their place."
             : "Browse the published modules and assign them to your classes. Only curriculum authors change modules."
         }
-        actions={me.permissions.canAuthor ? <NewModuleDialog token={token} /> : undefined}
+        actions={me.permissions.canAuthor ? <div className="flex flex-wrap gap-2"><ConvertFileDialog token={token} /><NewModuleDialog token={token} /></div> : undefined}
       />
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1 sm:max-w-sm">
