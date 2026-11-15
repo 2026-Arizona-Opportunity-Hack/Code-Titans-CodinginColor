@@ -66,21 +66,28 @@ body {
   line-height: 1.6; /* guide minimum is 1.15 */
 }
 
-/* Heading hierarchy: bold, CIC Dark Green. */
-h1,
-h2,
-h3 {
-  color: var(--brand);
-  font-weight: 700;
-  line-height: 1.25;
-}
+/*
+  Heading and link defaults. These MUST live in @layer base: unlayered CSS beats
+  every layered rule, so a bare `a { color }` here would override button colors
+  (.btn-primary white text) and Tailwind utilities like text-ink on links.
+*/
+@layer base {
+  /* Heading hierarchy: bold, CIC Dark Green. */
+  h1,
+  h2,
+  h3 {
+    color: var(--brand);
+    font-weight: 700;
+    line-height: 1.25;
+  }
 
-a {
-  color: var(--brand);
-  text-underline-offset: 3px;
-}
-a:hover {
-  color: var(--brand-hover);
+  a {
+    color: var(--brand);
+    text-underline-offset: 3px;
+  }
+  a:hover {
+    color: var(--brand-hover);
+  }
 }
 
 /* A clear keyboard focus indicator on everything interactive.
