@@ -8,6 +8,7 @@ import { Icon } from "../common/Icon";
 import { HintBox } from "./HintBox";
 import { InlineCode } from "./InlineCode";
 import { Markdown } from "./Markdown";
+import { DocumentViewer } from "../common/DocumentViewer";
 
 type Sheet = Extract<Activity, { type: "worksheet" }>;
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -121,6 +122,11 @@ export function WorksheetActivity({
   return (
     <div>
       {activity.instructions ? <Markdown text={activity.instructions} className="mb-5 text-muted" /> : null}
+      {activity.document ? (
+        <div className="mb-6">
+          <DocumentViewer doc={activity.document} title={`${activity.title}: worksheet`} />
+        </div>
+      ) : null}
       <div className="flex flex-col gap-4">
         {activity.fields.map((f) => (
           <div key={f.fieldId} className="card">

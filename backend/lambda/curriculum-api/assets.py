@@ -1,8 +1,8 @@
-"""POST /v1/curriculum/assets/upload-url: a short-lived signed form for uploading one image.
+"""POST /v1/curriculum/assets/upload-url: a short-lived signed form for uploading one image or PDF.
 
 A signed POST (not a PUT) lets S3 itself enforce the type and the size limit, so the
-browser cannot upload anything else with this URL. Only PNG, JPEG and WebP are allowed:
-SVG is refused because it can carry script.
+browser cannot upload anything else with this URL. Only PNG, JPEG and WebP images (5 MB) and
+PDF slide decks (20 MB) are allowed: SVG is refused because it can carry script.
 """
 import os
 import uuid
@@ -14,8 +14,9 @@ from access import require_author
 from cic import validate
 from cic.http import Request
 
-TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "application/pdf": "pdf"}
 MAX_BYTES = 5 * 1024 * 1024
+MAX_PDF_BYTES = 20 * 1024 * 1024
 EXPIRES_SECONDS = 300
 _s3 = None
 
@@ -37,8 +38,8 @@ def upload_url(req: Request):
     validate.reject_unknown(body, ("contentType", "size"))
     content_type = validate.choice(body, "contentType", TYPES)
     if content_type is None:
-        raise validate.ValidationError("contentType must be image/png, image/jpeg or image/webp")
-    size = validate.integer(body.get("size"), "size", 1, MAX_BYTES)
+        raise validate.ValidationError("contentType must be image/png, image/jpeg, image/webp or application/pdf")
+    size = validate.integer(body.get("size"), "size", 1, MAX_PDF_BYTES if content_type == "application/pdf" else MAX_BYTES)
     key = f"curriculum/{uuid.uuid4().hex}.{TYPES[content_type]}"
     post = s3().generate_presigned_post(
         Bucket=os.environ["ASSETS_BUCKET"], Key=key, ExpiresIn=EXPIRES_SECONDS,

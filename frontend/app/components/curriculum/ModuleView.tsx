@@ -1,4 +1,5 @@
 import type { DocActivity, DocQuestion, ModuleDoc } from "../../lib/api/curriculum";
+import { DocumentViewer } from "../common/DocumentViewer";
 
 const TYPE_LABEL: Record<DocActivity["type"], string> = {
   video: "Video", slides: "Slides", check: "Check", worksheet: "Worksheet", exit: "Exit question", assessment: "Test",
@@ -52,8 +53,22 @@ function Activity({ a }: { a: DocActivity }) {
       {/* Plain text only: module text is never rendered as HTML. */}
       {a.body ? <p className="mt-2 whitespace-pre-wrap">{a.body}</p> : null}
       {a.instructions ? <p className="mt-2 whitespace-pre-wrap">{a.instructions}</p> : null}
+      {a.type === "worksheet" && a.document ? <div className="mt-3"><DocumentViewer doc={a.document} title={`${a.title || "Worksheet"}: original worksheet`} /></div> : null}
       {a.type === "video" ? <p className="mt-2">YouTube video ID: <code>{a.videoId || "not set"}</code>{a.minSeconds ? ` · watch at least ${a.minSeconds} seconds` : ""}</p> : null}
-      {a.type === "slides" ? <p className="mt-2">{a.slides?.length ?? 0} slides</p> : null}
+      {a.type === "slides" && a.document ? (
+        <div className="mt-3"><DocumentViewer doc={a.document} title={a.title || "Slides"} /></div>
+      ) : a.type === "slides" ? (
+        (a.slides ?? []).length > 0 ? (
+          <ol className="mt-2 grid gap-2">
+            {(a.slides ?? []).map((s, i) => (
+              <li key={i} className="rounded-lg border border-line p-3">
+                <p className="text-sm font-bold text-muted">Slide {i + 1}{s.title ? `: ${s.title}` : ""}</p>
+                <p className="mt-1 whitespace-pre-wrap">{s.body}</p>
+              </li>
+            ))}
+          </ol>
+        ) : <p className="mt-2 text-muted">No slides yet.</p>
+      ) : null}
       {a.type === "check" && a.passPct !== undefined ? <p className="mt-2 text-sm">Passing score: {a.passPct}%</p> : null}
       {items.length > 0 ? <ol className="list-none">{items.map((q, i) => <Question key={q.questionId ?? q.fieldId ?? i} q={q} n={i + 1} />)}</ol> : null}
     </section>

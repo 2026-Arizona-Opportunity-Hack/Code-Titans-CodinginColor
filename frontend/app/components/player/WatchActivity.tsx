@@ -4,6 +4,7 @@ import { useState } from "react";
 import { completeActivity, sendHeartbeat, type Activity, type StepResult } from "../../lib/api/studentModule";
 import { useActiveTime } from "../../lib/useActiveTime";
 import { playerMessage } from "../../lib/studentErrors";
+import { DocumentViewer } from "../common/DocumentViewer";
 import { Icon } from "../common/Icon";
 import { Markdown } from "./Markdown";
 
@@ -62,6 +63,8 @@ export function WatchActivity({
             This video can&apos;t be shown. Ask your teacher.
           </p>
         )
+      ) : activity.type === "slides" && activity.document ? (
+        <DocumentViewer doc={activity.document} title={activity.title} />
       ) : (
         slides.length > 0 ? (
           <div className="card" aria-roledescription="carousel" aria-label={activity.title}>

@@ -105,7 +105,7 @@ function Editor({ token, moduleId, initial, onReload }: { token: string; moduleI
               <label htmlFor={`lesson-title-${li}`} className="mt-2 block font-bold">Lesson title</label>
               <input id={`lesson-title-${li}`} className="field mt-1 max-w-xl" maxLength={120} value={lesson.title} onChange={(e) => edit((d) => { d.lessons[li].title = e.target.value; })} />
               {lesson.activities.map((a, ai) => (
-                <ActivityEditor key={a.activityId} a={a}
+                <ActivityEditor key={a.activityId} a={a} token={token}
                   onChange={(next) => edit((d) => { d.lessons[li].activities[ai] = next; })}
                   onRemove={a.type === "assessment" ? undefined : () => edit((d) => { d.lessons[li].activities.splice(ai, 1); })} />
               ))}

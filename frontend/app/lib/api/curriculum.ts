@@ -55,6 +55,8 @@ export type DocActivity = {
   provider?: "youtube";
   videoId?: string;
   slides?: { title?: string; body?: string }[];
+  /** A PDF or Google Slides deck shown instead of typed slides. */
+  document?: import("../slideDocument").SlideDocument;
   passPct?: number;
   role?: "pre" | "post";
   instructions?: string;
