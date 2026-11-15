@@ -21,15 +21,14 @@ function Body({ token }: { token: string }) {
   const found = useQuery({
     queryKey: ["student-search", token, q, classId],
     queryFn: ({ signal }) => searchStudents(token, { q, classId: classId || undefined }, signal),
-    enabled: q.length > 0,
     retry: false,
   });
   const className = (id: string) => classes.data?.find((c) => c.classId === id)?.name ?? id;
 
   return (
     <>
-      <h1>Find a student</h1>
-      <p className="mt-1 text-muted">Search by name across your classes. Students with the same name show their class and number.</p>
+      <h1>Students</h1>
+      <p className="mt-1 text-muted">Everyone in your classes. Type a name or pick a class to narrow the list. Students with the same name show their class and number.</p>
       <div className="mt-6 flex flex-wrap gap-4">
         <div>
           <label htmlFor="find-name" className="block font-bold">Name</label>
@@ -43,11 +42,14 @@ function Body({ token }: { token: string }) {
           </select>
         </div>
       </div>
-      {q.length === 0 ? <p className="mt-6 text-muted">Type a name to start.</p> : null}
       {found.isFetching ? <p role="status" className="mt-6 text-muted">Searching…</p> : null}
       {found.isError ? <p role="alert" className="callout callout-danger mt-6 font-bold text-danger">{found.error instanceof ApiError ? found.error.message : "The search failed."}</p> : null}
       <div aria-live="polite">
-        {found.data && !found.isFetching ? <p className="mt-6 text-sm text-muted">{found.data.students.length === 0 ? "No students match." : `${found.data.students.length} ${found.data.students.length === 1 ? "student" : "students"}${found.data.truncated ? ", and there are more. Type more of the name." : ""}`}</p> : null}
+        {found.data && !found.isFetching ? <p className="mt-6 text-sm text-muted">{found.data.students.length === 0
+              ? q || classId
+                ? "No students match."
+                : "No students yet. Open a class to import a roster or add a student."
+              : `${found.data.students.length} ${found.data.students.length === 1 ? "student" : "students"}${found.data.truncated ? ", and there are more. Type a name or pick a class to narrow the list." : ""}`}</p> : null}
       </div>
       <ul className="mt-2 grid gap-2">
         {found.data?.students.map((s) => (
