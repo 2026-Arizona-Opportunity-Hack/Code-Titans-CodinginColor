@@ -4,8 +4,9 @@ from classes import ROUTES as CLASS_ROUTES
 from credential_routes import ROUTES as CREDENTIAL_ROUTES
 from roster import ROUTES as ROSTER_ROUTES
 from roster_import import ROUTES as IMPORT_ROUTES
+from roster_merge import ROUTES as MERGE_ROUTES
 from students import ROUTES as STUDENT_ROUTES
 
 from cic.http import make_handler
 
-lambda_handler = make_handler({**CLASS_ROUTES, **ROSTER_ROUTES, **IMPORT_ROUTES, **STUDENT_ROUTES, **CREDENTIAL_ROUTES, **ASSIGNMENT_ROUTES})
+lambda_handler = make_handler({**CLASS_ROUTES, **ROSTER_ROUTES, **IMPORT_ROUTES, **STUDENT_ROUTES, **CREDENTIAL_ROUTES, **ASSIGNMENT_ROUTES, **MERGE_ROUTES})
