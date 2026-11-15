@@ -17,12 +17,14 @@ export class CurriculumDomain extends Construct {
       environment: {
         CORE_TABLE: ctx.tables.core.tableName,
         CONTENT_TABLE: ctx.tables.content.tableName,
+        EVENTS_TABLE: ctx.tables.events.tableName,
         ASSETS_BUCKET: ctx.assets.bucket.bucketName,
         ASSETS_URL: `https://${ctx.assets.cdnDomain}`,
       },
     });
     ctx.tables.content.grantReadWriteData(fn);
-    ctx.tables.core.grantReadData(fn); // the canAuthor flag
+    ctx.tables.core.grantReadData(fn); // the canAuthor flag, and which classes use a module before deleting it
+    ctx.tables.events.grant(fn, "dynamodb:PutItem"); // audit entries
     ctx.assets.bucket.grantPut(fn, "curriculum/*"); // signs upload forms for this prefix only
     addRoutes(
       ctx,
@@ -31,6 +33,7 @@ export class CurriculumDomain extends Construct {
         "GET /v1/curriculum/modules",
         "POST /v1/curriculum/modules",
         "GET /v1/curriculum/modules/{moduleId}",
+        "DELETE /v1/curriculum/modules/{moduleId}",
         "PUT /v1/curriculum/modules/{moduleId}/draft",
         "POST /v1/curriculum/modules/{moduleId}/publish",
         "GET /v1/curriculum/modules/{moduleId}/versions",

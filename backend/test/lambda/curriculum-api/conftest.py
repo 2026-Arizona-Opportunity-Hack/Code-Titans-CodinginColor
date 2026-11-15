@@ -15,4 +15,9 @@ def api(table):
         GlobalSecondaryIndexes=[{"IndexName": "gsi1", "Projection": {"ProjectionType": "ALL"}, "KeySchema": [
             {"AttributeName": "gsi1pk", "KeyType": "HASH"}, {"AttributeName": "gsi1sk", "KeyType": "RANGE"}]}])
     os.environ["CONTENT_TABLE"] = "content"
+    boto3.resource("dynamodb").create_table(
+        TableName="events", BillingMode="PAY_PER_REQUEST",
+        KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}],
+        AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}, {"AttributeName": "sk", "AttributeType": "S"}])
+    os.environ["EVENTS_TABLE"] = "events"
     return load_lambda("curriculum-api")

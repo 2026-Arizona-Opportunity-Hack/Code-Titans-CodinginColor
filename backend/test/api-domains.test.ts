@@ -143,6 +143,7 @@ describe("CurriculumDomain", () => {
     "GET /v1/curriculum/modules",
     "POST /v1/curriculum/modules",
     "GET /v1/curriculum/modules/{moduleId}",
+    "DELETE /v1/curriculum/modules/{moduleId}",
     "PUT /v1/curriculum/modules/{moduleId}/draft",
     "POST /v1/curriculum/modules/{moduleId}/publish",
     "GET /v1/curriculum/modules/{moduleId}/versions",
