@@ -1,5 +1,8 @@
 import * as cdk from "aws-cdk-lib";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
 
 /**
@@ -9,13 +12,21 @@ import { Construct } from "constructs";
  *   gsi attributes:    gsi1pk/gsi1sk, gsi2pk/gsi2sk, gsi3pk/gsi3sk
  *   TTL attribute:     ttl (epoch seconds) on core and events
  */
+export interface DataStackProps extends cdk.StackProps {
+  /** Browser origins allowed to upload images straight to the assets bucket. */
+  allowedOrigins?: string[];
+}
+
 export class DataStack extends cdk.Stack {
   public readonly contentTable: dynamodb.Table;
   public readonly coreTable: dynamodb.Table;
   public readonly progressTable: dynamodb.Table;
   public readonly eventsTable: dynamodb.Table;
+  /** Curriculum images. Private: served only through CloudFront. */
+  public readonly assetsBucket: s3.Bucket;
+  public readonly assetsCdnDomain: string;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: DataStackProps) {
     super(scope, id, props);
 
     this.contentTable = this.table("ContentTable");
@@ -31,6 +42,27 @@ export class DataStack extends cdk.Stack {
     this.gsi(this.progressTable, "gsi2"); // sparse: submissions awaiting review
 
     this.eventsTable = this.table("EventsTable", { ttl: true });
+
+    this.assetsBucket = new s3.Bucket(this, "AssetsBucket", {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      cors: props?.allowedOrigins?.length
+        ? [{ allowedMethods: [s3.HttpMethods.POST], allowedOrigins: props.allowedOrigins, allowedHeaders: ["*"], maxAge: 3000 }]
+        : undefined,
+    });
+    const cdn = new cloudfront.Distribution(this, "AssetsCdn", {
+      comment: "CIC curriculum images",
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(this.assetsBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+      },
+    });
+    this.assetsCdnDomain = cdn.distributionDomainName;
+    new cdk.CfnOutput(this, "AssetsBucketName", { value: this.assetsBucket.bucketName, description: "S3 bucket for curriculum images" });
+    new cdk.CfnOutput(this, "AssetsCdnUrl", { value: `https://${cdn.distributionDomainName}`, description: "Public base URL for curriculum images" });
 
     new cdk.CfnOutput(this, "ContentTableName", { value: this.contentTable.tableName, description: "DynamoDB content table" });
     new cdk.CfnOutput(this, "CoreTableName", { value: this.coreTable.tableName, description: "DynamoDB core table" });

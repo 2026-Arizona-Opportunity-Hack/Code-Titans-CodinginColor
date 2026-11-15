@@ -17,10 +17,13 @@ export class CurriculumDomain extends Construct {
       environment: {
         CORE_TABLE: ctx.tables.core.tableName,
         CONTENT_TABLE: ctx.tables.content.tableName,
+        ASSETS_BUCKET: ctx.assets.bucket.bucketName,
+        ASSETS_URL: `https://${ctx.assets.cdnDomain}`,
       },
     });
     ctx.tables.content.grantReadWriteData(fn);
     ctx.tables.core.grantReadData(fn); // the canAuthor flag
+    ctx.assets.bucket.grantPut(fn, "curriculum/*"); // signs upload forms for this prefix only
     addRoutes(
       ctx,
       fn,
@@ -33,6 +36,7 @@ export class CurriculumDomain extends Construct {
         "GET /v1/curriculum/modules/{moduleId}/versions",
         "GET /v1/curriculum/modules/{moduleId}/versions/{version}",
         "GET /v1/curriculum/concepts",
+        "POST /v1/curriculum/assets/upload-url",
       ],
       ctx.staffAuthorizer,
     );
