@@ -73,3 +73,50 @@ export const adminHandlers = [
     return HttpResponse.json({ data: entries, meta: { from: from ?? "", to: to ?? "" } });
   }),
 ];
+
+// ---- Staff users (GET/POST /admin/users, PATCH /admin/users/{id}) ----
+import type { StaffUser } from "../lib/api/admin";
+
+const users: StaffUser[] = [
+  { userId: "u-admin-0001", email: "admin@example.org", name: "Demo Admin", role: "cic_admin", canAuthor: true, enabled: true, status: "CONFIRMED" },
+  { userId: "u-inst-00001", email: "teacher@example.org", name: "Demo Teacher", role: "instructor", canAuthor: false, enabled: true, status: "CONFIRMED" },
+  { userId: "u-rev-000001", email: "reviewer@example.org", name: "Demo Reviewer", role: "reviewer", canAuthor: false, enabled: true, status: "CONFIRMED" },
+];
+register({ key: "adminUsers", snapshot: () => users, restore: (d: StaffUser[]) => users.splice(0, users.length, ...d) });
+const ROLES = ["cic_admin", "instructor", "reviewer"];
+
+export const userHandlers = [
+  http.get(`${env.apiUrl}/admin/users`, ({ request }) => adminOnly(request) ?? HttpResponse.json({ data: users, meta: { nextCursor: null } })),
+
+  http.post(`${env.apiUrl}/admin/users`, async ({ request }) => {
+    const denied = adminOnly(request);
+    if (denied) return denied;
+    const b = (await request.json().catch(() => ({}))) as { email?: string; name?: string; role?: string; canAuthor?: boolean };
+    const email = (b.email ?? "").trim().toLowerCase();
+    if (!/^[^@\s]{1,64}@[^@\s]{1,189}$/.test(email)) return apiError(400, "VALIDATION_ERROR", "email is not valid");
+    if (!b.name?.trim()) return apiError(400, "VALIDATION_ERROR", "name is required");
+    if (!b.role || !ROLES.includes(b.role)) return apiError(400, "VALIDATION_ERROR", "role is required");
+    if (b.canAuthor && b.role !== "instructor") return apiError(400, "VALIDATION_ERROR", "canAuthor can only be set for instructors");
+    if (users.some((u) => u.email === email)) return apiError(409, "CONFLICT", "A user with this email already exists");
+    const user: StaffUser = { userId: `u-${rand(10, "abcdef0123456789")}`, email, name: b.name.trim(), role: b.role as StaffUser["role"], canAuthor: b.role === "cic_admin" || Boolean(b.canAuthor), enabled: true, status: "FORCE_CHANGE_PASSWORD" };
+    users.push(user);
+    return HttpResponse.json({ data: user }, { status: 201 });
+  }),
+
+  http.patch(`${env.apiUrl}/admin/users/:userId`, async ({ request, params }) => {
+    const denied = adminOnly(request);
+    if (denied) return denied;
+    const user = users.find((u) => u.userId === params.userId);
+    if (!user) return apiError(404, "NOT_FOUND", "User not found");
+    const b = (await request.json().catch(() => ({}))) as { role?: string; canAuthor?: boolean; enabled?: boolean };
+    if (b.role === undefined && b.canAuthor === undefined && b.enabled === undefined) return apiError(400, "VALIDATION_ERROR", "Nothing to update");
+    if (b.role && !ROLES.includes(b.role)) return apiError(400, "VALIDATION_ERROR", "role is not valid");
+    if (user.userId === "u-admin-0001" && (b.enabled === false || (b.role && b.role !== "cic_admin"))) return apiError(400, "VALIDATION_ERROR", "You cannot demote or disable your own account");
+    const role = (b.role ?? user.role) as StaffUser["role"];
+    if (b.canAuthor && role !== "instructor") return apiError(400, "VALIDATION_ERROR", "canAuthor can only be set for instructors");
+    user.role = role;
+    user.canAuthor = role === "cic_admin" ? true : role === "instructor" ? (b.canAuthor ?? user.canAuthor) : false;
+    if (b.enabled !== undefined) user.enabled = b.enabled;
+    return HttpResponse.json({ data: user });
+  }),
+];
