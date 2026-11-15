@@ -3,6 +3,7 @@ import { ApiStatus } from "./components/common/ApiStatus";
 import { BrandMark } from "./components/common/BrandMark";
 import { Footer } from "./components/common/Footer";
 import { Icon, type IconName } from "./components/common/Icon";
+import { FinalCta, HeroCtas, LandingNav } from "./components/common/LandingActions";
 import { ResetDemo } from "./components/common/ResetDemo";
 import { env } from "./config/env";
 
@@ -93,13 +94,8 @@ export default function Home() {
       <header className="site-header">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5">
           <BrandMark />
-          <nav aria-label="Sign in" className="flex items-center gap-2">
-            <Link href="/login/" className="btn btn-ghost btn-sm">
-              Teacher sign in
-            </Link>
-            <Link href="/s/" className="btn btn-primary btn-sm">
-              Open my lesson
-            </Link>
+          <nav aria-label="Account" className="flex items-center gap-2">
+            <LandingNav />
           </nav>
         </div>
       </header>
@@ -116,13 +112,7 @@ export default function Home() {
               teachers see who needs a hand.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/s/" className="btn btn-primary !min-h-12 px-7 text-base">
-                Open my lesson
-                <Icon name="arrowRight" />
-              </Link>
-              <Link href="/login/" className="btn btn-secondary !min-h-12 px-7 text-base">
-                Teacher or staff sign in
-              </Link>
+              <HeroCtas />
             </div>
             <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold text-muted">
               {["No student emails or passwords", "Works on a Chromebook or a phone", "Short, self-paced lessons"].map((t) => (
@@ -227,10 +217,7 @@ export default function Home() {
                 education in Arizona.
               </p>
             </div>
-            <Link href="/s/" className="btn !min-h-12 bg-white px-7 text-base text-brand hover:!bg-tint hover:!text-brand-hover">
-              Open my lesson
-              <Icon name="arrowRight" />
-            </Link>
+            <FinalCta />
           </div>
         </section>
       </main>
