@@ -22,12 +22,15 @@ export function StaffShell({
   items,
   userName,
   roleLabel,
+  schoolName,
   onSignOut,
   children,
 }: {
   items: NavItem[];
   userName: string;
   roleLabel: string;
+  /** The person's school. Omitted for roles without one; null shows "No school assigned". */
+  schoolName?: string | null;
   onSignOut?: () => void;
   children: ReactNode;
 }) {
@@ -54,6 +57,12 @@ export function StaffShell({
           <p className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm">
             <span className="font-bold">{userName}</span>
             <span className="badge">{roleLabel}</span>
+            {schoolName !== undefined ? (
+              <span className={schoolName ? "" : "text-muted"}>
+                <span className="sr-only">School: </span>
+                {schoolName ?? "No school assigned"}
+              </span>
+            ) : null}
             {onSignOut ? (
               <button
                 type="button"

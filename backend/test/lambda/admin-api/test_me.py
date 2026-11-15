@@ -60,3 +60,13 @@ def test_me_returns_the_school_or_null(admin, table):
     assert call(admin, "[instructor]")[1]["data"]["orgId"] is None
     table.put_item(Item={"pk": "USR#u1", "sk": "META", "orgId": "org_1"})
     assert call(admin, "[instructor]")[1]["data"]["orgId"] == "org_1"
+
+
+def test_me_returns_the_school_name_for_the_header(admin, table):
+    assert call(admin, "[instructor]")[1]["data"]["orgName"] is None
+    table.put_item(Item={"pk": "ORG#org_1", "sk": "META", "name": "Maryvale High School", "status": "active"})
+    table.put_item(Item={"pk": "USR#u1", "sk": "META", "orgId": "org_1"})
+    data = call(admin, "[instructor]")[1]["data"]
+    assert (data["orgId"], data["orgName"]) == ("org_1", "Maryvale High School")
+    table.delete_item(Key={"pk": "ORG#org_1", "sk": "META"})  # a school that no longer exists
+    assert call(admin, "[instructor]")[1]["data"]["orgName"] is None

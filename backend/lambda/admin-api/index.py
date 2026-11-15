@@ -29,13 +29,18 @@ def me(req: Request):
                                  KeyConditionExpression=Key("gsi1pk").eq(f"USR#{staff.user_id}")):
             classes.append({"classId": item["gsi1sk"].split("#", 1)[1]})
 
+    org_id, org_name = profile.get("orgId"), None
+    if org_id:
+        org = table.get_item(Key={"pk": f"ORG#{org_id}", "sk": "META"}).get("Item")
+        org_name = org.get("name") if org else None
     return {
         "userId": staff.user_id,
         "role": role,
         "displayName": claims.get("name") or claims.get("email") or "",
         "permissions": {"canAuthor": can_author},
         "classes": classes,
-        "orgId": profile.get("orgId"),  # the school an instructor's classes are created in
+        "orgId": org_id,  # the school an instructor's classes are created in
+        "orgName": org_name,  # shown in the header; instructors cannot read the schools list
     }
 
 

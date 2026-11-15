@@ -17,6 +17,8 @@ export type StaffMe = {
    * only in this school, so an instructor without one cannot create classes. null when unset.
    */
   orgId?: string | null;
+  /** That school's name, for the header. null when no school is set. */
+  orgName?: string | null;
 };
 
 /** A class, as returned by the backend's class API (backend/lambda/class-api/classes.py). */
