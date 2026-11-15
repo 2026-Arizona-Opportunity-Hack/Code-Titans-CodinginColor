@@ -1,9 +1,13 @@
 import type { DocActivity, DocQuestion } from "../../lib/api/curriculum";
+import { Icon, type IconName } from "../common/Icon";
 import { QuestionEditor } from "./QuestionEditor";
 import { SlideDeckEditor } from "./SlideDeckEditor";
 import { WorksheetDocumentPicker } from "./WorksheetDocumentPicker";
 
 const LABEL: Record<DocActivity["type"], string> = { video: "Video", slides: "Slides", check: "Check", worksheet: "Worksheet", exit: "Exit question", assessment: "Test" };
+/** The icon that stands for each kind of step, used here and in the outline beside the editor. */
+export const ACTIVITY_ICON: Record<DocActivity["type"], IconName> = { video: "play", slides: "layers", check: "check", worksheet: "spreadsheet", exit: "target", assessment: "review" };
+export const ACTIVITY_LABEL = LABEL;
 const rid = () => Math.random().toString(36).slice(2, 8);
 
 export function newQuestion(worksheet: boolean): DocQuestion {
@@ -12,7 +16,14 @@ export function newQuestion(worksheet: boolean): DocQuestion {
     : { questionId: `q-${rid()}`, type: "mcq", prompt: "", points: 1, choices: [{ id: "a", text: "" }, { id: "b", text: "" }] };
 }
 
-export function ActivityEditor({ a, token, onChange, onRemove }: { a: DocActivity; token: string; onChange: (a: DocActivity) => void; onRemove?: () => void }) {
+/** One line about what is inside a step, shown while it is collapsed. */
+export function activitySummary(a: DocActivity): string {
+  const count = (a.type === "worksheet" ? a.fields : a.questions)?.length ?? 0;
+  if (a.type === "video") return a.videoId ? `YouTube ${a.videoId}` : "No video chosen yet";
+  if (a.type === "slides") return `${a.slides?.length ?? 0} slide${(a.slides?.length ?? 0) === 1 ? "" : "s"}`;
+  return `${count} ${a.type === "worksheet" ? "field" : "question"}${count === 1 ? "" : "s"}`;
+}
+export function ActivityEditor({ a, token, open, onToggle, onChange, onRemove }: { a: DocActivity; token: string; open: boolean; onToggle: () => void; onChange: (a: DocActivity) => void; onRemove?: () => void }) {
   const set = (patch: Partial<DocActivity>) => onChange({ ...a, ...patch });
   const worksheet = a.type === "worksheet";
   const listKey = worksheet ? "fields" : "questions";
@@ -21,12 +32,22 @@ export function ActivityEditor({ a, token, onChange, onRemove }: { a: DocActivit
   const hasQuestions = ["check", "exit", "assessment", "worksheet"].includes(a.type);
 
   return (
-    <section className="card mt-4" aria-labelledby={`${id}-h`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h3 id={`${id}-h`} className="text-base font-bold">{a.title || LABEL[a.type]} <span className="badge badge-muted">{LABEL[a.type]}{a.role ? ` (${a.role === "pre" ? "pretest" : "post-test"})` : ""}</span></h3>
-        {onRemove ? <button type="button" className="btn btn-secondary" onClick={onRemove}>Remove<span className="sr-only"> {a.title}</span></button> : null}
+    <section id={id} className="card mt-4 scroll-mt-40 !p-0" aria-labelledby={`${id}-h`}>
+      <div className="flex flex-wrap items-center gap-3 p-4">
+        <h3 id={`${id}-h`} className="min-w-0 flex-1 text-base font-bold">
+          <button type="button" className="flex w-full items-center gap-3 rounded-lg text-left text-brand" aria-expanded={open} aria-controls={`${id}-body`} onClick={onToggle}>
+            <span className="icon-tile !size-10 shrink-0"><Icon name={ACTIVITY_ICON[a.type]} className="size-5" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{a.title || LABEL[a.type]}</span>
+              <span className="block text-sm font-normal text-muted">{LABEL[a.type]}{a.role ? ` (${a.role === "pre" ? "pretest" : "post-test"})` : ""} · {activitySummary(a)}</span>
+            </span>
+            <Icon name={open ? "chevronDown" : "chevronRight"} className="size-5 shrink-0 text-muted" />
+          </button>
+        </h3>
+        {onRemove ? <button type="button" className="btn btn-danger btn-sm" onClick={onRemove}><Icon name="trash" className="size-4" />Remove<span className="sr-only"> {a.title}</span></button> : null}
       </div>
-
+      {open ? (
+      <div id={`${id}-body`} className="border-t border-hairline p-4 pt-1">
       <label htmlFor={`${id}-title`} className="mt-3 block font-bold">Title</label>
       <input id={`${id}-title`} className="field mt-1" maxLength={120} value={a.title ?? ""} onChange={(e) => set({ title: e.target.value })} />
 
@@ -95,6 +116,8 @@ export function ActivityEditor({ a, token, onChange, onRemove }: { a: DocActivit
           </ol>
           <button type="button" className="btn btn-secondary mt-3" onClick={() => set({ [listKey]: [...items, newQuestion(worksheet)] })}>{worksheet ? "Add a field" : "Add a question"}</button>
         </>
+      ) : null}
+      </div>
       ) : null}
     </section>
   );

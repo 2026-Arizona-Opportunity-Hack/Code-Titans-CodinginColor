@@ -32,10 +32,10 @@ export function QuestionEditor({ q, n, idPrefix, allowText, assessment, needsKey
   const numeric = typeof q.answerKey === "object" && !Array.isArray(q.answerKey) ? q.answerKey : { value: typeof q.answerKey === "number" ? q.answerKey : NaN };
 
   return (
-    <li className="rounded border border-line p-3">
+    <li className="rounded-xl border border-hairline bg-wash p-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h4 className="font-bold">Question {n}</h4>
-        <button type="button" className="btn btn-secondary" onClick={onRemove}>Remove<span className="sr-only"> question {n}</span></button>
+        <h4 className="flex items-center gap-2 font-bold"><span className="avatar !size-7 !text-xs" aria-hidden="true">{n}</span>{allowText ? "Field" : "Question"} {n}</h4>
+        <button type="button" className="btn btn-danger btn-sm" onClick={onRemove}>Remove<span className="sr-only"> question {n}</span></button>
       </div>
       <label htmlFor={`${id}-prompt`} className="mt-2 block font-bold">Question</label>
       <textarea id={`${id}-prompt`} className="field mt-1" rows={2} maxLength={2000} value={q.prompt} onChange={(e) => set({ prompt: e.target.value })} />
