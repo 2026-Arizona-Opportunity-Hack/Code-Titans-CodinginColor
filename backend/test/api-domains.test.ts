@@ -104,6 +104,8 @@ describe("ClassesDomain", () => {
     "PATCH /v1/classes/{classId}/roster/{studentId}",
     "DELETE /v1/classes/{classId}/roster/{studentId}",
     "GET /v1/students/{studentId}",
+    "GET /v1/students",
+    "POST /v1/classes/{classId}/roster/import",
   ])("%s requires the Cognito JWT authorizer", (routeKey) => {
     t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
   });
