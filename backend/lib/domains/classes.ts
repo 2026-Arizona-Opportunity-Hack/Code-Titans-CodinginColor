@@ -25,7 +25,7 @@ export class ClassesDomain extends Construct {
     });
     ctx.tables.core.grantReadWriteData(fn);
     ctx.tables.content.grantReadData(fn);
-    // Only to delete a student's progress along with the student.
+    // Query: count who started a module. Batch/Delete: remove a deleted student's progress.
     ctx.tables.progress.grant(fn, "dynamodb:Query", "dynamodb:BatchWriteItem", "dynamodb:DeleteItem");
     ctx.userPool.grant(fn, "cognito-idp:AdminListGroupsForUser"); // checks a member is an instructor
     addRoutes(
@@ -47,6 +47,11 @@ export class ClassesDomain extends Construct {
         "POST /v1/classes/{classId}/roster/import",
         "POST /v1/classes/{classId}/credentials",
         "POST /v1/classes/{classId}/join-code/rotate",
+        "POST /v1/classes/{classId}/assignments",
+        "GET /v1/classes/{classId}/assignments",
+        "PATCH /v1/classes/{classId}/assignments/{moduleId}",
+        "DELETE /v1/classes/{classId}/assignments/{moduleId}",
+        "POST /v1/classes/{classId}/students/{studentId}/unlock",
       ],
       ctx.staffAuthorizer,
     );

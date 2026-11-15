@@ -135,7 +135,7 @@ All `A` only.
 | POST | `/classes/{classId}/join-code/rotate` | I, A | Issue a new class code |
 | POST | `/classes/{classId}/assignments` | I, A | Assign a module `{moduleId, order?, targetDate?}` pinned to the latest published version |
 | GET | `/classes/{classId}/assignments` | I, A | List with version and start counts |
-| PATCH | `/classes/{classId}/assignments/{moduleId}` | I, A | Reorder, change target date, move to a newer version (only if nobody started) |
+| PATCH | `/classes/{classId}/assignments/{moduleId}` | I, A | Body `{order?, targetDate?, moduleVersion?}`. `targetDate: null` clears it. `moduleVersion` must be newer than the current one and already published. It moves only if nobody started the module, unless the caller is an administrator. |
 | DELETE | `/classes/{classId}/assignments/{moduleId}` | I, A | Unassign |
 | POST | `/classes/{classId}/students/{studentId}/unlock` | I, A | Override: unlock `{moduleId}` for this student |
 
