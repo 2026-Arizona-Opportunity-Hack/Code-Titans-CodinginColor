@@ -9,6 +9,7 @@ import { getClass, TEACHER_ROLES } from "../../lib/api/staff";
 import { Icon, type IconName } from "../common/Icon";
 import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
+import { QuickAddStudent } from "./QuickAddStudent";
 import { RosterSection } from "./RosterSection";
 
 // The class page: name, class code, student count and the roster. Progress and
@@ -112,6 +113,7 @@ function ClassPageBody({ token, classId }: { token: string; classId: string }) {
             }
             actions={
               <>
+                {item.data ? <QuickAddStudent token={token} classId={classId} classCode={item.data.joinCode} schoolName={item.data.schoolName} /> : null}
                 <Link href={`/instructor/class/add-student/?id=${id}`} className="btn btn-secondary">
                   <Icon name="userPlus" className="size-5" />
                   Add a student who joined late

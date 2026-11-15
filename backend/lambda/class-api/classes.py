@@ -200,7 +200,10 @@ def get_class(req: Request):
         KeyConditionExpression=Key("pk").eq(f"CLS#{class_id}") & Key("sk").begins_with("STU#"),
         Select="COUNT")["Count"]
     assignments = [public_assignment(a) for a in load_assignments(table, class_id)]
-    return dict(with_instructors(table, meta, {}), assignments=assignments, counts={"students": students})
+    org = table.get_item(Key={"pk": f"ORG#{meta.get('orgId')}", "sk": "META"}).get("Item") if meta.get("orgId") else None
+    detail = dict(with_instructors(table, meta, {}), assignments=assignments, counts={"students": students})
+    detail["schoolName"] = (org or {}).get("name")  # every student in the class belongs to this school
+    return detail
 
 
 def update_class(req: Request):
