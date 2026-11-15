@@ -128,7 +128,9 @@ def test_unlock_override(api, cls, table):
     path = {"classId": cls, "studentId": sid}
     status, body = call(api, "POST /v1/classes/{classId}/students/{studentId}/unlock", {"moduleId": "py-loops"}, path=path)
     assert status == 200 and body["data"] == {"studentId": sid, "moduleId": "py-loops", "unlocked": True}
-    assert table.get_item(Key={"pk": f"CLS#{cls}", "sk": f"OVR#{sid}#py-loops"})["Item"]["unlockedBy"] == "ins-1"
+    item = table.get_item(Key={"pk": f"CLS#{cls}", "sk": f"OVR#{sid}#py-loops"})["Item"]
+    assert item["unlockedBy"] == "ins-1"
+    assert (item["studentId"], item["moduleId"]) == (sid, "py-loops")  # read as attributes by the player and reports
     assert call(api, "POST /v1/classes/{classId}/students/{studentId}/unlock", {"moduleId": "py-loops"}, path=path)[0] == 200  # idempotent
 
 
