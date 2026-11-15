@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useStaffSession } from "../../context/StaffSessionContext";
 import { env } from "../../config/env";
 import type { StaffRole } from "../../lib/api/staff";
@@ -20,12 +20,17 @@ export function StaffLogin() {
   const expired = useSearchParams().get("expired") === "1";
   const { token, hydrated, signIn } = useStaffSession();
 
-  // Already signed in: go to the app. Each page checks the role itself.
+  // Set when this page signs the user in, so the redirect below does not also fire
+  // and send a reviewer to the instructor pages.
+  const signedInHere = useRef(false);
+
+  // Already signed in when the page opened: go to the app. Each page checks the role itself.
   useEffect(() => {
-    if (hydrated && token) router.replace("/instructor/");
+    if (hydrated && token && !signedInHere.current) router.replace("/instructor/");
   }, [hydrated, token, router]);
 
   function continueAs(role: StaffRole) {
+    signedInHere.current = true;
     signIn(`staff_mock_${role}`);
     router.push(ROLE_HOME[role]);
   }
