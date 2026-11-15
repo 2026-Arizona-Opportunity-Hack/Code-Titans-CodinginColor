@@ -1,24 +1,22 @@
+import Image from "next/image";
 import Link from "next/link";
 
 /**
- * Text wordmark shown in every header.
+ * The Coding in Color logo and name, shown in every header.
  *
- * PLACEHOLDER: the official logo files are in CIC's brand album (linked from the
- * Brand Guidelines PDF) and are not in this repo yet. When they are added, render
- * the logo image here, following the guide: keep clear space equal to the height
- * of the "C" on all sides, never render the icon below 24px, never recolor,
- * stretch or add shadows, and place it on white or dark green only.
+ * The logo is used as supplied (public/brand/cic-logo.png) and follows the brand
+ * guide: never stretched or recolored, no effects added, shown on white, never
+ * smaller than 24px (here 44px tall). If CIC provides a version without the soft
+ * shadow baked into this image, replace the file and nothing else changes.
  */
 export function BrandMark({ href = "/" }: { href?: string }) {
   return (
-    <Link
-      href={href}
-      aria-label="Coding in Color Learn, home"
-      className="inline-flex items-center gap-2 font-bold text-brand no-underline hover:text-brand-hover"
-    >
-      <span className="text-lg">Coding in Color</span>
-      <span aria-hidden="true" className="h-5 w-px bg-line" />
-      <span className="text-base text-muted">Learn</span>
+    <Link href={href} aria-label="Coding in Color Learn, home" className="inline-flex items-center gap-3 no-underline">
+      <Image src="/brand/cic-logo.png" alt="" width={394} height={308} priority className="h-11 w-auto" />
+      <span className="flex flex-col leading-tight">
+        <span className="text-lg font-bold text-brand">Coding in Color</span>
+        <span className="text-sm font-semibold text-muted">Learn</span>
+      </span>
     </Link>
   );
 }

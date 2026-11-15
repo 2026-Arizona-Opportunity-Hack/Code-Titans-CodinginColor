@@ -37,8 +37,8 @@ export function StaffShell({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b-2 border-brand bg-surface">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
+      <header className="site-header">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -51,9 +51,9 @@ export function StaffShell({
             </button>
             <BrandMark />
           </div>
-          <p className="flex flex-wrap items-center justify-end gap-2 text-sm">
+          <p className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm">
             <span className="font-bold">{userName}</span>
-            <span className="rounded-full bg-tint px-2.5 py-0.5 font-bold text-brand">{roleLabel}</span>
+            <span className="badge">{roleLabel}</span>
             {onSignOut ? (
               <button
                 type="button"
@@ -69,45 +69,34 @@ export function StaffShell({
 
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col lg:flex-row">
         <aside className="border-b border-line lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-r">
-          <nav id={navId} aria-label="Main" className={`${open ? "block" : "hidden"} lg:block`}>
+          <nav id={navId} aria-label="Main" className={`${open ? "block" : "hidden"} lg:sticky lg:top-24 lg:block`}>
             <ul className="flex flex-col gap-1 p-3">
-              {items.map((item) => {
-                if (!item.ready) {
-                  return (
-                    <li key={item.label}>
-                      <span
-                        aria-disabled="true"
-                        className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2 text-muted"
-                      >
-                        {item.label}
-                        <span className="rounded bg-tint px-2 text-xs font-bold text-brand">Soon</span>
-                      </span>
-                    </li>
-                  );
-                }
-                const active = pathname.startsWith(item.href);
-                return (
+              {items.map((item) =>
+                item.ready ? (
                   <li key={item.label}>
                     <Link
                       href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      className={`flex min-h-11 items-center rounded-lg border-l-4 px-3 py-2 no-underline ${
-                        active
-                          ? "border-accent bg-tint font-bold text-brand"
-                          : "border-transparent text-ink hover:bg-tint"
-                      }`}
+                      aria-current={pathname.startsWith(item.href) ? "page" : undefined}
+                      className="nav-link"
                     >
                       {item.label}
                     </Link>
                   </li>
-                );
-              })}
+                ) : (
+                  <li key={item.label}>
+                    <span aria-disabled="true" className="nav-link cursor-default text-muted hover:bg-transparent">
+                      {item.label}
+                      <span className="badge badge-muted">Soon</span>
+                    </span>
+                  </li>
+                ),
+              )}
             </ul>
           </nav>
         </aside>
 
-        <main id="main" className="min-w-0 flex-1 px-4 py-8 lg:px-8">
-          {children}
+        <main id="main" className="rise min-w-0 flex-1 px-4 py-8 lg:px-10">
+          <div className="mx-auto w-full max-w-5xl">{children}</div>
         </main>
       </div>
       <Footer />
