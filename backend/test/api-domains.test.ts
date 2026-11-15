@@ -64,12 +64,18 @@ describe("StudentAuthDomain", () => {
   });
 });
 
-describe("StaffMeDomain", () => {
-  test("GET /v1/me requires the Cognito JWT authorizer and the function cannot write data", () => {
-    const t = apiTemplate();
-    t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /v1/me", AuthorizationType: "JWT" });
-    const policies = Object.values(t.findResources("AWS::IAM::Policy")) as any[];
-    const p = policies.find((x) => JSON.stringify(x).includes("AdminApiFunction"));
-    expect(JSON.stringify(p)).not.toMatch(/dynamodb:(PutItem|UpdateItem|DeleteItem)/);
+describe("AdminDomain", () => {
+  const t = apiTemplate();
+
+  test.each([
+    "GET /v1/me",
+    "GET /v1/admin/orgs",
+    "POST /v1/admin/orgs",
+    "PATCH /v1/admin/orgs/{orgId}",
+    "GET /v1/admin/cohorts",
+    "POST /v1/admin/cohorts",
+    "PATCH /v1/admin/cohorts/{cohortId}",
+  ])("%s requires the Cognito JWT authorizer", (routeKey) => {
+    t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
   });
 });

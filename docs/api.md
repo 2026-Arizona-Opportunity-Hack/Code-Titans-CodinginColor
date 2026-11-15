@@ -80,7 +80,7 @@ All `A` only.
 | GET, POST | `/admin/orgs` | List or create partner schools |
 | PATCH | `/admin/orgs/{orgId}` | Rename or archive |
 | GET, POST | `/admin/cohorts` | List or create cohorts `{name, orgId?}` |
-| PATCH | `/admin/cohorts/{cohortId}` | Rename, add or remove classes `{classIds}`. A cohort holds one or more classes. |
+| PATCH | `/admin/cohorts/{cohortId}` | Rename, archive, or set its classes `{name?, status?, classIds?}`. `classIds` is the full list: classes missing from it are removed, and a class listed here moves out of any other cohort. |
 | GET | `/admin/api-keys` | List keys (label, scopes, lastUsedAt, revoked). Never the secret. |
 | POST | `/admin/api-keys` | Create `{label, scopes: ["read:cohorts"]}`. The full key is in this response only. |
 | DELETE | `/admin/api-keys/{keyId}` | Revoke |
