@@ -11,6 +11,7 @@ Contents: [Prerequisites](#prerequisites) · [First deploy](#first-deploy) · [C
 | An AWS account and a CLI profile with permission to deploy CloudFormation, Lambda, API Gateway, DynamoDB, Cognito, S3, CloudFront, Secrets Manager, IAM and Amplify | Everything is deployed with CDK |
 | Node 20+, Python 3.12+ | CDK and its tests, the Lambda tests |
 | Amazon Bedrock access to the hint model (`amazon.nova-lite-v1:0` by default) in the region set by `bedrockRegion` | AI hints. Without it everything else works and hints answer "unavailable" |
+| Bedrock access to **Amazon Nova Pro** and, optionally, **Claude Haiku 4.5** in the same region | "Draft from a file (AI)" in the Curriculum screen. It tries Haiku first and falls back to Nova Pro. Anthropic models need a one-time use-case form per account (Bedrock console, Model access). Until that is submitted, Haiku calls fail and drafting uses Nova Pro. Without either, only that button is affected |
 
 Check Bedrock access before the first deploy (it should print a short reply):
 
@@ -72,7 +73,7 @@ aws amplify create-app --name cic-curriculum --region us-west-2        # note th
 aws amplify create-branch --app-id <appId> --branch-name main --region us-west-2
 ```
 
-Put the values from the outputs in `frontend/.env.local` (copy `.env.example`) with `NEXT_PUBLIC_USE_MOCKS=false`. **A build made with mocks on shows sample data.** Then publish:
+Put the values from the outputs in `frontend/.env.local` (copy `.env.example`) with `NEXT_PUBLIC_USE_MOCKS=false`. Then publish:
 
 ```bash
 cd frontend && npm install && npm run build            # writes frontend/out/
@@ -99,7 +100,7 @@ Amplify prints the site address (`https://main.<appId>.amplifyapp.com`). Add tha
 | Student lost their words | Teacher, the class, Login sheet, create new words for that student. The old words stop working |
 | Rotate a class code | Teacher, the class settings |
 | Write or edit a module | Author, Curriculum, New module or Edit. Save draft, then Publish. Move classes to the new version from "Classes using this module" |
-| Load the sample module | `AWS_PROFILE=<profile> python3 backend/seed/seed_module.py backend/seed/python-practice.json --apply` (needs `pip install boto3`; leave off `--apply` to only check it) |
+| Load the starter module | `AWS_PROFILE=<profile> python3 backend/seed/seed_module.py backend/seed/python-practice.json --apply` (needs `pip install boto3`; leave off `--apply` to only check it) |
 | Download grades | Teacher, the class, Gradebook, Download CSV |
 
 ## Updating
@@ -107,7 +108,7 @@ Amplify prints the site address (`https://main.<appId>.amplifyapp.com`). Add tha
 | Change | Do |
 |---|---|
 | Backend code or infrastructure | Review `npx cdk diff`, then `npx cdk deploy --all` from `backend/` |
-| Frontend code | Build with mocks off and upload (see [Host the frontend](#host-the-frontend)). Merging to Git does not update the site by itself |
+| Frontend code | Build and upload (see [Host the frontend](#host-the-frontend)). Merging to Git does not update the site by itself |
 | Allowed origins, hint model, monthly hint cap, MFA mode | Edit the keys in `backend/cdk.json` (documented in the README) and redeploy the backend |
 | A new API endpoint | Follow "Adding an endpoint" in [backend/README.md](../backend/README.md) and keep [api.md](api.md) in step |
 
@@ -115,11 +116,11 @@ Run the tests before deploying: `cd backend && npm test && python3 -m pytest tes
 
 ## Monitoring and cost
 
-- **Logs.** Each Lambda writes to its own CloudWatch log group (`/aws/lambda/CicCurriculumApiStack-...`). Logs carry IDs and counts, never names or emails. The API's access log has no IP address or user agent.
+- **Logs.** Each Lambda writes to its own CloudWatch log group (`/aws/lambda/CicCurriculumApiStack-...`) and keeps entries for 14 days. Code logs IDs and counts, and the logging helper (`cic/log.py`) replaces any field named like a name, email, token, class code, secret words, answers or CSV with `[redacted]`. The API's access log holds only request ID, route, status, latency and integration error.
 - **Errors to look for.** An `unhandled_error` event means a bug. A `hint_model_error` event means Bedrock failed (students see "Hints are unavailable right now").
 - **Hints.** Counters live in the events table: `HQ#<studentId>` per student per day, and `HQM / M#<yyyymm>` for the month. The monthly cap is `hintsMonthlyCap`. Each hint is logged under `HINT#<classId>` for 180 days and shown to teachers on the class Hints page.
-- **Cost.** Everything is pay per use (DynamoDB on demand, Lambda, API Gateway, Cognito's free tier, Secrets Manager at about $0.40 for the pepper). At classroom scale it is expected to stay in the low single-digit dollars per month. That is an estimate from AWS pricing, not a measured bill. A hint costs about $0.00003, so the full 5000 hint cap is about $0.15. Set an AWS Budget alert as a safety net.
-- **No alarms are set up.** Adding CloudWatch alarms on Lambda errors and API 5xx is a sensible next step.
+- **Cost.** Everything is pay per use (DynamoDB on demand, Lambda, API Gateway, Cognito's free tier, Secrets Manager at about $0.40 for the pepper). At classroom scale it is expected to stay in the low single-digit dollars per month. That is an estimate from AWS pricing, not a measured bill. A hint costs about $0.00003, so the full 5000 hint cap is about $0.15. The stack does not create an AWS Budget, so check Cost Explorer now and then, or add a Budget alert in the account.
+- **No alarms are set up.** The stack creates no CloudWatch alarms. Look at the Lambda logs for the events above if something seems wrong.
 
 ## Backups and teardown
 
@@ -133,13 +134,13 @@ Run the tests before deploying: `cd backend && npm test && python3 -m pytest tes
 |---|---|
 | Every student login says "Class code or student words are incorrect", though they are right | The login Lambda and the thing that issued the words used different pepper secrets. Two `StudentAuthCredentialPepper-…` secrets can exist after a stack was recreated. The live one is the ARN in the `PEPPER_SECRET_ARN` environment variable of the `AuthStudentFunction` Lambda. Delete the unused secret |
 | The browser shows a CORS error, or the site cannot reach the API | The site's address is missing from `allowedOrigins`. Add it to `backend/cdk.json` and redeploy the backend |
-| The site shows sample data or fake names | The build was made with `NEXT_PUBLIC_USE_MOCKS=true`. Set it to `false` and publish again |
 | "Your account has no role assigned" after signing in | The user is not in a Cognito group. Add them with `aws cognito-idp admin-add-user-to-group` or change their role on the Users screen |
 | An instructor cannot create a class | They have no school. An admin sets it on the Users screen |
 | An external teacher cannot create a class | They are not in an external school, or the school is archived |
+| "Draft from a file (AI)" says it failed | Check the Lambda logs of the curriculum function. Bedrock access to Nova Pro is needed (see Prerequisites). A PDF over 4.5 MB is refused, so export a smaller one or use `.pptx` |
 | Hints say "unavailable" | Bedrock access: check the model is available in `bedrockRegion` (see Prerequisites) and the Lambda logs for `hint_model_error` |
 | Hints say "paused for this month" | The monthly cap was reached. Raise `hintsMonthlyCap` and redeploy, or wait for the next month |
 | "Getting Python ready" never finishes | The device cannot reach `cdn.jsdelivr.net`. Check the network, or host Pyodide yourself and set `NEXT_PUBLIC_PYODIDE_URL` |
 | Staff cannot sign in and never got the invite email | Cognito's default sender has a low daily limit, and invites can land in spam. Resend by deleting and re-inviting the user, or move to Amazon SES |
-| A module change is not showing for students | Classes keep the version they were given. Move the class to the new version from the module's "Classes using this module" panel |
+| A module change is not showing for students | Publishing moves only the publisher's own classes. Other teachers' classes keep their version. Move a class to the new version from the module's "Classes using this module" panel |
 | `cdk deploy` says a table or pool already exists | A retained resource from an earlier stack. Remove it by hand (see Backups and teardown) |

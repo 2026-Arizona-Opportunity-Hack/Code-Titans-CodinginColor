@@ -14,7 +14,7 @@ Built by **Code Titans** at the [ASU Fall Hackathon 2026, Phoenix Hackathon for 
 | Demo video | Linked from the team dashboard |
 
 ## Contents
-[What it does](#what-it-does) · [What we built against the brief](#what-we-built-against-the-brief) · [Tech stack](#tech-stack) · [Architecture](#architecture) · [Repository layout](#repository-layout) · [Run it locally](#run-it-locally) · [Configuration](#configuration) · [Deploy](#deploy) · [Security](#security-and-privacy) · [Accessibility](#accessibility) · [Testing](#testing-and-quality) · [Documentation index](#documentation-index) · [Limitations and next steps](#known-limitations-and-next-steps) · [Team](#team)
+[What it does](#what-it-does) · [Using the app](#using-the-app) · [What we built against the brief](#what-we-built-against-the-brief) · [Tech stack](#tech-stack) · [Architecture](#architecture) · [Repository layout](#repository-layout) · [Run it locally](#run-it-locally) · [Configuration](#configuration) · [Deploy](#deploy) · [Security](#security-and-privacy) · [Accessibility](#accessibility) · [Testing](#testing-and-quality) · [Documentation index](#documentation-index) · [Limitations](#known-limitations) · [Team](#team)
 
 ## What it does
 
@@ -22,7 +22,7 @@ Built by **Code Titans** at the [ASU Fall Hackathon 2026, Phoenix Hackathon for 
 
 **For teachers.** Upload the class list from a spreadsheet, pick modules, print the login sheets. The dashboard shows who is stuck or has not started, per-student progress, **learning gain** from pretest to post-test, and **mastery per concept** ("33% of the class reached 80% on loops"). Worksheets that need a human go to a review queue. A **hints report** shows what students asked the AI tutor about, so you know what to reteach, and a **gradebook** (downloadable as CSV) lists every student's scores, gain and hints. Duplicate roster entries are flagged and can be merged.
 
-**For CIC.** Admins invite staff, manage schools and cohorts, and author and publish curriculum (instructors can be made "curriculum authors"). A read-only **API with keys** feeds CIC's own dashboard with aggregated results only. Teachers outside CIC can **request an account**; an admin approves, and they run their own classes on CIC's curriculum. CIC sees usage counts for those classes and nothing about their students.
+**For CIC.** Admins invite staff, manage schools and cohorts, and author and publish curriculum (instructors can be made "curriculum authors"). An author can upload a printed worksheet or slide deck and have the AI **draft a module** from it, which they then review and edit before publishing. A read-only **API with keys** feeds CIC's own dashboard with aggregated results only. Teachers outside CIC can **request an account**; an admin approves, and they run their own classes on CIC's curriculum. CIC sees usage counts for those classes and nothing about their students.
 
 ### Who can do what
 
@@ -35,6 +35,15 @@ Built by **Code Titans** at the [ASU Fall Hackathon 2026, Phoenix Hackathon for 
 | External teacher | Cognito, MFA, after admin approval | Run their own classes. CIC cannot see their students |
 | Reviewer | Cognito, MFA | Preview published curriculum only. No class or student data |
 | CIC dashboard (machine) | API key | Read aggregated cohort results |
+
+## Using the app
+
+Nothing needs a manual. These are the first steps for each kind of user.
+
+- **A student** opens the link on their login sheet, or goes to the site, presses **Open my lesson**, and types the class code and three words. They land on **Your learning path**, press the highlighted step, and each step unlocks the next. On a check, worksheet or coding exercise, **Ask for a hint** gives a nudge. **Code runner** in the menu is a free practice space.
+- **A teacher** signs in at `/login` with the email and temporary password from the invite, then sets a new password and an authenticator app. **Classes** has the **New class** button. In the class, **Add students from a CSV**, choose modules under **Assigned modules**, and print the **Login sheet**. **Progress** shows who is stuck or has not started.
+- **A curriculum author** (an instructor an admin has allowed to author, or an admin) opens **Curriculum**. **New module** starts from a template. **Draft from a file (AI)** builds a first draft from a worksheet or deck. Edit, then **Save draft** and **Publish**.
+- **A CIC admin** invites people under **Users**, approves outside teachers under **Access requests**, and creates keys for CIC's dashboard under **API keys**. The first admin is created from the command line ([operations.md](docs/operations.md#create-the-first-admin)).
 
 ## What we built against the brief
 
@@ -50,12 +59,18 @@ The brief had three tiers. **All nine P0 items are built**, **all five P1 items 
 
 #### 1. Easy way to create and edit curriculum
 
-Instructors and CIC staff build modules in a visual editor and publish them with no engineering. Steps collapse into a short list with an outline, the toolbar stays in view, and each publish makes a new version so students never see a lesson change under them.
+Instructors and CIC staff build modules in a visual editor and publish them with no engineering. Steps collapse into a short list with an outline and the toolbar stays in view. **Draft from a file (AI)** turns an uploaded worksheet or slide deck (PDF or PowerPoint) into a full draft module, with a pretest, post-test, check questions and worksheet prompts, which the author edits before publishing. Each publish makes a new version. The publisher's own classes move to it, and other teachers' classes stay on the version they have until their teacher moves them.
 
 <table>
 <tr>
 <td width="50%" valign="top"><img src="docs/screenshots/module-editor.png" alt="The module editor"><br><sub>The module editor</sub></td>
 <td width="50%" valign="top"><img src="docs/screenshots/code-exercise-editor.png" alt="Authoring a coding exercise: instructions, starter code, a private solution and tests"><br><sub>Authoring a coding exercise: instructions, starter code, a private solution and tests</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td valign="top"><img src="docs/screenshots/convert-file-dialog.png" alt="Draft from a file (AI): upload a worksheet or slide deck and get a draft module" width="560"><br><sub>Draft from a file (AI): the author uploads a worksheet or deck, then reviews the draft before publishing</sub></td>
 </tr>
 </table>
 
@@ -84,7 +99,7 @@ A new module starts from a template (pretest, video or slides, check for underst
 
 #### 4. Digital worksheets
 
-Each printed worksheet becomes an activity the student completes and submits. Answers save as they type. Written answers that a computer cannot mark go to the teacher's review queue.
+Each printed worksheet becomes an activity the student completes and submits (an author can start from the printed file with **Draft from a file (AI)**). Answers save as they type. Written answers that a computer cannot mark go to the teacher's review queue.
 
 <table>
 <tr>
@@ -264,6 +279,7 @@ The Code runner is a practice space in the student menu. It is not graded and is
 | Staff identity | **Amazon Cognito** | Invite-only, TOTP MFA required, roles are groups |
 | Secrets | **AWS Secrets Manager** | Pepper for student credentials. No secret is in the repo |
 | AI hints | **Amazon Bedrock**, Amazon Nova Lite | One named model, monthly cap, every reply checked on the server |
+| AI module drafting | **Amazon Bedrock**, Claude Haiku 4.5 with Amazon Nova Pro as the fallback | Authors only. The result is always an unpublished draft |
 | Images | **S3 + CloudFront** | Curriculum images, private bucket served through a CDN |
 | Hosting | **AWS Amplify Hosting** | Manual zip deployment, adds HSTS and other security headers |
 | Tests | **pytest + moto**, **jest** (CDK assertions), **ESLint**, **axe-core** | No AWS access needed to run them |
@@ -284,14 +300,14 @@ flowchart LR
   API --> L[Lambda functions<br/>auth, student, class, curriculum,<br/>reports, admin, read, access request]
   L --> D[(DynamoDB<br/>content, core, progress, events)]
   L --> SM[Secrets Manager<br/>credential pepper]
-  L --> BR[Bedrock<br/>Nova Lite hints]
+  L --> BR[Bedrock<br/>hints, module drafts]
   L --> COG[Cognito<br/>invites and roles]
   FE --> CDN[CloudFront + S3<br/>curriculum images]
 ```
 
 - **One API, three ways in.** Students use a session token from a class code and secret words. Staff use a Cognito token. CIC's dashboard uses an API key. Each has its own authorizer, and every handler still checks the caller's role itself (`backend/lambda/shared-layer/python/cic/authz.py`).
 - **Data.** `content` holds modules (drafts and immutable published versions). `core` holds schools, classes, rosters, assignments, users, sessions and keys. `progress` holds activity state, assessments and submissions. `events` holds the audit log and hint logs and expires old entries. Key shapes are in [docs/architecture.md](docs/architecture.md) section 6.
-- **Versioned curriculum.** Publishing creates a new immutable version. A class keeps the version it was assigned until its teacher moves it, so students never see a lesson change under them.
+- **Versioned curriculum.** Publishing creates a new immutable version and never edits an old one. The publisher's own classes move to it automatically, with finished steps kept. Classes taught by other teachers stay on their version until their teacher moves them.
 - **Code runs in the browser.** The server never executes student code. See the decision record for why, and what it means for trust.
 - **Deep dive.** [docs/architecture.md](docs/architecture.md) covers the model, rules and diagrams. [docs/api.md](docs/api.md) lists every endpoint with who may call it, and maps each route to its Lambda.
 
@@ -308,7 +324,7 @@ flowchart LR
 ├── backend/
 │   ├── bin/ lib/           CDK app, stacks (data, auth, api) and one construct per API domain
 │   ├── lambda/             One folder per Lambda; shared-layer/python/cic holds the shared rules
-│   ├── seed/               The "Python Practice" module and the script that loads it
+│   ├── seed/               The starter "Python Practice" module and the script that loads it
 │   └── test/               pytest (Lambdas) and jest (CDK), mirroring the source layout
 ├── docs/                   architecture.md, api.md, decisions.md, operations.md, screenshots, brand files
 ├── AGENTS.md CLAUDE.md     Working agreements for AI coding tools (small PRs, one repo)
@@ -317,27 +333,26 @@ flowchart LR
 
 ## Run it locally
 
-You need **Node 20+** and, for the backend tests, **Python 3.12+**. Nothing here needs AWS access.
+You need **Node 20+** and, for the backend tests, **Python 3.12+**.
 
-### 1. The app with no backend (the fastest start)
+### 1. The app on your machine, against the deployed backend
+
+The app talks to the API and the Cognito pool you deployed (see [Deploy](#deploy)). Use the values from the stack outputs.
 
 ```bash
 git clone https://github.com/2026-Arizona-Opportunity-Hack/Code-Titans-CodinginColor.git
 cd Code-Titans-CodinginColor/frontend
-cp .env.example .env.local        # leave NEXT_PUBLIC_USE_MOCKS=true
+cp .env.example .env.local        # then fill in the values (see Configuration)
 npm install
 npm run dev                       # http://localhost:3000
 ```
 
-- **Student:** open http://localhost:3000/s/#K7M4QX.maple-tiger-blue (class code `K7M4QX`, words `maple-tiger-blue`). You land signed in as a student.
-- **Teacher, admin, reviewer:** open http://localhost:3000/login/ and choose a role. No password is needed in this mode.
+- **Student:** open http://localhost:3000/s/ and type the class code and words from a login sheet, or open the link on the sheet with the host changed to `http://localhost:3000`.
+- **Teacher, admin, reviewer, external teacher:** open http://localhost:3000/login/ and sign in with an invited account. The first admin is created from the command line ([operations.md](docs/operations.md#create-the-first-admin)).
+- `http://localhost:3000` must be in `allowedOrigins` in `backend/cdk.json` (it is by default), or the browser will refuse the API's replies.
 - The first Python run downloads about 12 MB (cached afterwards), so the machine needs internet.
 
-### 2. The app against a deployed backend
-
-Deploy the backend first (see [Deploy](#deploy)), then in `frontend/.env.local` set `NEXT_PUBLIC_USE_MOCKS=false` and fill in the API and Cognito values from the stack outputs. Restart `npm run dev`.
-
-### 3. Tests and checks
+### 2. Tests and checks
 
 ```bash
 # Frontend
@@ -360,11 +375,11 @@ Only `NEXT_PUBLIC_` values reach the browser, so **never put a secret in them**.
 
 | Variable | Needed when | What it is |
 |---|---|---|
-| `NEXT_PUBLIC_USE_MOCKS` | Always | `true` runs the app without a backend. `false` calls the real API. **Must be `false` for a production build** |
-| `NEXT_PUBLIC_API_URL` | Mocks off | API base URL including `/v1` (stack output `ApiUrl` plus `/v1`) |
-| `NEXT_PUBLIC_AWS_REGION` | Mocks off | Region of the Cognito pool, for example `us-west-2` |
-| `NEXT_PUBLIC_COGNITO_USER_POOL_ID` | Mocks off | Stack output `UserPoolId` |
-| `NEXT_PUBLIC_COGNITO_CLIENT_ID` | Mocks off | Stack output `UserPoolClientId` |
+| `NEXT_PUBLIC_USE_MOCKS` | Always | Keep `false`. It is the name of a development switch used for UI work without a backend, and it must be `false` in any build you publish |
+| `NEXT_PUBLIC_API_URL` | Always | API base URL including `/v1` (stack output `ApiUrl` plus `/v1`) |
+| `NEXT_PUBLIC_AWS_REGION` | Always | Region of the Cognito pool, for example `us-west-2` |
+| `NEXT_PUBLIC_COGNITO_USER_POOL_ID` | Always | Stack output `UserPoolId` |
+| `NEXT_PUBLIC_COGNITO_CLIENT_ID` | Always | Stack output `UserPoolClientId` |
 | `NEXT_PUBLIC_PYODIDE_URL` | Optional | Where Python is loaded from. Default is the jsDelivr CDN. Set it to a copy you host (with a trailing slash) if school networks block the CDN |
 
 ### Backend (CDK context in `backend/cdk.json`, or `-c key=value` on the command line)
@@ -396,7 +411,7 @@ npx cdk deploy --all
 
 1. Note the stack outputs: `ApiUrl`, `UserPoolId`, `UserPoolClientId`.
 2. **Create the first admin** (Cognito is invite-only, so nobody can sign up by themselves). The two commands are in [operations.md](docs/operations.md#create-the-first-admin).
-3. Put the outputs in `frontend/.env.local` with `NEXT_PUBLIC_USE_MOCKS=false`.
+3. Put the outputs in `frontend/.env.local` (see [Configuration](#configuration)).
 4. **Publish the frontend** (a static export uploaded to Amplify; no Git connection needed):
 
    ```bash
@@ -406,9 +421,9 @@ npx cdk deploy --all
    curl -X PUT -H "Content-Type: application/zip" --data-binary @/tmp/site.zip "<zipUploadUrl>"
    aws amplify start-deployment --app-id <appId> --branch-name main --job-id <jobId>
    ```
-   The current app id and the first-time Amplify setup are in [backend/README.md](backend/README.md#frontend-hosting).
+   Creating the Amplify app the first time (two commands) is in [operations.md](docs/operations.md#host-the-frontend).
 5. Add the hosted URL to `allowedOrigins` in `backend/cdk.json` and redeploy the backend, so the browser may call the API.
-6. Optional: load the sample module with `python3 backend/seed/seed_module.py backend/seed/python-practice.json --apply`.
+6. Optional: load the starter module (a short Python practice lesson) with `python3 backend/seed/seed_module.py backend/seed/python-practice.json --apply`.
 
 Tables and the user pool use `RETAIN`, so deleting a stack never deletes data.
 
@@ -418,29 +433,29 @@ Tables and the user pool use `RETAIN`, so deleting a stack never deletes data.
 - **Authentication.** Staff use Cognito: invite-only, TOTP MFA required, 12-character passwords. Students have no account. Their secret words are checked as an HMAC with a pepper held in Secrets Manager, with per-class rate limiting (10 failures in 5 minutes) and teacher reset.
 - **Authorization.** Roles are Cognito groups, and each Lambda checks them (`cic.authz`) before touching data. A teacher can only open classes they belong to. Reviewers see no student data. An admin is refused on an external teacher's class. A student can only see their own progress.
 - **Secrets.** None are committed. `.env*` files are git-ignored (only `.env.example` is tracked). API keys are shown once and only their SHA-256 hash is stored.
-- **Input.** Every request body is validated, with unknown fields rejected. Module text is rendered as text, never HTML. CSV exports are protected against spreadsheet formula injection. Module content is size and shape checked on save and again on publish.
+- **Input.** Request bodies are checked for type, size and allowed fields before use, and most routes reject unknown fields. Module text is rendered as text, never HTML. CSV exports are protected against spreadsheet formula injection. Module content is size and shape checked on save and again on publish.
 - **Student code.** It runs in the student's own browser sandbox (WebAssembly in a Web Worker), never on our servers, with an output cap and a 5-second limit.
 - **AI hints.** The prompt has no name and no answer key (only a "do not say" list). Student text is passed as quoted data. Every reply is checked on the server before a student sees it. Hints are never available on tests, are limited per student and per month, and are logged for teachers for 180 days.
-- **Transport and storage.** HTTPS only. DynamoDB and S3 are encrypted. The image bucket is private, served only through CloudFront. Amplify adds HSTS, `X-Frame-Options: DENY`, `nosniff` and a strict referrer policy. CORS is an explicit list. Logs carry IDs and counts, never names or emails.
+- **Transport and storage.** HTTPS only. DynamoDB and S3 are encrypted. The image bucket is private, served only through CloudFront. Amplify adds HSTS, `X-Frame-Options: DENY`, `nosniff` and a strict referrer policy. CORS is an explicit list. Code logs IDs and counts, and the logging helper replaces fields named like a name, email, token, class code, secret words, answers or CSV with `[redacted]`.
 - **Audit.** API key changes, exports and access-request decisions are written to an audit log that admins can read.
 
 ## Accessibility
 
-The interface targets WCAG 2.1 AA: keyboard operation everywhere (including the code box, where Esc then Tab leaves it), visible focus, labelled controls, status messages announced to screen readers, a readable font, and colour is never the only signal. Every screen was scanned with axe-core with no violations. Student screens are designed phone-first.
+The interface targets WCAG 2.1 AA: keyboard operation everywhere (including the code box, where Esc then Tab leaves it), visible focus, labelled controls, status messages announced to screen readers, a readable font, and colour is never the only signal. An automated axe-core scan of the public pages and every student, teacher, author, admin and reviewer screen (33 pages and dialogs at desktop width, including the module editor) found no violations. Automated scans catch only part of the problems, and we have not tested with a screen reader. Student screens are designed phone-first.
 
 ## Testing and quality
 
-- **538 pytest tests** run the real Lambda handlers against an in-memory DynamoDB (moto), including end-to-end paths: roster to student login to lesson to report to read API. They include a test for every cross-access case (a teacher to another class, an admin to an external class, a student to another student, a reviewer to student data).
-- **81 jest tests** assert the CDK stacks: routes match the Lambdas, throttles, least-privilege IAM, MFA, encryption.
-- **Frontend:** `tsc --noEmit` and ESLint pass, and axe-core scans pass on the screens.
+- **545 pytest tests** run the real Lambda handlers against an in-memory DynamoDB (moto), including end-to-end paths: roster to student login to lesson to report to read API. They include a test for every cross-access case (a teacher to another class, an admin to an external class, a student to another student, a reviewer to student data).
+- **84 jest tests** assert the CDK stacks: routes match the Lambdas, throttles, least-privilege IAM, MFA, encryption.
+- **Frontend:** `tsc --noEmit` and ESLint pass.
 - **CI:** a pull request check nudges toward small PRs with clear descriptions. See [AGENTS.md](AGENTS.md).
-- The in-browser Python runner was verified in Chrome and under Node with real Pyodide. A smoke test against the deployed API covered login, the exercise, hints and cleanup.
+- The in-browser Python runner was verified in Chrome and under Node with real Pyodide.
 
 ## Documentation index
 
 | File | What is in it |
 |---|---|
-| [docs/architecture.md](docs/architecture.md) | The model, roles, rules, data model, build plan, security |
+| [docs/architecture.md](docs/architecture.md) | The model, roles, rules, data model, security, cost |
 | [docs/api.md](docs/api.md) | Every endpoint, who can call it, request and response shapes, and the route-to-Lambda map |
 | [docs/decisions.md](docs/decisions.md) | Why the key choices were made, and what was rejected |
 | [docs/operations.md](docs/operations.md) | Deploy, first admin, daily tasks, monitoring, costs, backups, teardown, troubleshooting |
@@ -449,15 +464,17 @@ The interface targets WCAG 2.1 AA: keyboard operation everywhere (including the 
 
 Code comments explain the reasons and rules that are not obvious (authorization, hint checks, grading, key shapes). Each Lambda module opens with a docstring saying what it does.
 
-## Known limitations and next steps
+## Known limitations
 
-Honest list of what remains before this is a finished product:
-
-- **Coding exercise results are self-reported.** The browser runs the tests, so a student could fake a pass. Teachers can read the submitted code and see the score. Submitting always finishes the step so no student gets stuck. Server-side grading would need a sandboxed runner. Exercises are practice and never replace the pre-test and post-test.
-- **Pyodide loads from a public CDN** (about 12 MB the first time). Self-host it through `NEXT_PUBLIC_PYODIDE_URL` for schools that block the CDN.
-- **Low-bandwidth mode** (lighter pages and no video autoplay for slow connections) is not built.
+- **Coding exercise results are self-reported.** The browser runs the tests, so a student could tamper with a result. Teachers can read the submitted code and see the score. Submitting always finishes the step so no student gets stuck. Server-side grading would need a sandboxed runner. Exercises are practice and never replace the pre-test and post-test.
+- **Pyodide loads from a public CDN** (about 12 MB the first time). Schools that block the CDN need `NEXT_PUBLIC_PYODIDE_URL` pointed at a copy they host.
+- **Low-bandwidth mode** (lighter pages, no video autoplay on slow connections) is not built.
+- **No public share link** for the Code runner. Students use it through their class login.
 - **Frontend publishing is manual** (zip upload). Connecting Amplify to GitHub would automate it.
-- **Cognito's default email sender** is limited to a small number of invites per day. Switch to Amazon SES for a larger rollout.
+- **Draft from a file** uses Amazon Nova Pro in the deployed account, because Claude Haiku 4.5 needs a one-time Anthropic use-case form in Bedrock. PDFs over 4.5 MB are refused, and the draft always needs an author's review.
+- **No Content-Security-Policy header** is set. The other Amplify security headers are on, and module text is never rendered as HTML.
+- **No CloudWatch alarms or AWS Budget** are created by the stack, so errors and spend are checked by hand ([operations.md](docs/operations.md#monitoring-and-cost)).
+- **Cognito's default email sender** is limited to a small number of invites per day. Amazon SES would lift that for a larger rollout.
 - **Cost** is expected to stay in the low single-digit dollars per month at classroom scale. That is an estimate from AWS pricing, not a measured bill.
 
 ## Team

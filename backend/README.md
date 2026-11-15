@@ -9,9 +9,9 @@ CDK (TypeScript) app plus Python 3.12 Lambdas for the curriculum platform. Desig
 | `bin/app.ts` | CDK entry point. Stacks: `CicCurriculumDataStack`, `...AuthStack`, `...ApiStack` |
 | `lib/` | Stacks, config, Lambda factory |
 | `lib/domains/` | One construct per API domain. Add a domain here, then add one line to `ApiStack` |
-| `lambda/<name>/index.py` | One Lambda per directory (kebab-case) with `lambda_handler` |
+| `lambda/<name>/index.py` | One Lambda per directory (kebab-case) with `lambda_handler`: `auth-student`, `authorizer-student`, `authorizer-apikey`, `admin-api`, `curriculum-api` (including the AI file converter), `class-api`, `student-api`, `reports-api`, `read-api`, `access-request`, `health` |
 | `lambda/shared-layer/python/cic/` | Shared code (Lambda layer): http, errors, authz, db, logging |
-| `seed/` | The sample "Python Practice" module and `seed_module.py`, which loads a module file through the real save and publish code |
+| `seed/` | The starter "Python Practice" module and `seed_module.py`, which loads a module file through the real save and publish code |
 | `test/` | Mirrors the source layout. `*.test.ts` run with jest, `test_*.py` with pytest |
 
 ## Commands
@@ -33,7 +33,7 @@ npx cdk diff            # review first
 npx cdk deploy --all    # only when the team agrees
 ```
 
-Deployment settings come from CDK context (`cdk.json` or `-c key=value`): `allowedOrigins` (required, comma-separated, never `*`) and `staffMfa` (`REQUIRED` or `OPTIONAL`).
+Deployment settings come from CDK context (`cdk.json` or `-c key=value`): `allowedOrigins` (required, comma-separated, never `*`) and `staffMfa` (`REQUIRED` or `OPTIONAL`), `bedrockRegion`, `hintModelId` and `hintsMonthlyCap`. The README lists the defaults.
 
 ## Adding an endpoint
 
@@ -48,7 +48,7 @@ us-west-2): https://main.d3voqx7r17ipz6.amplifyapp.com. Amplify adds HSTS, `X-Fr
 `nosniff` and a strict referrer policy. To publish a new build (no Git connection needed):
 
 ```bash
-cd frontend && npm run build            # uses frontend/.env.local, so mocks must be off there
+cd frontend && npm run build            # uses frontend/.env.local
 (cd out && zip -qr /tmp/site.zip .)
 aws amplify create-deployment --app-id d3voqx7r17ipz6 --branch-name main   # returns jobId and zipUploadUrl
 curl -X PUT -H "Content-Type: application/zip" --data-binary @/tmp/site.zip "<zipUploadUrl>"

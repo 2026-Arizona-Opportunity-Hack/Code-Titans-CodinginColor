@@ -1,15 +1,15 @@
 # Architecture: Curriculum & Student Progress Platform
 
-Status: design draft for review. Nothing here is built yet.
-Companion document: [api.md](api.md) (REST endpoints).
+Status: built and deployed. This document records the design the code follows. When the code and this page disagree, the code wins, so please fix the page.
+Companion documents: [api.md](api.md) (REST endpoints), [decisions.md](decisions.md) (why), [operations.md](operations.md) (run it).
 
 ## 1. Scope
 
 CIC Problem 1. The platform teaches, the instructor manages. A teacher shares a class code (or link), students work through modules at their own pace, and CIC can measure learning gain without a spreadsheet.
 
-### What the judges see on Sunday, and what must run
+### What the platform has to show
 
-| Outcome | Demo must show |
+| Outcome | What the platform does |
 |---|---|
 | The platform teaches | A student, with no instructor help, completes a module (video, check, worksheet, exit question) and the next module unlocks. |
 | Nobody falls behind | A student who joins late lands on the right module and catches up. |
@@ -21,7 +21,7 @@ CIC Problem 1. The platform teaches, the instructor manages. A teacher shares a 
 **Primary: learning gain as the headline metric.** Gain per concept, per class, per cohort, exportable.
 Why: it reuses P0 data (pre/post pairs) and only adds concept tags on questions, so the cost is low and the funder value is high ("students gained 32 points on loops").
 
-**Built as a stretch:** Socratic hints that log what students struggled with (`POST /v1/student/hints`, `events` table). It reuses the same concept tags. Build it only if the primary pick is finished and demoable.
+**Also built:** Socratic hints that log what students struggled with (`POST /v1/student/hints`, `events` table). They reuse the same concept tags.
 
 ## 2. Constraints and principles
 
@@ -60,10 +60,12 @@ flowchart LR
   API --> L5[student-api]
   API --> L6[reports-api]
   API --> L7[read-api]
+  API --> L8[access-request]
 
-  L1 & L2 & L3 & L4 & L5 & L6 & L7 --> DDB[(DynamoDB<br/>content, core, progress, events)]
+  L1 & L2 & L3 & L4 & L5 & L6 & L7 & L8 --> DDB[(DynamoDB<br/>content, core, progress, events)]
   L3 --> S3[(S3 + CloudFront<br/>curriculum images)]
-  L5 -.stretch.-> AI[Amazon Bedrock]
+  L5 -->|hints| AI[Amazon Bedrock]
+  L3 -->|draft from a file| AI
   L2 --> COG[Cognito user pool<br/>admin-create-user]
   SA --> DDB
   KA --> DDB
@@ -77,13 +79,14 @@ flowchart LR
 | API | API Gateway **HTTP API**, `/v1` | $1 per million calls. Native Cognito JWT authorizer. |
 | Compute | Python 3.12 Lambdas, one per domain | Handler per domain with a small internal router. |
 | Database | DynamoDB on-demand, PITR, AWS-managed encryption | Four tables (section 6). |
-| Staff auth | Cognito user pool, groups `cic_admin`, `instructor`, `external_teacher`, `reviewer` | Invite-only, no self sign-up. TOTP MFA. Cognito applies MFA per pool, not per group, so it is required for all staff (open decision 10). Managed Login is used for the staff sign-in screens. |
+| Staff auth | Cognito user pool, groups `cic_admin`, `instructor`, `external_teacher`, `reviewer` | Invite-only, no self sign-up. TOTP MFA. Cognito applies MFA per pool, not per group, so it is required for all staff (open decision 10). The app has its own sign-in screens that use Cognito's SRP flow, so the password never leaves the browser. |
 | Student auth | Custom: class code + per-student secret words, opaque session, behind a small identity interface | Deviation from the "use Cognito" standard (section 11). SSO can be added later without changing the API. |
 | Files | S3 behind CloudFront (OAC) for curriculum images | Roster CSVs are posted as JSON text, so no upload bucket is needed. |
 | Video | Unlisted YouTube embeds (`youtube-nocookie.com`) | Free bandwidth and captions. |
-| Secrets | Secrets Manager: credential pepper (1 secret now), GitHub token for Amplify (added when hosting is wired up) | About $0.40 per secret per month. Bedrock needs no key; the Lambda role is the credential. |
-| AI (hints) | Amazon Bedrock, Amazon Nova Lite (`amazon.nova-lite-v1:0`) in `us-west-2`, invoked with the Lambda's IAM role | The policy allows `InvokeModel` on that one model ARN. Hard monthly cap (`hintsMonthlyCap`, default 5000). |
-| Ops | CloudWatch 14-day retention, one AWS Budget | No WAF, VPC, X-Ray, or custom KMS keys. |
+| Secrets | Secrets Manager: the credential pepper (one secret) | About $0.40 per secret per month. Bedrock needs no key; the Lambda role is the credential. |
+| AI (hints) | Amazon Bedrock, Amazon Nova Lite (`amazon.nova-lite-v1:0`) in `us-west-2`, invoked with the Lambda's IAM role | The student Lambda's policy allows `InvokeModel` on that one model ARN. Hard monthly cap (`hintsMonthlyCap`, default 5000). |
+| AI (draft from a file) | Bedrock, Claude Haiku 4.5 with Amazon Nova Pro as the fallback, through US inference profiles | Used only by the curriculum Lambda, for authors. Section 7.7. |
+| Ops | CloudWatch Logs with 14-day retention | No WAF, VPC, X-Ray, custom KMS keys, CloudWatch alarms or AWS Budget. Watch the bill in Cost Explorer (see [operations.md](operations.md)). |
 
 ## 5. Identity and access
 
@@ -187,7 +190,7 @@ Publishing validates the module and creates the next `V#` item. Published versio
 - `displayName` is a plain display field with **no uniqueness constraint**. Two students named "Alex Kim" are two rows with two IDs, two credentials, and two separate progress records. Login and every API path use the ID, so duplicate names cannot cause a mix-up.
 - `rosterNumber` is assigned by the system per class (1, 2, 3, ...), never reused, and is not personal data. Instructor lists show name plus roster number so same-name students are distinguishable. Credentials are stored hashed, so we cannot show part of a student's secret words as a disambiguator.
 - `externalId` is an optional school-issued student ID. If a roster CSV includes it, a re-import matches rows on it and updates instead of duplicating. It is stored only when provided. This is the one field beyond name, school, and class, so it needs CIC's confirmation (section 13).
-- Without an `externalId`, a repeated name becomes a new student by default and is flagged as a possible duplicate for the instructor to review (deactivate or, after the demo, merge). Nothing else (such as a birthdate) is collected to tell students apart.
+- Without an `externalId`, a repeated name becomes a new student by default and is flagged as a possible duplicate for the instructor to review (deactivate or merge). Nothing else (such as a birthdate) is collected to tell students apart.
 - Search and filters (by cohort, class, and name) run server-side over the roster. With classes of about 30 students this is a small query and needs no extra index. Every result links to the student's detail by ID.
 
 GSIs: `gsi1` (`USR#<sub>` to `CLS#<id>`, for "my classes"), `gsi2` (`COH#<id>` to `CLS#<id>`, for cohort rollups), `gsi3` (`JOIN#<code>` to class, for login). Login finds the class by code, then matches the student by `credHmac` within that class's roster.
@@ -204,7 +207,7 @@ GSIs: `gsi1` (`USR#<sub>` to `CLS#<id>`, for "my classes"), `gsi2` (`COH#<id>` t
 Every item carries `classId` and `cohortId` (denormalized when written).
 GSI `gsi1`: `CLS#<classId>#MOD#<moduleId>` to `STU#<id>` returns a whole class's module state in one query. GSI `gsi2` is a sparse index on submissions awaiting instructor review.
 
-### `events` table: audit and (stretch) hints
+### `events` table: audit and hints
 
 `AUD#<yyyy-mm>` audit entries (key created, export run, roster imported, publish, credential reset) and `HINT#<classId>` hint logs. TTL set (audit about 1 year, hints about 180 days).
 Logs and audit entries reference IDs, never names.
@@ -247,25 +250,31 @@ For a student with both pretest score `pre` and post-test score `post` (percent,
 ### 7.6 Attention lists (defaults, configurable per class)
 
 - **Not started:** module unlocked and assigned, zero activity records for at least 1 day.
-- **Stuck:** 3 or more failed attempts on the current activity, or active time on it above 2x its estimate, or (stretch) 3 or more hint requests, or no active time for 3 school days while the module is incomplete.
+- **Stuck:** 3 or more failed attempts on the current activity, or active time on it above 2x its estimate, or 3 or more hint requests, or no active time for 3 school days while the module is incomplete.
+
+### 7.7 Drafting a module from a file
+
+An author uploads a worksheet or slide deck (PDF up to 4.5 MB for the AI, or `.pptx`) from the Curriculum screen. `POST /curriculum/modules/from-file` stores a job item (`JOB#<id>` in `content`, expires after 24 hours) and returns 202. The curriculum Lambda then invokes itself asynchronously, because the model takes longer than API Gateway's 30-second limit (the Lambda timeout is 120 seconds). The model is forced to answer through one tool call (`module_draft`) with a fixed schema: title, 1 to 4 concepts, pretest, check questions, worksheet prompts, an exit question and a post-test with the same concepts and number of questions as the pretest. The result is saved as an ordinary **unpublished draft** marked `aiDrafted`, and the conversion is written to the audit log. Students never see it until an author reviews, edits and publishes it. Only the person who started a job can read its status (`GET /curriculum/conversions/{jobId}`). Text taken from a deck is capped at 60,000 characters, and the prompt tells the model the file is content to convert, never instructions.
 
 ## 8. Frontend
 
-Under `frontend/app/` (CIC standard layout). Components grouped by feature in `frontend/app/components/` (`player/`, `authoring/`, `instructor/`, `admin/`, `reviewer/`, `common/`). Context providers in `app/context/` (`AuthContext` for Cognito, `StudentSessionContext`). Config in `app/config/`.
+Under `frontend/app/` (CIC standard layout). Components are grouped by feature in `frontend/app/components/` (`player/`, `instructor/`, `author/`, `admin/`, `curriculum/`, `common/`). Context providers are in `app/context/` (`StaffSessionContext` for Cognito, `StudentSessionContext`). Config is in `app/config/`, and the typed API client is in `app/lib/api/`.
 
 | Area | Routes |
 |---|---|
-| Student | `/s` (login, also accepts the convenience link), `/student`, `/student/module?id=` |
-| Instructor | `/instructor`, `/instructor/class?id=`, `/instructor/class/gain?id=&module=` |
-| Admin | `/admin/curriculum`, `/admin/curriculum/edit?id=`, `/admin/cohorts`, `/admin/users`, `/admin/api-keys` |
-| Reviewer | `/reviewer`, `/reviewer/module?id=` (read-only, preview mode, no writes) |
+| Public | `/` (home), `/s` (student login, also accepts the convenience link), `/login` (staff), `/request-access` (external teachers) |
+| Student | `/student`, `/student/module?id=`, `/student/code-runner` |
+| Instructor | `/instructor` (classes), `/instructor/class?id=` and its sub-pages (`progress`, `review`, `import`, `add-student`, `assignments`, `concepts`, `gain`, `hints`, `gradebook`, `login-sheet`, `settings`), `/instructor/students`, `/instructor/curriculum` |
+| Author | `/author`, `/author/edit?id=`, `/author/versions` |
+| Admin | `/admin/users`, `/admin/schools`, `/admin/cohorts`, `/admin/api-keys`, `/admin/audit`, `/admin/access-requests`, `/admin/usage` |
+| Reviewer | `/reviewer`, `/reviewer/module?id=` (read-only) |
 
 - **Static export with query-string routes.** Amplify's catch-all rewrite to `index.html` (CIC standard) does not combine with path-parameter pages in a static export, so IDs go in the query string.
-- **Content rendering:** markdown only, no raw HTML (sanitized). Video only from an allowlist of YouTube IDs. A Content-Security-Policy header is set in the Amplify config.
+- **Content rendering:** markdown only, no raw HTML (sanitized). Video only from an allowlist of YouTube IDs. Amplify adds HSTS, `X-Frame-Options: DENY`, `nosniff` and a referrer policy. There is no Content-Security-Policy header yet.
 - **Authoring UI:** a form-based block list (add, reorder, delete, edit) rather than a WYSIWYG editor. It is faster to build, easier to make accessible, and easy to validate.
 - **Accessibility (separate prize):** semantic HTML, full keyboard operation, focus management on step changes, `aria-live` for feedback, visible focus, contrast checks, no color-only meaning, captions via YouTube, reduced-motion support, usable at 200% zoom and on a phone.
 - **Autosave** for worksheets (`PUT .../draft` every few seconds and on blur) so a flaky connection or closed lid loses nothing.
-- Environment variables use the `NEXT_PUBLIC_` prefix (API URL, region, user pool IDs).
+- Environment variables use the `NEXT_PUBLIC_` prefix (API URL, region, user pool IDs, optional Pyodide URL). See the README.
 
 ## 9. Backend and CDK layout
 
@@ -274,20 +283,24 @@ Follows `backend/` standards: one `index.py` per function directory, `lambda_han
 ```
 backend/
   bin/app.ts
-  lib/  data-stack.ts  auth-stack.ts  api-stack.ts  web-stack.ts
+  lib/  data-stack.ts  auth-stack.ts  api-stack.ts  config.ts  lambda-factory.ts
+        domains/   # one construct per API area: student-auth, student-player, classes,
+                   # curriculum, reports, admin, read, access-request, authorizers
   lambda/
-    shared-layer/python/cic/   # create_response, authz, identity, validation, gain, ids, logging (Lambda layer)
+    shared-layer/python/cic/   # authz, identity, validation, gain, grading, hints, ids, logging (Lambda layer)
     auth-student/    authorizer-student/    authorizer-apikey/
     admin-api/       curriculum-api/        class-api/
     student-api/     reports-api/           read-api/
-  test/  (mirrors lambda/)
+    access-request/  health/
+  seed/  (a starter module and the script that loads it)
+  test/  (mirrors lambda/ and lib/)
 ```
 
-- **No third-party Python dependencies** in the first version (stdlib + boto3). `lambda.Code.fromAsset` does not install `requirements.txt`, so the layer holds shared code and each function keeps an empty `requirements.txt`.
-- **Per-function IAM** via grant methods only: `reports-api` gets read on `progress` and `core`; `student-api` gets read and write on `progress` and read on `content`; `read-api` gets read only; and so on. The Bedrock policy (stretch) names a specific model ARN.
-- **Stacks:** `DataStack` (tables, bucket, CloudFront), `AuthStack` (Cognito, groups, MFA), `ApiStack` (HTTP API, authorizers, Lambdas, throttling), `WebStack` (Amplify app, env vars, auto-build).
-- **CfnOutputs:** API URL, table names, bucket, user pool and client IDs, Amplify URL.
-- **Context variables** (validated, thrown if missing): `allowedOrigins`, plus `githubOwner`, `githubRepo`, `githubToken` once `WebStack` is added (pass the token with `-c` on the CLI, never in `cdk.json`). Amplify hosting is deferred, so `WebStack` is not part of the first deploy.
+- **No third-party Python dependencies** (stdlib + boto3). `lambda.Code.fromAsset` does not install `requirements.txt`, so the layer holds shared code and each function keeps an empty `requirements.txt`.
+- **Per-function IAM** via grant methods only: `reports-api` gets read on `progress` and `core`; `student-api` gets read and write on `progress` and read on `content`; `read-api` gets read only; and so on. The Bedrock policies name specific model and inference-profile ARNs: Nova Lite for `student-api`, Claude Haiku 4.5 and Nova Pro for `curriculum-api`.
+- **Stacks:** `DataStack` (tables, bucket, CloudFront, pepper secret), `AuthStack` (Cognito, groups, MFA), `ApiStack` (HTTP API, authorizers, Lambdas, throttling). The frontend is hosted on Amplify and is published from a zip (see [operations.md](operations.md)), so there is no web stack.
+- **CfnOutputs:** API URL, table names, bucket, user pool and client IDs.
+- **Context variables** (validated, and the deploy fails if one is invalid): `allowedOrigins` (required), `staffMfa`, `bedrockRegion`, `hintModelId`, `hintsMonthlyCap`. The README lists them.
 
 ## 10. Security and privacy checklist
 
@@ -300,8 +313,8 @@ backend/
 - Encryption at rest (DynamoDB, S3 AWS-managed) and TLS in transit (S3 `enforceSSL`).
 - Retention: sessions (8 hours), hints (about 180 days), audit (about 1 year) via DynamoDB TTL. Student data for archived classes is deletable by an admin.
 - AI hints (Bedrock): student text is untrusted input in a prompt, passed as quoted data. The model is given the answers only as a "do not say" list, and its reply is checked again on the server (answers, spelled-out letters, long code) before a student sees it. Hints work only on check, worksheet and code activities, never tests. They are rate-limited per student, capped per month, and logged for teachers for 180 days. Student names are never sent.
-- Pyodide-style client-side code grading (stretch) is tamperable, so it is for formative use only. The docs must say so.
-- Secrets only in Secrets Manager and `.env` (gitignored). The repo's pre-commit hook stays enabled.
+- Client-side code grading (Pyodide) is tamperable, so coding exercises are for practice only and the docs say so.
+- Secrets only in Secrets Manager and `.env` (gitignored). A commit guard (`.claude/hooks/guard-secrets.sh`, used by Claude Code) blocks commits that stage secrets.
 
 ## 11. Deviations from CIC standards
 
@@ -327,21 +340,24 @@ Verified from AWS pricing pages: Cognito Essentials free up to 10,000 monthly ac
 | S3 + CloudFront (images only) | under $0.50 |
 | CloudWatch Logs (14-day retention) | about $0.25 |
 | Bedrock hints (Nova Lite, capped at 5000 a month) | about $0.15 at the cap |
+| Bedrock file conversion (Nova Pro or Haiku, authors only) | a few cents per file |
 
 ## 13. Decisions and open questions
 
-Decided with the mentor:
+Decided:
 
-1. **Cohort model.** Cohort, then one or more Classes, then Students. Instructors and reports filter by cohort or by class. We still confirm the real meaning with CIC in #npo-coding-in-color but do not block on it.
-2. **Student access.** Class code plus a per-student secret (three words) is the default, since it keeps data to name, school, and class and creates no accounts. It has unique credentials, rate limiting, and instructor reset, as the mentor asked. It sits behind the identity interface in section 5 so SSO can be added if a partner school requires it. Open question for CIC: does any school require SSO?
-3. **AI provider.** Amazon Bedrock.
-4. **Student identity.** UUID primary key, name is display only, per-class roster number, optional `externalId` for re-import matching, possible duplicates flagged for the instructor (mentor guidance). Open question for CIC: does it have school student IDs, and may we store them?
-5. **Sample content.** Use a mock slide deck for now. CIC has been asked for a real one.
-6. **Frontend ownership.** Other teammates build the frontend. This document and [api.md](api.md) are their contract. Section 8 is guidance, not a requirement.
+1. **Cohort model.** Cohort, then one or more Classes, then Students. Instructors and reports filter by cohort or by class.
+2. **Student access.** Class code plus a per-student secret (three words), since it keeps data to name, school, and class and creates no accounts. It has unique credentials, rate limiting, and instructor reset. It sits behind the identity interface in section 5 so SSO can be added if a partner school requires it.
+3. **AI provider.** Amazon Bedrock. Nova Lite for hints, Claude Haiku 4.5 with Nova Pro as the fallback for drafting modules from files.
+4. **Student identity.** UUID primary key, name is display only, per-class roster number, optional `externalId` for re-import matching, possible duplicates flagged for the instructor, who can merge them.
+5. **Frontend and backend contract.** This document and [api.md](api.md) are the contract between the two. Section 8 is guidance, not a requirement.
+6. **Hosting.** The frontend is a static export uploaded to Amplify as a zip, so no Git token is stored anywhere.
+7. **"Complete" rule.** A step is complete when the student submits it. Scores are kept for the teacher, and an author can require a minimum score on a check (section 7.1).
+8. **Staff MFA.** Cognito applies MFA per pool, so TOTP is required for all staff. `staffMfa=OPTIONAL` relaxes it.
+9. **Bedrock model and region.** Nova Lite in `us-west-2` for hints, set by `hintModelId` and `bedrockRegion`.
 
-Deferred or open:
+Open with CIC:
 
-7. **Amplify hosting** is deferred. The backend deploys first. The GitHub connection needs a token with access to the hackathon org repo, or we deploy a built bundle.
-8. **"Complete" rule** for a module (submit only vs minimum score), and who writes the matched pre/post questions.
-9. **Bedrock model and region.** Decided: Amazon Nova Lite in `us-west-2`, set by the `hintModelId` and `bedrockRegion` context values.
-10. **Staff MFA.** Cognito MFA is per pool. Decide between required TOTP for all staff (simplest, most secure) and optional TOTP (less friction for partner-school teachers, no admin enforcement). Current default: required.
+- Does any partner school require SSO for students?
+- Does CIC have school student IDs, and may the platform store them (`externalId`)?
+- Claude Haiku 4.5 is not enabled in the deployed AWS account until the Anthropic use-case form is submitted, so drafting uses the Nova Pro fallback (see [operations.md](operations.md)).
