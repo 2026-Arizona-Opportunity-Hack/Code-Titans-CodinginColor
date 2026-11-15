@@ -88,16 +88,19 @@ def sanitize_module(module: dict, act_states: List[dict], act_items: dict, versi
             for item in act.get("questions", []) + act.get("fields", []):
                 for k in STRIP_KEYS:
                     item.pop(k, None)
+            act.pop("solution", None)  # the reference solution never leaves the server
             act["state"] = state_by_id.get(act["activityId"], "locked")
             saved = act_items.get((doc["moduleId"], act["activityId"])) or {}
             if act.get("type") == "worksheet" and saved.get("draft"):
                 act["draft"] = saved["draft"]
+            if act.get("type") == "code" and saved.get("draftCode") is not None:
+                act["draftCode"] = saved["draftCode"]
     doc["moduleVersion"] = version
     return doc
 
 
 def save_activity(ctx: Ctx, module_id: str, activity_id: str, status: str, csid: Optional[str], result: Optional[dict],
-                  score: Optional[float] = None) -> None:
+                  score: Optional[float] = None, extra: Optional[dict] = None) -> None:
     """Record an attempt on an activity. A completed activity never goes back to in_progress."""
     prior = ctx.act_items.get((module_id, activity_id)) or {}
     if prior.get("status") == "complete":
@@ -114,6 +117,9 @@ def save_activity(ctx: Ctx, module_id: str, activity_id: str, status: str, csid:
     if best is not None:
         sets.append("bestScore = :best")
         values[":best"] = db.to_dynamo(best)
+    for i, (name, value) in enumerate((extra or {}).items()):  # fixed names set by the API, never by the student
+        sets.append(f"{name} = :x{i}")
+        values[f":x{i}"] = db.to_dynamo(value)
     if status == "complete":
         sets.append("completedAt = if_not_exists(completedAt, :now)")
     db.get_table(db.PROGRESS).update_item(

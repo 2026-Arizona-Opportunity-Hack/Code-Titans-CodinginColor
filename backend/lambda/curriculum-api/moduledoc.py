@@ -16,6 +16,9 @@ from typing import Any, List, Optional, Set
 
 MAX_BYTES = 250_000  # below the 256 KB request limit and the 400 KB DynamoDB item limit
 MAX_LESSONS, MAX_ACTIVITIES, MAX_QUESTIONS, MAX_CHOICES, MAX_SLIDES = 20, 30, 50, 8, 100
+MAX_CODE_TESTS = 20
+CODE_TEST_KEYS = {"testId", "label", "kind", "stdin", "expression", "expected"}
+CODE_TEST_KINDS = ("output", "call")  # run the program and compare what it prints, or evaluate an expression afterwards
 ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 CONCEPT = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")  # a YouTube video ID
@@ -32,12 +35,13 @@ def upload_url_ok(url, kind: str) -> bool:
     return (bool(base) and isinstance(url, str) and url.startswith(base + "/")
             and bool(UPLOAD_KEY[kind].match(url[len(base) + 1:])))
 
-ACTIVITY_TYPES = ("video", "slides", "check", "worksheet", "exit", "assessment")
+ACTIVITY_TYPES = ("video", "slides", "check", "worksheet", "exit", "assessment", "code")
 QUESTION_TYPES = ("mcq", "multi", "short", "numeric")
 COMMON = {"activityId", "type", "title", "required", "estimatedMinutes", "body"}
 EXTRA_KEYS = {"video": {"provider", "videoId", "minSeconds"}, "slides": {"slides", "minSeconds", "document"},
               "check": {"questions", "passPct"}, "exit": {"questions"}, "assessment": {"role", "questions"},
-              "worksheet": {"instructions", "fields", "document"}}
+              "worksheet": {"instructions", "fields", "document"},
+              "code": {"language", "starterCode", "tests", "solution", "passPct"}}
 QUESTION_KEYS = {"questionId", "type", "prompt", "choices", "answerKey", "explanation", "concept", "pairKey", "points"}
 FIELD_KEYS = {"fieldId", "type", "prompt", "choices", "answerKey", "explanation", "concept", "points"}
 
@@ -171,6 +175,36 @@ class Checker:
         else:
             self.bad(f"{path}.kind", "must be pdf, pptx or google")
 
+    def code_activity(self, a: dict, path: str) -> None:
+        """A coding exercise the student runs in the browser. Tests ship to the browser, so they are
+        practice checks. The reference solution stays on the server (it is only used to keep hints honest)."""
+        if a.get("language") not in (None, "python"):
+            self.bad(f"{path}.language", "must be python")
+        self.text(a, "starterCode", path, 4000)
+        self.text(a, "solution", path, 4000)
+        if a.get("passPct") is not None and not (_num(a["passPct"]) and 0 <= a["passPct"] <= 100):
+            self.bad(f"{path}.passPct", "must be a number from 0 to 100")
+        tests = a.get("tests", [])
+        if not isinstance(tests, list) or len(tests) > MAX_CODE_TESTS:
+            self.bad(f"{path}.tests", f"must be a list of at most {MAX_CODE_TESTS} tests")
+            return
+        for i, t in enumerate(tests):
+            tp = f"{path}.tests[{i}]"
+            if not isinstance(t, dict):
+                self.bad(tp, "must be an object")
+                continue
+            self.unknown(t, CODE_TEST_KEYS, tp)
+            self.ident(t, "testId", tp)
+            self.text(t, "label", tp, 120, required=True)
+            if t.get("kind") not in CODE_TEST_KINDS:
+                self.bad(f"{tp}.kind", f"must be one of: {', '.join(CODE_TEST_KINDS)}")
+            self.text(t, "stdin", tp, 500)
+            self.text(t, "expression", tp, 200)
+            self.text(t, "expected", tp, 1000)
+            if t.get("kind") == "output" and t.get("expression"):
+                self.bad(f"{tp}.expression", "is only used by call tests")
+            if t.get("kind") == "call" and t.get("stdin"):
+                self.bad(f"{tp}.stdin", "is only used by output tests")
     def activity(self, a: Any, path: str) -> None:
         if not isinstance(a, dict):
             self.bad(path, "must be an object")
@@ -208,6 +242,8 @@ class Checker:
                     self.unknown(s, {"title", "body"}, sp)
                     self.text(s, "title", sp, 120)
                     self.text(s, "body", sp, 4000)
+        elif kind == "code":
+            self.code_activity(a, path)
         elif kind == "worksheet":
             self.document(a.get("document"), f"{path}.document")  # the original printed worksheet, shown above the fields
             self.text(a, "instructions", path, 4000)
@@ -340,6 +376,20 @@ def publish_problems(doc: dict) -> List[dict]:
                         bad(f"{path}.fields[{k}].prompt", "is empty")
                 else:
                     question_text(f, f"{path}.fields[{k}]")
+        if kind == "code":
+            if _blank(a.get("body")):
+                bad(f"{path}.body", "needs instructions that tell students what to write")
+            tests = a.get("tests") or []
+            if not tests:
+                bad(f"{path}.tests", "needs at least one test")
+            for k, t in enumerate(tests):
+                tp = f"{path}.tests[{k}]"
+                if _blank(t.get("label")):
+                    bad(f"{tp}.label", "is empty")
+                if t.get("kind") == "call" and _blank(t.get("expression")):
+                    bad(f"{tp}.expression", "is required for a call test")
+                if _blank(t.get("expected")):
+                    bad(f"{tp}.expected", "is required")
         if kind in ("check", "exit", "assessment"):
             qs = a.get("questions") or []
             if not qs:

@@ -114,7 +114,7 @@ All `A` only.
 
 **Publish validation** (400 `VALIDATION_ERROR` with a list of problems): at least one pretest and one post-test; every assessment question has a `concept`, an answer key, and points; pre and post cover the same concepts; video IDs match the allowlist; no empty prompts.
 
-`PUT .../draft` body is the module document shown in architecture.md section 6.
+`PUT .../draft` body is the module document shown in architecture.md section 6. A coding exercise is `{type: "code", title, body (the instructions), language: "python", starterCode?, tests, solution?, passPct?}`. Each test is `{testId, label, kind: "output"|"call", stdin?, expression?, expected}`: an `output` test runs the program with `stdin` and compares what it prints, and a `call` test evaluates `expression` (for example `add(2, 3)`) after the program has run and compares the result. Publishing needs instructions and at least one test, each with a label and an expected value.
 
 **Reviewer preview.** Reviewers use `GET /curriculum/modules/{id}` and render it in a read-only preview. No progress or submission endpoint is reachable with a reviewer token.
 
@@ -248,7 +248,7 @@ Student session only. `studentId` and `classId` always come from the session, ne
 |---|---|---|
 | GET | `/student/home` | Assigned modules with state (`locked`, `available`, `in_progress`, `complete`, `catch_up`), progress percent, and the **resume** pointer `{moduleId, activityId}`. The pointer starts at the student's start module (see architecture.md 7.2). The UI renders it and computes nothing. |
 | GET | `/student/modules/{moduleId}` | The pinned module version, **sanitized** (no answer keys), with per-activity state. 403 `MODULE_LOCKED` if not unlocked. |
-| PUT | `/student/modules/{moduleId}/activities/{activityId}/draft` | Autosave worksheet answers |
+| PUT | `/student/modules/{moduleId}/activities/{activityId}/draft` | Autosave worksheet answers `{answers}`, or the code of a coding exercise `{code}` |
 | POST | `/student/modules/{moduleId}/activities/{activityId}/heartbeat` | `{seconds}` of active time (credited up to 45 per call) |
 | POST | `/student/modules/{moduleId}/activities/{activityId}/submit` | Submit answers, get grading and the next state |
 | POST | `/student/modules/{moduleId}/activities/{activityId}/complete` | Mark a video or slides activity done |
@@ -278,6 +278,8 @@ Student session only. `studentId` and `classId` always come from the session, ne
 - `heartbeat` takes `{"seconds": 1-120}` and credits at most 45 seconds per call.
 - An assessment can be submitted once. A second try returns 403 `ASSESSMENT_ALREADY_SUBMITTED`.
 - When the last required activity completes, the response includes `moduleUnlocked: "<nextModuleId>"`.
+- **Coding exercises** (`type: "code"`). The student writes Python and the browser runs it (Pyodide) against the exercise's `tests`. The server never runs student code. Submit sends `{clientSubmissionId, code, results: [{testId, passed}]}` (code up to 6000 characters). The server keeps the code, works the score out from the module's own test list (unknown IDs are rejected, a test with no result counts as not passed), and returns `{recorded, scorePct, passed, testsPassed, testsTotal, activityState, next}`. The activity completes when `scorePct >= passPct` (default 100). A later worse try never undoes a completion. The result is the student's own report, stored as `selfReported: true`, so it is practice feedback and not a measurement. A student can submit an exercise at most 100 times (403 `SUBMISSION_LIMIT`).
+- The student's copy of a coding exercise includes `starterCode`, `tests` and, once saved, `draftCode`. It never includes `solution`. Tests are sent to the browser so they can run there, so a student can read them.
 - Grading uses the `answerKey` stored server-side. Worksheet fields without a key go to the instructor review queue and show as "submitted".
 
 ### `POST /student/hints`
@@ -290,10 +292,11 @@ Student session only. `studentId` and `classId` always come from the session, ne
 { "data": { "hint": "Think about what generates a sequence of numbers.", "level": 1, "remainingToday": 9 } }
 ```
 
-- **Where it works.** Only `check` and `worksheet` activities, and only when the student could open the activity. Tests (`assessment`) and everything else return 403 `HINTS_NOT_ALLOWED`, so a hint can never change a pretest or post-test score.
+- **Where it works.** Only `check`, `worksheet` and `code` activities, and only when the student could open the activity. Tests (`assessment`) and everything else return 403 `HINTS_NOT_ALLOWED`, so a hint can never change a pretest or post-test score.
 - **Levels.** The first hint on an activity is a gentle question (level 1), the second names the concept (level 2), and the third and later show a tiny worked example on a different problem (level 3).
 - **Limits.** 10 hints per student per day (429 `HINT_LIMIT_REACHED`) and a cap for the whole app per month, `hintsMonthlyCap`, default 5000 (429 `AI_QUOTA_EXCEEDED`). A hint is counted before the model is called and given back if the call fails, which returns 503 `HINTS_UNAVAILABLE`. The route is throttled to 10 per second.
-- **Fields.** `question` up to 500 characters and `code` up to 4000. Unknown fields are rejected.
+- **Fields.** `question` up to 500 characters, `code` up to 6000, and for coding exercises `failedTests`, up to 20 test IDs the student's code does not pass yet. Their labels come from the module, so the student cannot put their own text there. Unknown fields are rejected.
+- **Coding exercises.** The model sees the task, the labels of the tests, the labels of the failing ones, the student's code, and a "do not say" list made of the author's reference solution (`solution`, never sent to students) and the expected outputs. A hint that contains a line of the solution or an expected output is replaced like any other leak.
 - **What the model sees.** The activity title, the question text and choices, the concept, the student's own text, and a "do not say" list of the answers so it can steer around them. It never sees the student's name, an explanation, or the raw answer key. Student text is passed as quoted data.
 - **What the student sees.** The reply is cleaned (echoed tags and labels removed) and checked: it must not contain an answer (also when punctuation is attached or the letters are spelled out), "the answer is", more than a few lines of code, or more than 600 characters. If it fails, the student gets a generic hint for that level instead. The student cannot tell the difference.
 - **Teacher review.** Each hint is logged in the events table under `HINT#<classId>` with the student ID, activity, concepts, level, the student's question, the hint shown, whether it was replaced, and token counts. Entries expire after 180 days. The student's name is not stored. The count of hints per activity (`hintCount`) feeds the "stuck" list in `GET /classes/{id}/attention` (reason `asked_for_hints`, at 3 or more).
