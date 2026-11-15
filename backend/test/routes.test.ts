@@ -20,7 +20,7 @@ describe("route keys match between CDK and Lambda", () => {
     expect([...pythonRoutes("reports-api")].sort()).toEqual([...REPORTS_ROUTES].sort());
   });
 
-  test("student-api", () => {
+  test("student-api (includes hints)", () => {
     expect([...pythonRoutes("student-api")].sort()).toEqual([...STUDENT_ROUTES].sort());
   });
 });

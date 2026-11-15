@@ -4,6 +4,7 @@ studentId and classId always come from the verified session, never from the requ
 """
 import re
 
+import student_hints
 import student_service as svc
 from cic import db, grading, keys
 from cic.authz import student_from_auth
@@ -194,6 +195,7 @@ ROUTES = {
     "POST /v1/student/modules/{moduleId}/activities/{activityId}/heartbeat": heartbeat,
     "POST /v1/student/modules/{moduleId}/activities/{activityId}/submit": submit,
     "POST /v1/student/modules/{moduleId}/activities/{activityId}/complete": complete_activity,
+    "POST /v1/student/hints": student_hints.hint,
 }
 
 lambda_handler = make_handler(ROUTES)

@@ -88,6 +88,8 @@ def attention(data: ClassData, now_ms: int) -> dict:
         current = acts.get((module_id, activity_id)) or {}
         if int(current.get("attempts", 0)) >= cfg["stuckFailedAttempts"] and current.get("status") != COMPLETE:
             reasons.append("repeated_attempts")
+        if int(current.get("hintCount", 0)) >= cfg["stuckFailedAttempts"] and current.get("status") != COMPLETE:
+            reasons.append("asked_for_hints")
         estimate = next((a.get("estimatedMinutes") for a in flatten_activities(data.modules[module_id]) if a["activityId"] == activity_id), None)
         if estimate and int(current.get("activeSeconds", 0)) > cfg["stuckTimeMultiplier"] * float(estimate) * 60:
             reasons.append("taking_longer_than_expected")

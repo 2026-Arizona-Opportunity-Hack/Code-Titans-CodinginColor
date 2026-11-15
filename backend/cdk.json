@@ -19,6 +19,9 @@
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": ["aws", "aws-cn"],
     "allowedOrigins": "http://localhost:3000",
-    "staffMfa": "REQUIRED"
+    "staffMfa": "REQUIRED",
+    "bedrockRegion": "us-west-2",
+    "hintModelId": "amazon.nova-lite-v1:0",
+    "hintsMonthlyCap": 5000
   }
 }
