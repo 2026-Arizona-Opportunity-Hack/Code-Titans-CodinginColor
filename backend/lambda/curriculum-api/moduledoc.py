@@ -250,3 +250,88 @@ def estimated_minutes(doc: dict) -> Optional[int]:
         return int(doc["estimatedMinutes"])
     total = sum(int(a.get("estimatedMinutes", 0)) for l in doc.get("lessons", []) for a in l.get("activities", []))
     return total or None
+
+
+def _blank(value: Any) -> bool:
+    return not isinstance(value, str) or not value.strip()
+
+
+def publish_problems(doc: dict) -> List[dict]:
+    """Return what is still missing before a draft can be published (empty when ready).
+
+    Assumes the draft already passed check_draft(), so shapes and types are sound.
+    """
+    out: List[dict] = []
+
+    def bad(path: str, message: str) -> None:
+        out.append({"path": path, "message": message})
+
+    def question_text(q: dict, path: str) -> None:
+        if _blank(q.get("prompt")):
+            bad(f"{path}.prompt", "is empty")
+        if q.get("type") in ("mcq", "multi"):
+            choices = q.get("choices") or []
+            if len(choices) < 2:
+                bad(f"{path}.choices", "needs at least 2 choices")
+            for k, c in enumerate(choices):
+                if _blank(c.get("text")):
+                    bad(f"{path}.choices[{k}].text", "is empty")
+
+    if _blank(doc.get("title")):
+        bad("$.title", "is empty")
+    flat = [(i, j, a) for i, l in enumerate(doc.get("lessons", [])) for j, a in enumerate(l.get("activities", []))]
+    if not flat:
+        bad("$.lessons", "needs at least one activity")
+    pre_concepts: Set[str] = set()
+    post_concepts: Set[str] = set()
+    for i, lesson in enumerate(doc.get("lessons", [])):
+        if _blank(lesson.get("title")):
+            bad(f"$.lessons[{i}].title", "is empty")
+        if not lesson.get("activities"):
+            bad(f"$.lessons[{i}].activities", "needs at least one activity")
+    for i, j, a in flat:
+        path, kind = f"$.lessons[{i}].activities[{j}]", a["type"]
+        if _blank(a.get("title")):
+            bad(f"{path}.title", "is empty")
+        if kind == "video" and not (isinstance(a.get("videoId"), str) and VIDEO_ID.match(a["videoId"])):
+            bad(f"{path}.videoId", "needs an 11-character YouTube video ID")
+        if kind == "slides" and not any(not _blank(s.get("body")) for s in a.get("slides") or []):
+            bad(f"{path}.slides", "needs at least one slide with text")
+        if kind == "worksheet":
+            if not a.get("fields"):
+                bad(f"{path}.fields", "needs at least one field")
+            for k, f in enumerate(a.get("fields") or []):
+                if f.get("type") == "text":
+                    if _blank(f.get("prompt")):
+                        bad(f"{path}.fields[{k}].prompt", "is empty")
+                else:
+                    question_text(f, f"{path}.fields[{k}]")
+        if kind in ("check", "exit", "assessment"):
+            qs = a.get("questions") or []
+            if not qs:
+                bad(f"{path}.questions", "needs at least one question")
+            for k, q in enumerate(qs):
+                qp = f"{path}.questions[{k}]"
+                question_text(q, qp)
+                needs_key = kind in ("check", "assessment")
+                if needs_key and q.get("answerKey") in (None, "", []):
+                    bad(f"{qp}.answerKey", "is required")
+                if kind == "assessment":
+                    if _blank(q.get("concept")):
+                        bad(f"{qp}.concept", "is required on assessment questions")
+                    elif a.get("role") == "pre":
+                        pre_concepts.add(q["concept"])
+                    else:
+                        post_concepts.add(q["concept"])
+                    if not (_num(q.get("points", 1)) and q.get("points", 1) > 0):
+                        bad(f"{qp}.points", "must be greater than 0")
+    if flat:
+        first, last = flat[0][2], flat[-1][2]
+        if not (first["type"] == "assessment" and first.get("role") == "pre"):
+            bad("$.lessons[0].activities[0]", "the first activity must be the pretest")
+        if not (last["type"] == "assessment" and last.get("role") == "post"):
+            bad(f"$.lessons[{flat[-1][0]}].activities[{flat[-1][1]}]", "the last activity must be the post-test")
+    if pre_concepts != post_concepts:
+        bad("$", "the pretest and post-test must cover the same concepts "
+                 f"(pretest only: {sorted(pre_concepts - post_concepts)}, post-test only: {sorted(post_concepts - pre_concepts)})")
+    return out

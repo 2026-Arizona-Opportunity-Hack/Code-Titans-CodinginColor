@@ -18,7 +18,7 @@ from cic.authz import require_staff
 from cic.errors import Conflict, Forbidden, NotFound, ValidationError
 from cic.http import Reply, Request
 from cic.ids import utc_now_iso
-from moduledoc import check_draft, concepts_in, estimated_minutes, to_decimal
+from moduledoc import check_draft, concepts_in, estimated_minutes, publish_problems, to_decimal
 from templates import TEMPLATES
 
 STATUS_FILTERS = ("draft", "published", "all")
@@ -161,7 +161,82 @@ def save_draft(req: Request):
     return {"revision": new_revision, "updatedAt": now}
 
 
+def publish(req: Request):
+    staff = require_author(req.auth)
+    module_id = module_id_from(req)
+    table = db.get_table(db.CONTENT)
+    meta = table.get_item(Key=meta_key(module_id)).get("Item")
+    draft = table.get_item(Key={"pk": f"MOD#{module_id}", "sk": "DRAFT"}).get("Item")
+    if not meta or not draft:
+        raise NotFound("Module not found")
+    if int(draft["revision"]) == int(meta.get("publishedRevision", 0)):
+        raise Conflict(f"Nothing has changed since version {int(meta['latestVersion'])}", code="ALREADY_PUBLISHED")
+    doc = draft["module"]
+    problems = publish_problems(doc)
+    if problems:
+        raise ValidationError("The module is not ready to publish", details=problems)
+
+    old, version, now = int(meta["latestVersion"]), int(meta["latestVersion"]) + 1, utc_now_iso()
+    try:
+        table.meta.client.transact_write_items(TransactItems=[
+            {"Put": {"TableName": table.name, "ConditionExpression": "attribute_not_exists(pk)",
+                     "Item": {"pk": f"MOD#{module_id}", "sk": version_sk(version), "module": doc, "version": version,
+                              "revision": draft["revision"], "publishedAt": now, "publishedBy": staff.user_id}}},
+            # Only if nobody saved or published since we read: the snapshot must match the draft we validated.
+            {"Update": {"TableName": table.name, "Key": meta_key(module_id),
+                        "ConditionExpression": "latestVersion = :old AND #r = :rev",
+                        "UpdateExpression": "SET latestVersion = :v, publishedRevision = :rev, publishedAt = :now",
+                        "ExpressionAttributeNames": {"#r": "revision"},
+                        "ExpressionAttributeValues": {":old": old, ":v": version, ":rev": draft["revision"], ":now": now}}},
+        ])
+    except ClientError as err:
+        if err.response["Error"]["Code"] != "TransactionCanceledException":
+            raise
+        raise Conflict("The module changed while publishing. Reload it and try again", code="REVISION_CONFLICT")
+    return Reply(data={"moduleId": module_id, "version": version, "publishedAt": now}, status=201)
+
+
+def list_versions(req: Request):
+    require_author(req.auth)
+    module_id = module_id_from(req)
+    table = db.get_table(db.CONTENT)
+    if not table.get_item(Key=meta_key(module_id)).get("Item"):
+        raise NotFound("Module not found")
+    rows = db.query_all(table, KeyConditionExpression=Key("pk").eq(f"MOD#{module_id}") & Key("sk").begins_with("V#"),
+                        ProjectionExpression="sk, publishedAt, publishedBy")
+    return sorted(({"version": int(r["sk"][2:]), "publishedAt": r["publishedAt"], "publishedBy": r["publishedBy"]}
+                   for r in rows), key=lambda v: -v["version"])
+
+
+def get_version(req: Request):
+    require_staff(req.auth)
+    module_id = module_id_from(req)
+    raw = req.path.get("version", "")
+    if not raw.isdigit() or not 1 <= int(raw) <= 9999:
+        raise NotFound("Version not found")
+    item = db.get_table(db.CONTENT).get_item(Key={"pk": f"MOD#{module_id}", "sk": version_sk(int(raw))}).get("Item")
+    if not item:
+        raise NotFound("Version not found")
+    return {**item["module"], "version": int(raw)}
+
+
+def list_concepts(req: Request):
+    staff = require_staff(req.auth)
+    authoring = can_author(staff)
+    counts: dict = {}
+    for meta in db.query_all(db.get_table(db.CONTENT), IndexName="gsi1", KeyConditionExpression=Key("gsi1pk").eq("LIST#MOD")):
+        if not authoring and int(meta["latestVersion"]) < 1:
+            continue  # others only see concepts of published modules
+        for concept in meta.get("concepts", []):
+            counts[concept] = counts.get(concept, 0) + 1
+    return [{"concept": c, "moduleCount": n} for c, n in sorted(counts.items())]
+
+
 ROUTES = {
+    "POST /v1/curriculum/modules/{moduleId}/publish": publish,
+    "GET /v1/curriculum/modules/{moduleId}/versions": list_versions,
+    "GET /v1/curriculum/modules/{moduleId}/versions/{version}": get_version,
+    "GET /v1/curriculum/concepts": list_concepts,
     "PUT /v1/curriculum/modules/{moduleId}/draft": save_draft,
     "GET /v1/curriculum/modules": list_modules,
     "POST /v1/curriculum/modules": create_module,

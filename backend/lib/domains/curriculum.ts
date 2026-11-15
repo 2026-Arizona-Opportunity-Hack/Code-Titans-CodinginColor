@@ -29,6 +29,10 @@ export class CurriculumDomain extends Construct {
         "POST /v1/curriculum/modules",
         "GET /v1/curriculum/modules/{moduleId}",
         "PUT /v1/curriculum/modules/{moduleId}/draft",
+        "POST /v1/curriculum/modules/{moduleId}/publish",
+        "GET /v1/curriculum/modules/{moduleId}/versions",
+        "GET /v1/curriculum/modules/{moduleId}/versions/{version}",
+        "GET /v1/curriculum/concepts",
       ],
       ctx.staffAuthorizer,
     );
