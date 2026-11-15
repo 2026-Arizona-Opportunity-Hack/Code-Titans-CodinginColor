@@ -16,6 +16,7 @@ const TYPE: Record<ActivityDetail["type"], string> = {
   exit: "Exit question",
   assessment: "Test",
   worksheet: "Worksheet",
+  code: "Coding exercise",
 };
 const STATE: Record<ActivityDetail["state"], { label: string; badge: string }> = {
   complete: { label: "Complete", badge: "badge" },

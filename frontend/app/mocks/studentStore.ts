@@ -39,6 +39,13 @@ const loops: StudentModule = {
   moduleId: "py-loops", title: "Python Loops", moduleVersion: 2, state: "available", percent: 0,
   lessons: [{ lessonId: "l1", title: "Repeating things", activities: [
     { ...base, activityId: "a-pre", type: "assessment", role: "pre", title: "Pretest", questions: pair("pre") },
+    { ...base, activityId: "a-code", type: "code", title: "Write a loop", language: "python",
+      body: "Write a program that reads a number `n` and prints the numbers from 1 to `n`, one per line.",
+      starterCode: "n = int(input())\n# print the numbers from 1 to n\n",
+      tests: [
+        { testId: "t1", label: "n = 3 prints 1, 2, 3", kind: "output", stdin: "3", expected: "1\n2\n3" },
+        { testId: "t2", label: "n = 1 prints just 1", kind: "output", stdin: "1", expected: "1" },
+      ] },
     { ...base, activityId: "a-vid", type: "video", title: "Watch: loops", provider: "youtube", videoId: VIDEO, minSeconds: 3 },
     { ...base, activityId: "a-chk", type: "check", title: "Check your understanding", passPct: 50, questions: [
       mcq("q-chk-1", "What does `range(3)` produce?", ["0, 1, 2", "1, 2, 3", "0, 1, 2, 3", "3"], "a", "loops"),

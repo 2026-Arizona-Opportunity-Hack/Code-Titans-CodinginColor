@@ -16,6 +16,8 @@ export type Question = {
   pairKey?: string;
 };
 
+/** A test the browser runs against a student's code. The reference solution is never sent. */
+export type CodeTestPublic = { testId: string; label: string; kind: "output" | "call"; stdin?: string; expression?: string; expected: string };
 export type WorksheetField = { fieldId: string; type: string; prompt: string };
 
 export type ActivityState = "locked" | "available" | "in_progress" | "complete";
@@ -27,6 +29,7 @@ export type Activity =
   | (ActivityBase & { type: "slides"; minSeconds?: number; slides?: { title?: string; body?: string }[]; document?: import("../slideDocument").SlideDocument })
   | (ActivityBase & { type: "check" | "exit"; questions: Question[]; passPct?: number })
   | (ActivityBase & { type: "assessment"; role: "pre" | "post"; questions: Question[] })
+  | CodeActivityData
   | (ActivityBase & {
       type: "worksheet";
       instructions: string;
@@ -37,6 +40,16 @@ export type Activity =
       draft?: Record<string, string | number | null>;
     });
 
+export type CodeActivityData = ActivityBase & {
+  type: "code";
+  language: "python";
+  starterCode?: string;
+  tests: CodeTestPublic[];
+  /** Pass mark, default 100. */
+  passPct?: number;
+  /** The code the student last saved. */
+  draftCode?: string;
+};
 export type StudentModule = {
   moduleId: string;
   title: string;
@@ -59,6 +72,9 @@ export type StepResult = {
   scorePct?: number;
   passed?: boolean;
   results?: { questionId: string; correct: boolean; explanation?: string }[];
+  /** Coding exercises: how many of the author's tests the student's own run passed. */
+  testsPassed?: number;
+  testsTotal?: number;
   /** Worksheets. */
   autoScorePct?: number | null;
   pendingReview?: boolean;
@@ -100,10 +116,24 @@ export function saveDraft(token: string, moduleId: string, activityId: string, a
   return apiFetch(path(moduleId, activityId, "draft"), { method: "PUT", token, body: { answers } });
 }
 
-/** POST /student/hints: one Socratic hint on a check or worksheet. Never available on tests. */
+/** A coding exercise: send the code and what the browser's test run found. The server works the score out from the module's test list. */
+export function submitCode(
+  token: string,
+  moduleId: string,
+  activityId: string,
+  clientSubmissionId: string,
+  code: string,
+  results: { testId: string; passed: boolean }[],
+): Promise<StepResult> {
+  return apiFetch<StepResult>(path(moduleId, activityId, "submit"), { method: "POST", token, body: { clientSubmissionId, code, results } });
+}
+export function saveCodeDraft(token: string, moduleId: string, activityId: string, code: string): Promise<{ savedAt: number }> {
+  return apiFetch(path(moduleId, activityId, "draft"), { method: "PUT", token, body: { code } });
+}
+/** POST /student/hints: one Socratic hint on a check, worksheet or coding exercise. Never available on tests. */
 export function requestHint(
   token: string,
-  body: { moduleId: string; activityId: string; questionId?: string; question?: string; code?: string },
+  body: { moduleId: string; activityId: string; questionId?: string; question?: string; code?: string; failedTests?: string[] },
 ): Promise<{ hint: string; level: 1 | 2 | 3; remainingToday: number }> {
   return apiFetch("/student/hints", { method: "POST", token, body });
 }

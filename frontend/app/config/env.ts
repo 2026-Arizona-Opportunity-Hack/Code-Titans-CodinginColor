@@ -9,6 +9,8 @@ export const env = {
   /** API base URL including /v1, without a trailing slash. */
   apiUrl: (process.env.NEXT_PUBLIC_API_URL ?? "https://mock.cic.local/v1").replace(/\/$/, ""),
 
+  /** Where Pyodide (Python in the browser, about 12 MB) is loaded from, with a trailing slash. Self-host it by setting this. */
+  pyodideUrl: (process.env.NEXT_PUBLIC_PYODIDE_URL ?? "https://cdn.jsdelivr.net/pyodide/v314.0.8/full").replace(/\/?$/, "/"),
   awsRegion: process.env.NEXT_PUBLIC_AWS_REGION ?? "",
   userPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? "",
   userPoolClientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "",

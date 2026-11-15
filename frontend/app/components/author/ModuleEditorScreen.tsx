@@ -10,9 +10,10 @@ import { Icon } from "../common/Icon";
 import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
 import { ACTIVITY_ICON, ActivityEditor, newQuestion } from "./ActivityEditor";
+import { newCodeTest } from "./CodeExerciseEditor";
 import { ModuleClassesPanel } from "./ModuleClassesPanel";
 
-const ADDABLE: [DocActivity["type"], string][] = [["video", "Video"], ["slides", "Slides (PDF, PowerPoint or Google Slides)"], ["check", "Check"], ["worksheet", "Worksheet"], ["exit", "Exit question"]];
+const ADDABLE: [DocActivity["type"], string][] = [["video", "Video"], ["slides", "Slides (PDF, PowerPoint or Google Slides)"], ["check", "Check"], ["worksheet", "Worksheet"], ["code", "Coding exercise (Python)"], ["exit", "Exit question"]];
 
 function Editor({ token, moduleId, initial, onReload }: { token: string; moduleId: string; initial: ModuleDoc; onReload: () => void }) {
   const qc = useQueryClient();
@@ -194,6 +195,7 @@ function Editor({ token, moduleId, initial, onReload }: { token: string; moduleI
                         if (add === "slides") Object.assign(act, { title: "Slides", slides: [] });
                         if (add === "check" || add === "exit") act.questions = [newQuestion(false)];
                         if (add === "worksheet") Object.assign(act, { instructions: "", fields: [newQuestion(true)] });
+                        if (add === "code") Object.assign(act, { title: "Coding exercise", language: "python", starterCode: "", solution: "", passPct: 100, tests: [newCodeTest()] });
                         const post = acts.findIndex((x) => x.type === "assessment" && x.role === "post");
                         acts.splice(post === -1 ? acts.length : post, 0, act);
                       });

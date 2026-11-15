@@ -53,9 +53,15 @@ export function getAttention(token: string, classId: string, signal?: AbortSigna
 
 export type ActivityDetail = {
   activityId: string;
-  type: "video" | "slides" | "check" | "exit" | "assessment" | "worksheet";
+  type: "video" | "slides" | "check" | "exit" | "assessment" | "worksheet" | "code";
   state: "locked" | "available" | "in_progress" | "complete";
   attempts: number;
+  /** Coding exercises with a submission: the code the student last submitted and how many tests their own run passed (self-reported). */
+  title?: string;
+  code?: string;
+  testsPassed?: number;
+  testsTotal?: number;
+  hintCount?: number;
   bestScore: number | null;
   /** Time on task, in minutes (one decimal place). */
   activeMinutes: number;

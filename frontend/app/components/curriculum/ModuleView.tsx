@@ -2,7 +2,7 @@ import type { DocActivity, DocQuestion, ModuleDoc } from "../../lib/api/curricul
 import { DocumentViewer } from "../common/DocumentViewer";
 
 const TYPE_LABEL: Record<DocActivity["type"], string> = {
-  video: "Video", slides: "Slides", check: "Check", worksheet: "Worksheet", exit: "Exit question", assessment: "Test",
+  video: "Video", slides: "Slides", check: "Check", worksheet: "Worksheet", exit: "Exit question", assessment: "Test", code: "Coding exercise",
 };
 
 function keyText(q: DocQuestion): string | null {
@@ -68,6 +68,19 @@ function Activity({ a }: { a: DocActivity }) {
             ))}
           </ol>
         ) : <p className="mt-2 text-muted">No slides yet.</p>
+      ) : null}
+      {a.type === "code" ? (
+        <div className="mt-3 grid gap-3">
+          {a.starterCode ? <div><p className="text-sm font-bold">Starter code</p><pre className="mt-1 overflow-auto rounded-lg bg-wash p-3 font-mono text-sm">{a.starterCode}</pre></div> : null}
+          <div>
+            <p className="text-sm font-bold">Tests ({(a.tests ?? []).length})</p>
+            <ul className="mt-1 list-disc pl-6 text-sm">
+              {(a.tests ?? []).map((t) => <li key={t.testId}>{t.label || "(no label)"}: {t.kind === "call" ? <code>{t.expression}</code> : "prints"} → <code>{t.expected}</code></li>)}
+            </ul>
+          </div>
+          {a.solution ? <div><p className="text-sm font-bold">Reference solution (staff only)</p><pre className="mt-1 overflow-auto rounded-lg bg-wash p-3 font-mono text-sm">{a.solution}</pre></div> : null}
+          <p className="text-sm text-muted">Passing score: {a.passPct ?? 100}%. Students run the tests in their browser.</p>
+        </div>
       ) : null}
       {a.type === "check" && a.passPct !== undefined ? <p className="mt-2 text-sm">Passing score: {a.passPct}%</p> : null}
       {items.length > 0 ? <ol className="list-none">{items.map((q, i) => <Question key={q.questionId ?? q.fieldId ?? i} q={q} n={i + 1} />)}</ol> : null}
