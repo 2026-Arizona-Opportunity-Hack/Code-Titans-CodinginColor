@@ -114,6 +114,7 @@ describe("ClassesDomain", () => {
     "PATCH /v1/classes/{classId}/roster/{studentId}",
     "DELETE /v1/classes/{classId}/roster/{studentId}",
     "GET /v1/students/{studentId}",
+    "POST /v1/classes/{classId}/roster/{studentId}/merge",
     "GET /v1/students",
     "POST /v1/classes/{classId}/roster/import",
     "POST /v1/classes/{classId}/credentials",

@@ -130,7 +130,7 @@ All `A` only.
 | POST | `/classes/{classId}/roster/import` | I, A | Commit the import |
 | POST | `/classes/{classId}/roster` | I, A | Add one student `{displayName, externalId?, startModuleId?}` (late joiner). `startModuleId` defaults to the class's `currentModuleId`. Returns that student's credential once. It cannot be shown again; use `/credentials` to reissue. A repeated name is created as a new student and returned with `possibleDuplicateOf`. |
 | PATCH | `/classes/{classId}/roster/{studentId}` | I, A | Rename or deactivate (deactivate is how a duplicate is retired for the demo) |
-| POST | `/classes/{classId}/roster/{studentId}/merge` | I, A | **After the demo.** Merge a duplicate into `{intoStudentId}`, keeping the better result per activity |
+| POST | `/classes/{classId}/roster/{studentId}/merge` | I, A | Merge this duplicate into `{intoStudentId}` (same class) and remove it. Activities keep the better result (complete wins, highest score, attempts and time add up). Pretest and post-test keep the earlier submission, so gain is not inflated. Submissions and unlock overrides move over. The kept student's name and login words do not change. Safe to retry. |
 | DELETE | `/classes/{classId}/roster/{studentId}` | A | Delete a student and their progress |
 | POST | `/classes/{classId}/credentials` | I, A | Generate or reset credentials `{studentIds?}` (all if omitted). Old words stop working and those students' sessions are revoked. The words are returned in this response only. |
 | POST | `/classes/{classId}/join-code/rotate` | I, A | Issue a new class code |

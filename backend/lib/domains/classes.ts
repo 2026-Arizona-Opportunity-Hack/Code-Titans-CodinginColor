@@ -20,6 +20,7 @@ export class ClassesDomain extends Construct {
         CORE_TABLE: ctx.tables.core.tableName,
         CONTENT_TABLE: ctx.tables.content.tableName,
         PROGRESS_TABLE: ctx.tables.progress.tableName,
+        EVENTS_TABLE: ctx.tables.events.tableName,
         USER_POOL_ID: ctx.userPool.userPoolId,
         APP_URL: appUrl,
         PEPPER_SECRET_ARN: pepper.secretArn, // adding a student, issuing words and importing all hash credentials
@@ -29,7 +30,8 @@ export class ClassesDomain extends Construct {
     ctx.tables.content.grantReadData(fn);
     pepper.grantRead(fn);
     // Query: count who started a module. Batch/Delete: remove a deleted student's progress.
-    ctx.tables.progress.grant(fn, "dynamodb:Query", "dynamodb:BatchWriteItem", "dynamodb:DeleteItem");
+    ctx.tables.progress.grant(fn, "dynamodb:Query", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:BatchWriteItem", "dynamodb:DeleteItem");
+    ctx.tables.events.grant(fn, "dynamodb:PutItem"); // audit entries
     ctx.userPool.grant(fn, "cognito-idp:AdminListGroupsForUser"); // checks a member is an instructor
     addRoutes(
       ctx,
@@ -46,6 +48,7 @@ export class ClassesDomain extends Construct {
         "PATCH /v1/classes/{classId}/roster/{studentId}",
         "DELETE /v1/classes/{classId}/roster/{studentId}",
         "GET /v1/students/{studentId}",
+        "POST /v1/classes/{classId}/roster/{studentId}/merge",
         "GET /v1/students",
         "POST /v1/classes/{classId}/roster/import",
         "POST /v1/classes/{classId}/credentials",
