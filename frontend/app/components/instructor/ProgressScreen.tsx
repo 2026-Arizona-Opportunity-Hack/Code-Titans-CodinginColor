@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ApiError } from "../../lib/api/client";
-import { getProgress } from "../../lib/api/reports";
+import { getAttention, getProgress } from "../../lib/api/reports";
 import { StaffPage } from "../common/StaffPage";
+import { AttentionPanel } from "./AttentionPanel";
 import { ProgressTable } from "./ProgressTable";
 
 const normalize = (text: string) => text.trim().replace(/\s+/g, " ").toLowerCase();
@@ -21,6 +22,13 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
     refetchOnMount: "always", // a teacher opening this page expects what students have done by now
   });
 
+  const attention = useQuery({
+    queryKey: ["attention", token, classId],
+    queryFn: ({ signal }) => getAttention(token, classId, signal),
+    retry: false,
+    refetchOnMount: "always",
+  });
+
   const matrix = progress.data;
   const visible = useMemo(() => {
     const needle = normalize(search);
@@ -33,7 +41,7 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
   const tiles = [
     ["Students", students.length],
     ["Finished every module", finished],
-    ["Haven't started", notStarted],
+    ["Haven't started anything", notStarted],
   ] as const;
 
   return (
@@ -46,8 +54,13 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
           <h1>Progress</h1>
           <p className="mt-1 text-muted">Where each student is in the assigned modules.</p>
         </div>
-        <button type="button" className="btn btn-secondary" onClick={() => progress.refetch()} disabled={progress.isFetching}>
-          {progress.isFetching ? "Refreshing…" : "Refresh"}
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => Promise.all([progress.refetch(), attention.refetch()])}
+          disabled={progress.isFetching || attention.isFetching}
+        >
+          {progress.isFetching || attention.isFetching ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 
@@ -93,7 +106,11 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
             ))}
           </dl>
 
-          <div className="mt-6 max-w-sm">
+          {attention.data ? (
+            <AttentionPanel attention={attention.data} titleOf={(id) => matrix.modules.find((m) => m.moduleId === id)?.title ?? id} />
+          ) : null}
+
+          <div className="mt-8 max-w-sm">
             <label htmlFor="progress-search" className="block font-bold">
               Search by name
             </label>

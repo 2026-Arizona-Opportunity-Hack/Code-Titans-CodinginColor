@@ -126,7 +126,7 @@ export function moduleViews(studentId: string) {
     if (i >= start) previousComplete = done;
     return { moduleId: id, title: m.title, state, percent, states };
   });
-  return { views, resume };
+  return { views, resume: resume as { moduleId: string; activityId: string } | null }; // assigned inside the loop above
 }
 
 /** Records the status, then works out what comes next and whether a module unlocked. */

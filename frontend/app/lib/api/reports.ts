@@ -26,3 +26,27 @@ export type ProgressMatrix = {
 export function getProgress(token: string, classId: string, signal?: AbortSignal): Promise<ProgressMatrix> {
   return apiFetch<ProgressMatrix>(`/classes/${encodeURIComponent(classId)}/progress`, { token, signal });
 }
+
+export type StuckReason = "repeated_attempts" | "asked_for_hints" | "taking_longer_than_expected" | "inactive";
+
+type AttentionRow = {
+  studentId: string;
+  displayName: string;
+  rosterNumber: number;
+  externalId: string | null;
+  /** The step the student is on, or should start. */
+  moduleId: string;
+  activityId: string;
+};
+
+/** GET /classes/{classId}/attention. Thresholds come from the class settings. */
+export type Attention = {
+  /** Could have started their current module, but have no activity in it yet. */
+  notStarted: (AttentionRow & { waitingDays: number | null })[];
+  /** Started their current module but need help, with the reasons why. */
+  stuck: (AttentionRow & { reasons: StuckReason[] })[];
+};
+
+export function getAttention(token: string, classId: string, signal?: AbortSignal): Promise<Attention> {
+  return apiFetch<Attention>(`/classes/${encodeURIComponent(classId)}/attention`, { token, signal });
+}
