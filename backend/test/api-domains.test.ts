@@ -132,6 +132,7 @@ describe("CurriculumDomain", () => {
     "GET /v1/curriculum/modules",
     "POST /v1/curriculum/modules",
     "GET /v1/curriculum/modules/{moduleId}",
+    "PUT /v1/curriculum/modules/{moduleId}/draft",
   ])("%s requires the Cognito JWT authorizer", (routeKey) => {
     t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: routeKey, AuthorizationType: "JWT" });
   });
