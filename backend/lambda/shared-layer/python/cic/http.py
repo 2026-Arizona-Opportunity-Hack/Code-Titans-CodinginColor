@@ -29,6 +29,8 @@ class Reply:
     status: int = 200
     meta: Optional[dict] = None
     headers: Dict[str, str] = field(default_factory=dict)
+    raw: Optional[str] = None  # send this text as-is (for example CSV) instead of the JSON envelope
+    content_type: str = "application/json"
 
 
 @dataclass
@@ -88,6 +90,7 @@ def create_response(
     body: Any,
     origin: Optional[str] = None,
     extra_headers: Optional[Dict[str, str]] = None,
+    raw_body: Optional[str] = None,
 ) -> dict:
     """Build an API Gateway response with CORS headers. Used for every response, including errors."""
     headers = {"Content-Type": "application/json", "Cache-Control": "no-store"}
@@ -97,7 +100,7 @@ def create_response(
     return {
         "statusCode": status_code,
         "headers": headers,
-        "body": json.dumps(body, default=_json_default),
+        "body": raw_body if raw_body is not None else json.dumps(body, default=_json_default),
     }
 
 
@@ -138,6 +141,9 @@ def make_handler(routes: Dict[str, Callable[[Request], Any]]) -> Callable:
                 raise NotFound("Not found")
             result = fn(req)
             reply = result if isinstance(result, Reply) else Reply(data=result)
+            if reply.raw is not None:
+                raw_headers = {"Content-Type": reply.content_type, **reply.headers}
+                return create_response(reply.status, None, req.origin, raw_headers, raw_body=reply.raw)
             envelope: Dict[str, Any] = {"data": reply.data}
             if reply.meta is not None:
                 envelope["meta"] = reply.meta
