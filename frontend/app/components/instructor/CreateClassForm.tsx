@@ -120,6 +120,12 @@ function CreateClassBody({ token, me }: { token: string; me: StaffMe }) {
             </select>
             {orgs.isError ? <p className="mt-1 text-sm text-danger">We couldn&apos;t load the schools list.</p> : null}
           </div>
+        ) : me.orgId ? (
+          <div>
+            <p className="font-bold">School</p>
+            <p className="mt-1">{me.orgName ?? "Your school"}</p>
+            <p className="text-sm text-muted">Classes are created in the school on your account. A CIC admin can change it.</p>
+          </div>
         ) : null}
 
         <fieldset className="grid gap-6 sm:grid-cols-2">
