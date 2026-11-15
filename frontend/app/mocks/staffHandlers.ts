@@ -8,7 +8,7 @@ import { getRoster } from "./rosterStore";
 // backend's GET /me and docs/api.md sections 2 and 4. Created classes live in memory,
 // so they disappear when the page is reloaded.
 
-const ORGS: Org[] = [
+export const ORGS: Org[] = [
   { orgId: "org_maryvale", name: "Maryvale High School", status: "active" },
   { orgId: "org_desert_edge", name: "Desert Edge High School", status: "active" },
   { orgId: "org_old_school", name: "Old Partner School", status: "archived" }, // hidden from the picker
@@ -34,10 +34,11 @@ const classes: ClassSummary[] = [
     name: "Period 3",
     orgId: "org_maryvale",
     joinCode: "K7M4QX",
+    cohortId: "coh_maryvale01",
     termStart: "2026-08-17",
     termEnd: "2026-12-18",
   }),
-  newClass({ classId: "cls_02", name: "Period 5", orgId: "org_maryvale", joinCode: "R2D9TW" }),
+  newClass({ classId: "cls_02", name: "Period 5", orgId: "org_maryvale", joinCode: "R2D9TW", cohortId: "coh_maryvale01" }),
 ];
 
 register({
@@ -46,6 +47,8 @@ register({
   restore: (data: ClassSummary[]) => classes.splice(0, classes.length, ...data),
 });
 
+register({ key: "orgs", snapshot: () => ORGS, restore: (d: Org[]) => ORGS.splice(0, ORGS.length, ...d) });
+export const allClasses = () => classes;
 export const findClass = (classId: string) => classes.find((c) => c.classId === classId);
 
 export function apiError(status: number, code: string, error: string) {
