@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, apiFetchAll, apiFetchPage } from "./client";
 
 // Calls for staff (instructor, CIC admin, reviewer): GET /me, plus the class endpoints
 // in docs/api.md section 4. Staff use a Cognito token as the Bearer token.
@@ -62,7 +62,7 @@ export function getMe(token: string, signal?: AbortSignal): Promise<StaffMe> {
 }
 
 export function listClasses(token: string, signal?: AbortSignal): Promise<ClassSummary[]> {
-  return apiFetch<ClassSummary[]>("/classes", { token, signal });
+  return apiFetchAll<ClassSummary>("/classes", { token, signal });
 }
 
 export function getClass(token: string, classId: string, signal?: AbortSignal): Promise<ClassDetail> {
@@ -75,7 +75,7 @@ export function createClass(token: string, input: CreateClassInput): Promise<Cla
 
 /** Admin only (api.md section 2). */
 export function listOrgs(token: string, signal?: AbortSignal): Promise<Org[]> {
-  return apiFetch<Org[]>("/admin/orgs", { token, signal });
+  return apiFetchAll<Org>("/admin/orgs", { token, signal });
 }
 
 /** PATCH /classes/{classId}. currentModuleId is where late joiners start by default; it can be changed but not cleared. */
@@ -90,4 +90,15 @@ export function updateClass(
 /** POST /classes/{classId}/join-code/rotate: the old class code stops working straight away. */
 export function rotateJoinCode(token: string, classId: string): Promise<{ classId: string; joinCode: string }> {
   return apiFetch(`/classes/${encodeURIComponent(classId)}/join-code/rotate`, { method: "POST", token });
+}
+
+export type StudentHit = { studentId: string; displayName: string; rosterNumber: number; classId: string; status: "active" | "inactive" };
+
+/** GET /students?q=&cohortId=&classId=: find students by name. `truncated` means there are more than were returned. */
+export async function searchStudents(token: string, filters: { q: string; classId?: string; cohortId?: string }, signal?: AbortSignal) {
+  const params = new URLSearchParams({ q: filters.q, limit: "50" });
+  if (filters.classId) params.set("classId", filters.classId);
+  if (filters.cohortId) params.set("cohortId", filters.cohortId);
+  const { data, meta } = await apiFetchPage<StudentHit[]>(`/students?${params}`, { token, signal });
+  return { students: data, truncated: Boolean(meta.truncated) };
 }

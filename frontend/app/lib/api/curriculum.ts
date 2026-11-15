@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, apiFetchAll } from "./client";
 
 // Curriculum endpoints (docs/api.md section 3, backend curriculum-api). Everyone signed in can read
 // published modules. Authors and admins can also list and read drafts.
@@ -17,12 +17,12 @@ export type ModuleSummary = {
 };
 
 export function listModules(token: string, signal?: AbortSignal): Promise<ModuleSummary[]> {
-  return apiFetch<ModuleSummary[]>("/curriculum/modules", { token, signal });
+  return apiFetchAll<ModuleSummary>("/curriculum/modules", { token, signal });
 }
 
 /** Authors and admins: status=draft|published|all. */
 export function listModulesFor(token: string, status: "draft" | "published" | "all", signal?: AbortSignal): Promise<ModuleSummary[]> {
-  return apiFetch<ModuleSummary[]>(`/curriculum/modules?status=${status}`, { token, signal });
+  return apiFetchAll<ModuleSummary>(`/curriculum/modules?status=${status}`, { token, signal });
 }
 
 // The module document (docs/architecture.md section 6). Staff copies include answer keys.

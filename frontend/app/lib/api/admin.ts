@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, apiFetchAll } from "./client";
 
 export type ApiKey = {
   keyId: string;
@@ -14,7 +14,7 @@ export type ApiKey = {
 export type AuditEntry = { at: string; actor: string; action: string; details: Record<string, string> };
 
 /** GET /admin/api-keys: never includes the secret. */
-export const listApiKeys = (token: string, signal?: AbortSignal) => apiFetch<ApiKey[]>("/admin/api-keys", { token, signal });
+export const listApiKeys = (token: string, signal?: AbortSignal) => apiFetchAll<ApiKey>("/admin/api-keys", { token, signal });
 
 /** POST /admin/api-keys: `key` is the full secret and is in this response only. */
 export const createApiKey = (token: string, body: { label: string; scopes: string[] }) =>
@@ -56,12 +56,12 @@ export const updateUser = (token: string, userId: string, body: { role?: StaffUs
 export type School = { orgId: string; name: string; status: "active" | "archived"; createdAt?: string };
 export type Cohort = { cohortId: string; name: string; status: "active" | "archived"; createdAt: string; orgId?: string; classIds?: string[] };
 
-export const listSchools = (token: string, signal?: AbortSignal) => apiFetch<School[]>("/admin/orgs", { token, signal });
+export const listSchools = (token: string, signal?: AbortSignal) => apiFetchAll<School>("/admin/orgs", { token, signal });
 export const createSchool = (token: string, name: string) => apiFetch<School>("/admin/orgs", { method: "POST", token, body: { name } });
 export const updateSchool = (token: string, orgId: string, body: { name?: string; status?: School["status"] }) =>
   apiFetch<School>(`/admin/orgs/${encodeURIComponent(orgId)}`, { method: "PATCH", token, body });
 
-export const listCohorts = (token: string, signal?: AbortSignal) => apiFetch<Cohort[]>("/admin/cohorts", { token, signal });
+export const listCohorts = (token: string, signal?: AbortSignal) => apiFetchAll<Cohort>("/admin/cohorts", { token, signal });
 export const createCohort = (token: string, body: { name: string; orgId?: string }) => apiFetch<Cohort>("/admin/cohorts", { method: "POST", token, body });
 /** classIds is the full list: classes missing from it are removed, and a listed class leaves any other cohort. */
 export const updateCohort = (token: string, cohortId: string, body: { name?: string; status?: Cohort["status"]; classIds?: string[] }) =>
