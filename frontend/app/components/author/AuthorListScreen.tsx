@@ -60,7 +60,7 @@ function Body({ token, me }: { token: string; me: StaffMe }) {
   return (
     <>
       <h1>Author modules</h1>
-      <p className="mt-1 text-muted">Draft, edit and publish curriculum. Published versions never change, so students never lose their place.</p>
+      <p className="mt-1 text-muted">Create a module, then edit and publish it. You can edit the modules you made{me.permissions.canEditAll ? ", and everyone else's" : ""}. Published versions never change, so students never lose their place.</p>
 
       <form onSubmit={submit} className="card mt-6 max-w-xl">
         <h2 className="text-lg">New module</h2>
@@ -87,7 +87,11 @@ function Body({ token, me }: { token: string; me: StaffMe }) {
             </div>
             <div className="flex gap-2">
               <span className="badge">{m.status === "draft" ? "Draft" : "Published"}</span>
-              <Link href={`/author/edit/?id=${encodeURIComponent(m.moduleId)}`} className="btn btn-secondary">Edit<span className="sr-only"> {m.title}</span></Link>
+              {m.canEdit !== false ? (
+                <Link href={`/author/edit/?id=${encodeURIComponent(m.moduleId)}`} className="btn btn-secondary">Edit<span className="sr-only"> {m.title}</span></Link>
+              ) : (
+                <span className="text-sm text-muted">Made by someone else</span>
+              )}
               {me.role === "cic_admin" || m.createdBy === me.userId ? <DeleteModule token={token} module={m} /> : null}
             </div>
           </li>
@@ -100,7 +104,7 @@ function Body({ token, me }: { token: string; me: StaffMe }) {
 export function AuthorListScreen() {
   return (
     <StaffPage roles={["cic_admin", "instructor"]}>
-      {({ token, me }) => me.permissions.canAuthor ? <Body token={token} me={me} /> : <p role="alert" className="callout callout-danger">You don&apos;t have permission to edit curriculum. Ask a CIC admin to turn it on.</p>}
+      {({ token, me }) => me.permissions.canAuthor ? <Body token={token} me={me} /> : <p role="alert" className="callout callout-danger">You don&apos;t have permission to edit curriculum.</p>}
     </StaffPage>
   );
 }

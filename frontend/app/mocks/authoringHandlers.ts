@@ -74,7 +74,7 @@ const slug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
 function authorOnly(request: Request) {
   const role = roleOf(request);
   if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
-  return role === "cic_admin" ? null : apiError(403, "FORBIDDEN", "You do not have permission to edit curriculum");
+  return role === "cic_admin" || role === "instructor" ? null : apiError(403, "FORBIDDEN", "You do not have permission to create curriculum");
 }
 const withDetails = (status: number, code: string, error: string, details: unknown) => HttpResponse.json({ error, code, requestId: "req_mock", details }, { status });
 

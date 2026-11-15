@@ -75,7 +75,6 @@ def test_if_match_accepts_quoted_and_weak_forms(api, draft):
 
 
 def test_saving_a_missing_module_is_404(api, draft):
-    assert put(api, draft, path={"moduleId": "nope"})[0] == 400  # the document's moduleId does not match
     doc = {**draft, "moduleId": "nope"}
     assert put(api, doc, path={"moduleId": "nope"})[0] == 404
 

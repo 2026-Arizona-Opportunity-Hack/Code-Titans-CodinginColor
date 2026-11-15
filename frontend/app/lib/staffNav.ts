@@ -17,7 +17,7 @@ export const ROLE_HOME: Record<StaffRole, string> = {
 /**
  * Sidebar items per role (docs/architecture.md section 5). Items without `ready`
  * show as disabled "Soon" until their screens are built. The Author item appears
- * only for people allowed to author: admins, or instructors with the canAuthor flag.
+ * for everyone who can author: admins and every instructor.
  */
 export function navFor(role: StaffRole, canAuthor: boolean): NavItem[] {
   if (role === "reviewer") {

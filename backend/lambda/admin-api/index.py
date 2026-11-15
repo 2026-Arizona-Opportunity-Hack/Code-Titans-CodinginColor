@@ -20,8 +20,10 @@ def me(req: Request):
     table = db.get_table(db.CORE)
 
     profile = table.get_item(Key={"pk": f"USR#{staff.user_id}", "sk": "META"}).get("Item", {})
-    # Reviewers never write, whatever the flag says.
-    can_author = role == ADMIN or (role == INSTRUCTOR and bool(profile.get("canAuthor", False)))
+    # Every instructor can create modules and edit their own. The canAuthor flag lets an
+    # instructor edit anyone's module. Reviewers never write, whatever the flag says.
+    can_author = role in (ADMIN, INSTRUCTOR)
+    can_edit_all = role == ADMIN or (role == INSTRUCTOR and bool(profile.get("canAuthor", False)))
 
     classes = []
     if role == INSTRUCTOR:
@@ -37,7 +39,7 @@ def me(req: Request):
         "userId": staff.user_id,
         "role": role,
         "displayName": claims.get("name") or claims.get("email") or "",
-        "permissions": {"canAuthor": can_author},
+        "permissions": {"canAuthor": can_author, "canEditAll": can_edit_all},
         "classes": classes,
         "orgId": org_id,  # the school an instructor's classes are created in
         "orgName": org_name,  # shown in the header; instructors cannot read the schools list

@@ -16,6 +16,8 @@ export type ModuleSummary = {
   hasUnpublishedChanges?: boolean;
   /** Authors only: the user who created it. Only they or an admin can delete it. */
   createdBy?: string;
+  /** Authors only: whether the caller may open and change this module. */
+  canEdit?: boolean;
 };
 
 export function listModules(token: string, signal?: AbortSignal): Promise<ModuleSummary[]> {

@@ -12,7 +12,7 @@ import uuid
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
-from access import can_author, require_author
+from access import can_author, can_edit, can_edit_all, require_author, require_edit
 from cic import audit, db, paging, validate
 from cic.authz import require_staff
 from cic.errors import Conflict, Forbidden, NotFound, ValidationError
@@ -44,7 +44,7 @@ def slugify(title: str) -> str:
     return slug or "module"
 
 
-def public_meta(item: dict, authoring: bool) -> dict:
+def public_meta(item: dict, authoring: bool, staff=None, edit_all: bool = False) -> dict:
     out = {"moduleId": item["pk"].split("#", 1)[1], "title": item["title"],
            "latestVersion": int(item["latestVersion"]), "concepts": item.get("concepts", []),
            "estimatedMinutes": item.get("estimatedMinutes"), "updatedAt": item["updatedAt"]}
@@ -52,6 +52,7 @@ def public_meta(item: dict, authoring: bool) -> dict:
         out["status"] = "published" if int(item["latestVersion"]) > 0 else "draft"
         out["hasUnpublishedChanges"] = int(item["revision"]) != int(item.get("publishedRevision", 0))
         out["createdBy"] = item.get("createdBy")  # who may delete it: its creator or an admin
+        out["canEdit"] = edit_all or (staff is not None and item.get("createdBy") == staff.user_id)
     return out
 
 
@@ -67,7 +68,10 @@ def list_modules(req: Request):
     elif status == "draft":
         query["FilterExpression"] = Attr("latestVersion").eq(0)
     items, cursor = paging.query_page(db.get_table(db.CONTENT), req, ("pk", "sk", "gsi1pk", "gsi1sk"), **query)
-    return Reply(data=[public_meta(i, authoring) for i in items], meta={"nextCursor": cursor})
+    edit_all = authoring and can_edit_all(staff)
+    if authoring and not edit_all:  # other people's unpublished drafts stay private to them
+        items = [i for i in items if int(i["latestVersion"]) > 0 or i.get("createdBy") == staff.user_id]
+    return Reply(data=[public_meta(i, authoring, staff, edit_all) for i in items], meta={"nextCursor": cursor})
 
 
 def create_module(req: Request):
@@ -103,8 +107,10 @@ def get_module(req: Request):
     table = db.get_table(db.CONTENT)
     meta = table.get_item(Key=meta_key(module_id)).get("Item")
     if req.query.get("draft") == "true":
-        if not can_author(staff):
-            raise Forbidden("Only authors can read drafts")
+        if not meta:
+            raise NotFound("Module not found")
+        if not can_edit(staff, meta):
+            raise Forbidden("You can only open drafts of modules you can edit")
         draft = table.get_item(Key={"pk": f"MOD#{module_id}", "sk": "DRAFT"}).get("Item")
         if not draft:
             raise NotFound("Module not found")
@@ -128,8 +134,12 @@ def _expected_revision(req: Request) -> int:
 
 
 def save_draft(req: Request):
-    staff = require_author(req.auth)
     module_id = module_id_from(req)
+    meta = db.get_table(db.CONTENT).get_item(Key=meta_key(module_id)).get("Item")
+    if not meta:
+        require_author(req.auth)
+        raise NotFound("Module not found")
+    staff = require_edit(req.auth, meta)
     expected = _expected_revision(req)
     doc = to_decimal(req.json())
     problems = check_draft(doc, module_id)
@@ -163,13 +173,14 @@ def save_draft(req: Request):
 
 
 def publish(req: Request):
-    staff = require_author(req.auth)
+    require_author(req.auth)
     module_id = module_id_from(req)
     table = db.get_table(db.CONTENT)
     meta = table.get_item(Key=meta_key(module_id)).get("Item")
     draft = table.get_item(Key={"pk": f"MOD#{module_id}", "sk": "DRAFT"}).get("Item")
     if not meta or not draft:
         raise NotFound("Module not found")
+    staff = require_edit(req.auth, meta)
     if int(draft["revision"]) == int(meta.get("publishedRevision", 0)):
         raise Conflict(f"Nothing has changed since version {int(meta['latestVersion'])}", code="ALREADY_PUBLISHED")
     doc = draft["module"]
@@ -201,8 +212,10 @@ def list_versions(req: Request):
     require_author(req.auth)
     module_id = module_id_from(req)
     table = db.get_table(db.CONTENT)
-    if not table.get_item(Key=meta_key(module_id)).get("Item"):
+    meta = table.get_item(Key=meta_key(module_id)).get("Item")
+    if not meta:
         raise NotFound("Module not found")
+    require_edit(req.auth, meta)
     rows = db.query_all(table, KeyConditionExpression=Key("pk").eq(f"MOD#{module_id}") & Key("sk").begins_with("V#"),
                         ProjectionExpression="sk, publishedAt, publishedBy")
     return sorted(({"version": int(r["sk"][2:]), "publishedAt": r["publishedAt"], "publishedBy": r["publishedBy"]}
@@ -223,11 +236,12 @@ def get_version(req: Request):
 
 def list_concepts(req: Request):
     staff = require_staff(req.auth)
-    authoring = can_author(staff)
+    edit_all = can_author(staff) and can_edit_all(staff)
     counts: dict = {}
     for meta in db.query_all(db.get_table(db.CONTENT), IndexName="gsi1", KeyConditionExpression=Key("gsi1pk").eq("LIST#MOD")):
-        if not authoring and int(meta["latestVersion"]) < 1:
-            continue  # others only see concepts of published modules
+        unpublished = int(meta["latestVersion"]) < 1
+        if unpublished and not (edit_all or meta.get("createdBy") == staff.user_id):
+            continue  # someone else's draft
         for concept in meta.get("concepts", []):
             counts[concept] = counts.get(concept, 0) + 1
     return [{"concept": c, "moduleCount": n} for c, n in sorted(counts.items())]

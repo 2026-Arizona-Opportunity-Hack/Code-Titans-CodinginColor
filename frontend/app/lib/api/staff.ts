@@ -10,7 +10,9 @@ export type StaffMe = {
   userId: string;
   role: StaffRole;
   displayName: string;
-  permissions: { canAuthor: boolean };
+  /** canAuthor: may create modules and edit their own (admins and every instructor).
+   *  canEditAll: may edit anyone's module (admins, or instructors with the admin-set flag). */
+  permissions: { canAuthor: boolean; canEditAll?: boolean };
   classes: { classId: string }[];
   /**
    * The school an admin assigned to this person (Users screen). Instructors create classes
