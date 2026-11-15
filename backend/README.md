@@ -18,7 +18,8 @@ CDK (TypeScript) app plus Python 3.12 Lambdas for the curriculum platform. Desig
 ```bash
 npm install
 npm test            # CDK assertion tests (no AWS access needed)
-npm run test:py     # Lambda unit tests
+pip install -r requirements-dev.txt   # once, in a venv
+npm run test:py     # Lambda unit tests (uses moto, no AWS access needed)
 npx tsc --noEmit    # type check
 ```
 
