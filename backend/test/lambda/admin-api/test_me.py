@@ -1,0 +1,56 @@
+import json
+
+import pytest
+from support import api_event, load_lambda
+
+
+@pytest.fixture
+def admin():
+    return load_lambda("admin-api")
+
+
+def call(admin, groups, sub="u1"):
+    claims = {"sub": sub, "name": "Pat", "cognito:groups": groups}
+    resp = admin.lambda_handler(api_event("GET /v1/me", auth={"jwt": {"claims": claims}}), None)
+    return resp, json.loads(resp["body"])
+
+
+def test_admin_can_author(admin, table):
+    resp, body = call(admin, "[cic_admin]")
+    assert resp["statusCode"] == 200
+    assert body["data"]["role"] == "cic_admin" and body["data"]["permissions"]["canAuthor"] is True
+
+
+def test_instructor_defaults_to_no_author_and_lists_classes(admin, table):
+    table.put_item(Item={"pk": "CLS#cls_01", "sk": "INS#u1", "gsi1pk": "USR#u1", "gsi1sk": "CLS#cls_01"})
+    _, body = call(admin, "[instructor]")
+    assert body["data"]["permissions"]["canAuthor"] is False
+    assert body["data"]["classes"] == [{"classId": "cls_01"}]
+
+
+def test_instructor_with_can_author_flag(admin, table):
+    table.put_item(Item={"pk": "USR#u1", "sk": "META", "canAuthor": True})
+    _, body = call(admin, "[instructor]")
+    assert body["data"]["permissions"]["canAuthor"] is True
+
+
+def test_reviewer_has_no_classes_and_cannot_author_even_with_flag(admin, table):
+    table.put_item(Item={"pk": "USR#u1", "sk": "META", "canAuthor": True})
+    _, body = call(admin, "[reviewer]")
+    assert body["data"]["role"] == "reviewer" and body["data"]["classes"] == []
+    assert body["data"]["permissions"]["canAuthor"] is False
+
+
+def test_highest_role_wins(admin, table):
+    _, body = call(admin, "[reviewer instructor]")
+    assert body["data"]["role"] == "instructor"
+
+
+def test_no_group_is_forbidden(admin, table):
+    resp, body = call(admin, "")
+    assert resp["statusCode"] == 403 and body["code"] == "FORBIDDEN"
+
+
+def test_missing_claims_is_unauthenticated(admin, table):
+    resp = admin.lambda_handler(api_event("GET /v1/me", auth={"jwt": {"claims": {}}}), None)
+    assert resp["statusCode"] == 401
