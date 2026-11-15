@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { PossibleDuplicate, RosterImportPreview, RosterImportRequest, RowProblem } from "../lib/api/roster";
 import { addStudent, getRoster, issueWords, normalizeName } from "./rosterStore";
-import { apiError, findClass, roleOf } from "./staffHandlers";
+import { allClasses, apiError, findClass, roleOf } from "./staffHandlers";
 import { registerLogins, setStart } from "./studentStore";
 
 // Fake roster API, behaving like the backend's roster.py and roster_import.py. An import
@@ -92,6 +92,19 @@ export const rosterHandlers = [
     const students = issueWords(found.classId, body.studentIds);
     registerLogins(found.joinCode, found.classId, students);
     return HttpResponse.json({ data: { classCode: found.joinCode, loginUrlBase: `${window.location.origin}/s`, students } });
+  }),
+
+  http.get(`${env.apiUrl}/students`, ({ request }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Only instructors and administrators can search students");
+    const q = new URL(request.url).searchParams;
+    const needle = normalizeName(q.get("q") ?? "");
+    const limit = Math.min(200, Math.max(1, Number(q.get("limit") ?? 50) || 50));
+    const hits = allClasses()
+      .filter((c) => (!q.get("classId") || c.classId === q.get("classId")) && (!q.get("cohortId") || c.cohortId === q.get("cohortId")))
+      .flatMap((c) => getRoster(c.classId).filter((s) => !needle || normalizeName(s.displayName).includes(needle)).map((s) => ({ studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, classId: c.classId, status: s.status })));
+    return HttpResponse.json({ data: hits.slice(0, limit), meta: { nextCursor: null, truncated: hits.length > limit } });
   }),
 
   http.get(`${env.apiUrl}/classes/:classId/roster`, ({ request, params }) => {
