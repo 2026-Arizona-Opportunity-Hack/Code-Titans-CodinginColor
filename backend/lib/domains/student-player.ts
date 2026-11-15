@@ -3,12 +3,14 @@ import { Construct } from "constructs";
 import { createPythonFunction } from "../lambda-factory";
 import { DomainContext, addRoutes } from "./context";
 
+const HEARTBEAT_ROUTE = "POST /v1/student/modules/{moduleId}/activities/{activityId}/heartbeat";
+
 /** Must match the ROUTES dict in lambda/student-api/index.py (checked by test/routes.test.ts). */
 export const STUDENT_ROUTES = [
   "GET /v1/student/home",
   "GET /v1/student/modules/{moduleId}",
   "PUT /v1/student/modules/{moduleId}/activities/{activityId}/draft",
-  "POST /v1/student/modules/{moduleId}/activities/{activityId}/heartbeat",
+  HEARTBEAT_ROUTE,
   "POST /v1/student/modules/{moduleId}/activities/{activityId}/submit",
   "POST /v1/student/modules/{moduleId}/activities/{activityId}/complete",
 ];
@@ -31,5 +33,8 @@ export class StudentPlayerApi extends Construct {
     ctx.tables.core.grantReadData(fn);
     ctx.tables.progress.grantReadWriteData(fn);
     addRoutes(ctx, fn, STUDENT_ROUTES, ctx.studentAuthorizer);
+    // Heartbeats are the chatty route (one per student every 30 seconds). A cap of 30 per second
+    // covers about 900 students at once and limits a runaway client.
+    ctx.throttles[HEARTBEAT_ROUTE] = { rate: 30, burst: 60 };
   }
 }

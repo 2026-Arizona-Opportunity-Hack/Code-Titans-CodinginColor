@@ -286,23 +286,31 @@ Query parameters: `from` and `to` (dates like `2026-11-15`, UTC, both inclusive)
 - Auth: send `X-Api-Key: cic_<keyId>_<secret>`. The key item in the core table is `KEY#<keyId>` / `META` with `secretHash` (sha256 hex of the secret), `scopes` (list, needs `read:cohorts`), `label`, `createdBy`, `createdAt`, and `revokedAt` when revoked. The admin endpoint that creates keys must store exactly these fields.
 - Every route is throttled to 5 requests per second (burst 10). Any report can be filtered by cohort or by class.
 
-`GET /read/cohorts/{cohortId}/summary`:
+`GET /read/cohorts/{cohortId}/summary` (a real response from the tests, with 8 students in 2 classes):
 
 ```json
 { "data": {
-  "generatedAt": "2026-11-15T17:00:00Z",
-  "cohort": { "cohortId": "coh_maryvale", "name": "Maryvale" },
-  "enrolled": 62, "classes": 3,
-  "completion": { "assignedModules": 4, "meanCompletionPct": 71.5 },
-  "learningGain": { "n": 54, "meanPre": 38.4, "meanPost": 70.9, "meanGain": 32.5, "normalizedGain": 0.53 },
-  "byModule": [ { "moduleId": "py-loops", "n": 51, "meanGain": 34.0 } ],
-  "byClass": [ { "classId": "cls_01", "n": 4, "suppressed": true, "meanGain": null } ]
+  "generatedAt": "2026-11-15T01:23:40Z",
+  "cohort": { "cohortId": "coh1", "name": "Maryvale" },
+  "cohortId": "coh1",
+  "enrolled": 8, "classes": 2, "assignedModules": 1,
+  "completion": { "completionPct": 62.5, "startedPct": 100.0 },
+  "learningGain": { "nEnrolled": 8, "n": 8, "meanPre": 43.8, "meanPost": 76.2, "meanGain": 32.5,
+                    "normalizedGain": 0.58, "suppressed": false },
+  "byModule": [ { "moduleId": "m1", "title": "Loops", "completionPct": 62.5, "nEnrolled": 8, "n": 8,
+                  "meanPre": 43.8, "meanPost": 76.2, "meanGain": 32.5, "normalizedGain": 0.58, "suppressed": false } ],
+  "byClass": [
+    { "classId": "cls1", "name": "Class cls1", "enrolled": 5, "completionPct": 100.0, "nEnrolled": 5, "n": 5,
+      "meanPre": 40.0, "meanPost": 80.0, "meanGain": 40.0, "normalizedGain": 0.67, "suppressed": false },
+    { "classId": "cls2", "name": "Class cls2", "enrolled": 3, "completionPct": 0.0, "nEnrolled": 3, "n": 3,
+      "meanPre": null, "meanPost": null, "meanGain": null, "normalizedGain": null, "suppressed": true } ],
+  "definitions": { "gain": "post - pre, in percentage points", "completionPct": "share of (active student, assigned module) pairs where the module is complete" }
 } }
 ```
 
 - Groups with fewer than 5 students return `suppressed: true` and null metrics.
 - No student names, IDs, codes, or free-text answers appear anywhere in this API.
-- Throttled per key. 401 for a missing, unknown, or revoked key. 403 if the scope is missing.
+- 401 for a missing, unknown, or revoked key. 403 if the scope is missing. Throttling is per route (see section 8), not per key.
 - An MCP wrapper over these same functions is possible later. It would add no new data access.
 
 ---
@@ -312,11 +320,21 @@ Query parameters: `from` and `to` (dates like `2026-11-15`, UTC, both inclusive)
 | Route prefix | Lambda | Authorizer | Table access |
 |---|---|---|---|
 | `/auth/student/*` | `auth-student` | none (throttled) | core (rw), credential pepper (read secret) |
-| `/me`, `/admin/*` | `admin-api` | Cognito JWT | core (rw), events (w), Cognito admin actions |
+| `/me`, `/admin/*` (except cohort summary) | `admin-api` | Cognito JWT | core (rw), events (w), Cognito admin actions |
 | `/curriculum/*` | `curriculum-api` | Cognito JWT | content (rw), events (w), assets bucket (put) |
 | `/classes` (CRUD, roster, credentials, assignments) | `class-api` | Cognito JWT | core (rw), progress (r), events (w), credential pepper (read secret) |
-| `/classes/*/progress, attention, gain, concepts, review-queue, export, /admin/cohorts/*/summary` | `reports-api` | Cognito JWT | progress (r), core (r), content (r) |
-| `/student/*` | `student-api` | `authorizer-student` | progress (rw), core (r), content (r), events (w) |
-| `/read/*` | `read-api` | `authorizer-apikey` | progress (r), core (r), content (r) |
+| `/classes/*/progress, attention, modules/*/gain, concepts, review-queue, submissions/*/review, export` and `/admin/cohorts/*/summary` | `reports-api` | Cognito JWT | core (r), content (r), progress (rw: review updates), events (w: export audit) |
+| `/student/*` | `student-api` | `authorizer-student` | core (r), content (r), progress (rw) |
+| `/read/*` | `read-api` | `authorizer-apikey` | core (r), content (r), progress (r) |
+| (authorizer) student sessions | `authorizer-student` | n/a | core (r) |
+| (authorizer) API keys | `authorizer-apikey` | n/a | core (rw: records `lastUsedAt`) |
 
-Gateway throttling: tighter on `/auth/*`, moderate on `/student/*` (heartbeats), low on `/read/*`.
+Throttling (per route, across all callers). Default for every route: 50 requests per second, burst 100.
+
+| Routes | Limit |
+|---|---|
+| `/auth/*` | tighter, set by the login endpoint's owner |
+| `POST /student/.../heartbeat` | 30 per second, burst 60 |
+| `/read/*` | 5 per second, burst 10 |
+
+`POST /student/hints` (stretch) will add events (w) to `student-api`.

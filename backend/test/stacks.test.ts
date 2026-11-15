@@ -107,6 +107,14 @@ describe("ApiStack", () => {
     api.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /v1/admin/cohorts/{cohortId}/summary", AuthorizationType: "JWT" });
   });
 
+  test("student heartbeats have their own throttle", () => {
+    api.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
+      RouteSettings: Match.objectLike({
+        "POST /v1/student/modules/{moduleId}/activities/{activityId}/heartbeat": { ThrottlingRateLimit: 30, ThrottlingBurstLimit: 60 },
+      }),
+    });
+  });
+
   test("read API routes need the API key and are throttled harder", () => {
     api.hasResourceProperties("AWS::ApiGatewayV2::Authorizer", {
       AuthorizerType: "REQUEST",
