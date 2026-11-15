@@ -71,6 +71,22 @@ export const statusMap = (studentId: string) => {
 const activeSeconds = new Map<string, number>();
 export const addSeconds = (key: string, n: number) => activeSeconds.set(key, (activeSeconds.get(key) ?? 0) + n);
 export const secondsFor = (key: string) => activeSeconds.get(key) ?? 0;
+export const moduleSeconds = (studentId: string, moduleId: string) =>
+  [...activeSeconds].filter(([k]) => k.startsWith(`${studentId}/${moduleId}/`)).reduce((sum, [, s]) => sum + s, 0);
+// Demo students on the Period 3 roster who are at different points, so the teacher's views have something to show.
+const INTRO = ["a-vid", "a-chk", "a-exit"].map((a) => ["py-intro", a]);
+const LOOPS = ["a-pre", "a-vid", "a-chk", "a-ws", "a-exit", "a-post"].map((a) => ["py-loops", a]);
+const demoProgress: [string, string[][], number][] = [
+  ["stu_cls_01_1", [...INTRO, ...LOOPS.slice(0, 2)], 18 * 60], // Ana: part way through Loops
+  ["stu_cls_01_2", [...INTRO, ...LOOPS.slice(0, 1)], 25 * 60], // Ben: just started Loops
+  ["stu_cls_01_3", [...INTRO, ...LOOPS], 40 * 60], // Carla: finished Loops
+  ["stu_cls_01_4", INTRO.slice(0, 1), 5 * 60], // Alex: only the Intro video
+];
+for (const [id, done, seconds] of demoProgress) {
+  done.forEach(([m, a]) => statusMap(id).set(`${m}/${a}`, "complete"));
+  addSeconds(`${id}/${done[done.length - 1][0]}/${done[done.length - 1][1]}`, seconds);
+}
+
 const flat = (m: StudentModule): Activity[] => m.lessons.flatMap((l) => l.activities);
 
 export function activityStates(m: StudentModule, st: Map<string, Status>): Record<string, ActivityState> {

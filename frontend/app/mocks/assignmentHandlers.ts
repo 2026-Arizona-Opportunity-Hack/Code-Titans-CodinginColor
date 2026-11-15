@@ -41,7 +41,10 @@ const forClass = (classId: string) => {
   if (!assignments.has(classId)) assignments.set(classId, []);
   return assignments.get(classId)!;
 };
+export const titleOf = (moduleId: string) => MODULES.find((m) => m.moduleId === moduleId)?.title ?? moduleId;
 const sorted = (list: Assignment[]) => [...list].sort((a, b) => a.order - b.order || a.moduleId.localeCompare(b.moduleId));
+
+export const assignedFor = (classId: string) => sorted(forClass(classId));
 
 export const assignmentHandlers = [
   http.get(`${env.apiUrl}/curriculum/modules`, ({ request }) => {
