@@ -51,3 +51,21 @@ class Conflict(ApiError):
 class RateLimited(ApiError):
     status_code = 429
     code = "RATE_LIMITED"
+
+
+class InvalidCredentials(ApiError):
+    """Wrong class code or wrong words. One message for both so neither is revealed."""
+
+    status_code = 401
+    code = "INVALID_CREDENTIALS"
+
+
+class LoginThrottled(ApiError):
+    status_code = 429
+    code = "LOGIN_THROTTLED"
+
+    def __init__(self, retry_after: int) -> None:
+        super().__init__(
+            "Too many failed attempts. Try again later",
+            headers={"Retry-After": str(max(1, int(retry_after)))},
+        )
