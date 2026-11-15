@@ -118,3 +118,13 @@ export function addStudent(
 ): Promise<AddedStudent> {
   return apiFetch<AddedStudent>(`/classes/${encodeURIComponent(classId)}/roster`, { method: "POST", token, body: input });
 }
+
+/** PATCH /classes/{classId}/roster/{studentId}: rename, or set status inactive/active. */
+export function updateStudent(token: string, classId: string, studentId: string, body: { displayName?: string; status?: RosterStudent["status"] }): Promise<RosterStudent> {
+  return apiFetch<RosterStudent>(`/classes/${encodeURIComponent(classId)}/roster/${encodeURIComponent(studentId)}`, { method: "PATCH", token, body });
+}
+
+/** POST /classes/{classId}/roster/{studentId}/merge: folds this student into another one and removes it. */
+export function mergeStudent(token: string, classId: string, studentId: string, intoStudentId: string): Promise<unknown> {
+  return apiFetch(`/classes/${encodeURIComponent(classId)}/roster/${encodeURIComponent(studentId)}/merge`, { method: "POST", token, body: { intoStudentId } });
+}
