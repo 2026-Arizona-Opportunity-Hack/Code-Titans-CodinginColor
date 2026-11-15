@@ -13,6 +13,7 @@ import { AdminDomain } from "./domains/admin";
 import { ClassesDomain } from "./domains/classes";
 import { CurriculumDomain } from "./domains/curriculum";
 import { StudentAuthDomain } from "./domains/student-auth";
+import { StudentPlayerApi } from "./domains/student-player";
 import { createPythonFunction, hostArchitecture } from "./lambda-factory";
 
 export interface ApiStackProps extends cdk.StackProps {
@@ -91,7 +92,8 @@ export class ApiStack extends cdk.Stack {
     addRoutes(ctx, health, ["GET /v1/health"]);
 
     // ---- Domains: add one line per domain construct here. ----
-    new StudentAuthDomain(this, "StudentAuth", ctx);
+    const studentAuth = new StudentAuthDomain(this, "StudentAuth", ctx);
+    new StudentPlayerApi(this, "StudentPlayer", ctx, studentAuth.authorizer);
     new AdminDomain(this, "Admin", ctx);
     new ClassesDomain(this, "Classes", ctx);
     new CurriculumDomain(this, "Curriculum", ctx);

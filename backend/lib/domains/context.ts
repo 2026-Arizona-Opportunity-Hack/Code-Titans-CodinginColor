@@ -55,3 +55,12 @@ export function addRoutes(
     });
   }
 }
+
+/**
+ * Give one route its own throttle, tighter or looser than the stage default
+ * (50 requests per second, burst 100). Applied as a property override, like the login route.
+ */
+export function throttleRoute(ctx: DomainContext, routeKey: string, rate: number, burst: number): void {
+  const stage = ctx.api.defaultStage?.node.defaultChild as apigwv2.CfnStage;
+  stage.addPropertyOverride(`RouteSettings.${routeKey}`, { ThrottlingRateLimit: rate, ThrottlingBurstLimit: burst });
+}
