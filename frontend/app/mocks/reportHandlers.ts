@@ -2,6 +2,7 @@ import Papa from "papaparse";
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { ActivityDetail, Attention, ConceptGain, GainSummary, ModuleGain, ProgressMatrix, StudentDetail, StuckReason } from "../lib/api/reports";
+import { recordAudit } from "./adminHandlers";
 import { safeCell } from "../lib/loginLinks";
 import { assignedFor, titleOf } from "./assignmentHandlers";
 import { getRoster } from "./rosterStore";
@@ -150,6 +151,7 @@ export const reportHandlers = [
     if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't export class data.");
     const kind = new URL(request.url).searchParams.get("type") ?? "gain";
     if (kind !== "gain" && kind !== "progress") return apiError(400, "VALIDATION_ERROR", "type must be gain or progress");
+    recordAudit("export", { classId: String(params.classId), type: kind });
     return new HttpResponse(exportCsv(String(params.classId), kind), {
       headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${kind}-${params.classId}.csv"` },
     });

@@ -1,5 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
+import { adminHandlers } from "./adminHandlers";
 import { assignmentHandlers } from "./assignmentHandlers";
 import { reportHandlers } from "./reportHandlers";
 import { rosterHandlers } from "./rosterHandlers";
@@ -8,6 +9,7 @@ import { studentHandlers } from "./studentHandlers";
 
 export const handlers = [
   ...staffHandlers,
+  ...adminHandlers,
   ...rosterHandlers,
   ...assignmentHandlers,
   ...reportHandlers,

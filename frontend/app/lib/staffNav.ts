@@ -33,8 +33,8 @@ export function navFor(role: StaffRole, canAuthor: boolean): NavItem[] {
       { label: "Cohorts", href: "/admin/cohorts/" },
       { label: "Schools", href: "/admin/schools/" },
       { label: "Users", href: "/admin/users/" },
-      { label: "API keys", href: "/admin/api-keys/" },
-      { label: "Audit log", href: "/admin/audit/" },
+      { label: "API keys", href: "/admin/api-keys/", ready: true },
+      { label: "Audit log", href: "/admin/audit/", ready: true },
     );
   }
   return items;
