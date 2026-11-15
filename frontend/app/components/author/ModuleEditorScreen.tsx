@@ -56,7 +56,9 @@ function Editor({ token, moduleId, initial, onReload }: { token: string; moduleI
 
   const publish = useMutation({
     mutationFn: async () => { if (dirty) await save.mutateAsync(); return publishModule(token, moduleId); },
-    onSuccess: (r) => { setError(""); setProblems([]); setNotice(`Published as version ${r.version}. To show it to students, move your classes to version ${r.version} below.`); qc.invalidateQueries({ queryKey: ["versions", token, moduleId] }); qc.invalidateQueries({ queryKey: ["author-modules", token] }); qc.invalidateQueries({ queryKey: ["modules", token] }); qc.invalidateQueries({ queryKey: ["module-classes", token, moduleId] }); },
+    onSuccess: (r) => { setError(""); setProblems([]); setNotice(r.classesUpdated
+        ? `Published as version ${r.version}. ${r.classesUpdated} class${r.classesUpdated === 1 ? "" : "es"} now use${r.classesUpdated === 1 ? "s" : ""} it, so students see it the next time they open the module.`
+        : `Published as version ${r.version}.`); qc.invalidateQueries({ queryKey: ["versions", token, moduleId] }); qc.invalidateQueries({ queryKey: ["author-modules", token] }); qc.invalidateQueries({ queryKey: ["modules", token] }); qc.invalidateQueries({ queryKey: ["module-classes", token, moduleId] }); },
     onError: (e) => {
       if (e instanceof ApiError && e.code === "ALREADY_PUBLISHED") {
         // Not a failure: the saved draft is already the latest version.

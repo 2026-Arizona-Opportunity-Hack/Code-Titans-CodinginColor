@@ -172,7 +172,30 @@ def save_draft(req: Request):
     return {"revision": new_revision, "updatedAt": now}
 
 
+def _move_classes(staff, module_id: str, version: int) -> list:
+    """Move every class the caller teaches (or every class, for admins) that uses this module
+    to `version`. Returns the class IDs moved. Progress is kept per activity, so students keep
+    the steps they finished."""
+    core = db.get_table(db.CORE)
+    moved = []
+    for asg in db.scan_all(core, FilterExpression=Attr("sk").begins_with("ASG#") & Attr("moduleId").eq(module_id)):
+        if int(asg["moduleVersion"]) >= version:
+            continue
+        if not staff.is_admin and not core.get_item(Key={"pk": asg["pk"], "sk": f"INS#{staff.user_id}"}).get("Item"):
+            continue
+        try:
+            core.update_item(Key={"pk": asg["pk"], "sk": asg["sk"]}, UpdateExpression="SET moduleVersion = :v",
+                             ConditionExpression="moduleVersion < :v", ExpressionAttributeValues={":v": version})
+            moved.append(asg["pk"].split("#", 1)[1])
+        except ClientError as err:
+            if err.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                raise
+    return moved
+
+
 def publish(req: Request):
+    """Publish the draft as the next version. By default the caller's classes that use the module
+    move to it straight away; send {"updateClasses": false} to leave them where they are."""
     require_author(req.auth)
     module_id = module_id_from(req)
     table = db.get_table(db.CONTENT)
@@ -181,6 +204,11 @@ def publish(req: Request):
     if not meta or not draft:
         raise NotFound("Module not found")
     staff = require_edit(req.auth, meta)
+    body = req.json() if req.raw_body else {}
+    validate.reject_unknown(body, ("updateClasses",))
+    update_classes = body.get("updateClasses", True)
+    if not isinstance(update_classes, bool):
+        raise ValidationError("updateClasses must be true or false")
     if int(draft["revision"]) == int(meta.get("publishedRevision", 0)):
         raise Conflict(f"Nothing has changed since version {int(meta['latestVersion'])}", code="ALREADY_PUBLISHED")
     doc = draft["module"]
@@ -205,7 +233,8 @@ def publish(req: Request):
         if err.response["Error"]["Code"] != "TransactionCanceledException":
             raise
         raise Conflict("The module changed while publishing. Reload it and try again", code="REVISION_CONFLICT")
-    return Reply(data={"moduleId": module_id, "version": version, "publishedAt": now}, status=201)
+    moved = _move_classes(staff, module_id, version) if update_classes else []
+    return Reply(data={"moduleId": module_id, "version": version, "publishedAt": now, "classesUpdated": len(moved)}, status=201)
 
 
 def list_versions(req: Request):
