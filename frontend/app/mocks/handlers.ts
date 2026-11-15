@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { StudentHome } from "../lib/api/student";
+import { assignmentHandlers } from "./assignmentHandlers";
 import { rosterHandlers } from "./rosterHandlers";
 import { staffHandlers } from "./staffHandlers";
 
@@ -37,6 +38,7 @@ const home: StudentHome = {
 export const handlers = [
   ...staffHandlers,
   ...rosterHandlers,
+  ...assignmentHandlers,
 
   http.get(`${env.apiUrl}/health`, () => HttpResponse.json({ data: { status: "ok" } })),
 

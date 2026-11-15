@@ -53,6 +53,9 @@ function ClassPageBody({ token, classId }: { token: string; classId: string }) {
             <Link href={`/instructor/class/login-sheet/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
               Login sheet
             </Link>
+            <Link href={`/instructor/class/assignments/?id=${encodeURIComponent(classId)}`} className="btn btn-secondary">
+              Assigned modules
+            </Link>
           </p>
           <RosterSection token={token} classId={classId} />
         </>
