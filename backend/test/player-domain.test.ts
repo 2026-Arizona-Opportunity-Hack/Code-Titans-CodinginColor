@@ -25,6 +25,24 @@ describe("ReportsApi", () => {
   });
 });
 
+describe("ReadApi", () => {
+  const t = apiTemplate();
+
+  test("read routes need the API key and are throttled to 5 per second", () => {
+    t.hasResourceProperties("AWS::ApiGatewayV2::Authorizer", { AuthorizerType: "REQUEST", IdentitySource: ["$request.header.X-Api-Key"] });
+    t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "GET /v1/read/cohorts", AuthorizationType: "CUSTOM" });
+    t.hasResourceProperties("AWS::ApiGatewayV2::Stage", {
+      RouteSettings: Match.objectLike({ "GET /v1/read/progress": { ThrottlingRateLimit: 5, ThrottlingBurstLimit: 10 } }),
+    });
+  });
+
+  test("API key and audit admin routes use the Cognito JWT authorizer", () => {
+    for (const key of ["GET /v1/admin/api-keys", "POST /v1/admin/api-keys", "DELETE /v1/admin/api-keys/{keyId}", "GET /v1/admin/audit"]) {
+      t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key, AuthorizationType: "JWT" });
+    }
+  });
+});
+
 describe("StudentPlayerApi", () => {
   const t = apiTemplate();
 

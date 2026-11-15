@@ -111,7 +111,9 @@ def class_metas() -> List[dict]:
 
 
 def cohort_metas() -> List[dict]:
-    return list(_scan_core("begins_with(pk, :c) AND sk = :m", {":c": "COH#", ":m": "META"}))
+    """Active cohorts, from the list index the admin API maintains (gsi2pk = LIST#COH)."""
+    items = db.query_all(db.get_table(db.CORE), IndexName="gsi2", KeyConditionExpression=Key("gsi2pk").eq("LIST#COH"))
+    return [i for i in items if i.get("status", "active") != "archived"]
 
 
 def name_of(pk: str) -> str:

@@ -33,9 +33,9 @@ Base URL: `https://<api-id>.execute-api.<region>.amazonaws.com/v1`
 |---|---|
 | 400 | `VALIDATION_ERROR`, `INVALID_CSV` |
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` |
-| 403 | `FORBIDDEN`, `MODULE_LOCKED`, `ASSESSMENT_ALREADY_SUBMITTED` |
+| 403 | `FORBIDDEN`, `MODULE_LOCKED`, `ACTIVITY_LOCKED`, `ASSESSMENT_ALREADY_SUBMITTED` |
 | 404 | `NOT_FOUND` |
-| 409 | `REVISION_CONFLICT`, `DUPLICATE_SUBMISSION`, `ALREADY_PUBLISHED` |
+| 409 | `REVISION_CONFLICT`, `DUPLICATE_SUBMISSION`, `ALREADY_PUBLISHED`, `TOO_EARLY` |
 | 429 | `LOGIN_THROTTLED` (with `Retry-After`), `RATE_LIMITED`, `AI_QUOTA_EXCEEDED` |
 | 500 | `INTERNAL_ERROR` (generic message, details only in logs) |
 
@@ -84,7 +84,7 @@ All `A` only.
 | GET | `/admin/api-keys` | List keys (label, scopes, lastUsedAt, revoked). Never the secret. |
 | POST | `/admin/api-keys` | Create `{label, scopes: ["read:cohorts"]}`. The full key is in this response only. |
 | DELETE | `/admin/api-keys/{keyId}` | Revoke |
-| GET | `/admin/audit?from=&to=` | Audit entries (key created, export, publish, roster import) |
+| GET | `/admin/audit?from=&to=&limit=` | Audit entries, newest first: API key created or revoked, and class exports. Dates look like `2026-11-15`; the default range is the last 30 days and the most is 366. `limit` is 1 to 200 (default 50). |
 
 ---
 
@@ -98,7 +98,7 @@ All `A` only.
 | PUT | `/curriculum/modules/{moduleId}/draft` | A, Au | Save the whole draft. Requires `If-Match: <revision>`. 409 `REVISION_CONFLICT` if stale. |
 | POST | `/curriculum/modules/{moduleId}/publish` | A, Au | Validate and create the next immutable version |
 | GET | `/curriculum/modules/{moduleId}/versions` | A, Au | Version list with publish dates |
-| GET | `/curriculum/modules/{moduleId}/versions/{n}` | A, I, R | A specific version |
+| GET | `/curriculum/modules/{moduleId}/versions/{version}` | A, I, R | A specific version |
 | GET | `/curriculum/concepts` | A, I, R | Concept tags in use (for the tag picker and reports) |
 | POST | `/curriculum/assets/upload-url` | A, Au | Presigned S3 PUT for an image `{contentType, size}`. PNG, JPEG, or WebP, max 5 MB. |
 
@@ -189,6 +189,15 @@ Roles `I` (member) and `A` unless noted.
 | GET | `/classes/{classId}/export?type=gain\|progress` | CSV download (formula-safe) |
 | GET | `/admin/cohorts/{cohortId}/summary` | `A` only. Completion and gain across the cohort's classes. |
 
+Notes for the other section 5 endpoints:
+
+- `attention` returns `{notStarted: [...], stuck: [...]}`. Each row has the student, `moduleId`, `activityId`, and for stuck rows `reasons`: `repeated_attempts`, `taking_longer_than_expected` (needs `estimatedMinutes` on the activity), or `inactive`. Thresholds come from the class `settings` (`stuckFailedAttempts` 3, `stuckTimeMultiplier` 2, `notStartedDays` 1, `inactiveSchoolDays` 3). Inactivity is counted in school days (Monday to Friday).
+- `concepts` rows have the gain fields plus `masteryPct`, the share of post-tested students at or above 80% on that concept ("80% stuck on loops" is `100 - masteryPct`), and `postN`.
+- `review-queue` takes `limit` and `cursor`; each item has a `submissionId` (use it in the review route), the student, and the free-text `answers`. A reviewed submission leaves the queue.
+- `export` returns `text/csv` (not the JSON envelope) with `Content-Disposition: attachment`. Cells starting with `=`, `+`, `-` or `@` are prefixed with `'`. Every export is written to the audit log.
+- `GET /classes/{classId}/progress` returns `{modules, students}`, where each student has `modules[moduleId] = {state, percent, activeMinutes}` and a `resume` pointer.
+- `GET /admin/cohorts/{cohortId}/summary` has the same shape as the read API cohort summary, but is not suppressed for small groups.
+
 `GET /classes/{classId}/modules/{moduleId}/gain`:
 
 ```json
@@ -237,7 +246,12 @@ Student session only. `studentId` and `classId` always come from the session, ne
             "next": { "type": "activity", "activityId": "a-vid" } } }
 ```
 
-- Repeating the same `clientSubmissionId` returns the first result (safe retries on a bad connection).
+- Repeating the same `clientSubmissionId` returns the first result (safe retries on a bad connection). It is 8 to 64 characters of letters, digits, `-` or `_`.
+- Activities open in order. Submitting a later activity before the earlier required ones are done returns 403 `ACTIVITY_LOCKED`.
+- For worksheets, `questionId` in each answer is the field's `fieldId`. Fields with an answer key are scored on submit. The rest go to the review queue and the response has `pendingReview: true`.
+- `exit` questions and assessments return `recorded: true` with no scores. Only `check` returns `scorePct`, `passed` and `results`.
+- `POST .../complete` (video and slides) returns 409 `TOO_EARLY` until the activity's `minSeconds` of active time has been recorded by heartbeats.
+- `heartbeat` takes `{"seconds": 1-120}` and credits at most 45 seconds per call.
 - An assessment can be submitted once. A second try returns 403 `ASSESSMENT_ALREADY_SUBMITTED`.
 - When the last required activity completes, the response includes `moduleUnlocked: "<nextModuleId>"`.
 - Grading uses the `answerKey` stored server-side. Worksheet fields without a key go to the instructor review queue and show as "submitted".
@@ -268,25 +282,38 @@ Key auth, scope `read:cohorts`. Read-only. All responses are aggregates with the
 | GET | `/read/concepts/gain?cohortId=` | Gain by concept ("students gained 32 points on loops") |
 | GET | `/read/progress?groupBy=cohort\|class\|module\|org&from=&to=` | Completion over a period, grouped |
 
-Query parameters: `from` and `to` (dates), `orgId`, `cohortId`, `classId`, `groupBy`. Any report can be filtered by cohort or by class.
+Query parameters: `from` and `to` (dates like `2026-11-15`, UTC, both inclusive), `orgId`, `cohortId`, `classId`, `groupBy` (`cohort`, `class`, `module`, `org`; default `cohort`).
 
-`GET /read/cohorts/{cohortId}/summary`:
+- With a period, a module counts as started or completed only if that happened inside it, and a (pre, post) pair counts only if the post-test was taken inside it. Enrollment is always the current roster.
+- `/read/modules/{moduleId}/gain` and `/read/concepts/gain` accept `cohortId`, `classId` or `orgId` to narrow the scope. With none, they cover every class.
+- Auth: send `X-Api-Key: cic_<keyId>_<secret>`. The key item in the core table is `KEY#<keyId>` / `META` with `secretHash` (sha256 hex of the secret), `scopes` (list, needs `read:cohorts`), `label`, `createdBy`, `createdAt`, and `revokedAt` when revoked. The admin endpoint that creates keys must store exactly these fields.
+- Every route is throttled to 5 requests per second (burst 10). Any report can be filtered by cohort or by class.
+
+`GET /read/cohorts/{cohortId}/summary` (a real response from the tests, with 8 students in 2 classes):
 
 ```json
 { "data": {
-  "generatedAt": "2026-11-15T17:00:00Z",
-  "cohort": { "cohortId": "coh_maryvale", "name": "Maryvale" },
-  "enrolled": 62, "classes": 3,
-  "completion": { "assignedModules": 4, "meanCompletionPct": 71.5 },
-  "learningGain": { "n": 54, "meanPre": 38.4, "meanPost": 70.9, "meanGain": 32.5, "normalizedGain": 0.53 },
-  "byModule": [ { "moduleId": "py-loops", "n": 51, "meanGain": 34.0 } ],
-  "byClass": [ { "classId": "cls_01", "n": 4, "suppressed": true, "meanGain": null } ]
+  "generatedAt": "2026-11-15T01:23:40Z",
+  "cohort": { "cohortId": "coh1", "name": "Maryvale" },
+  "cohortId": "coh1",
+  "enrolled": 8, "classes": 2, "assignedModules": 1,
+  "completion": { "completionPct": 62.5, "startedPct": 100.0 },
+  "learningGain": { "nEnrolled": 8, "n": 8, "meanPre": 43.8, "meanPost": 76.2, "meanGain": 32.5,
+                    "normalizedGain": 0.58, "suppressed": false },
+  "byModule": [ { "moduleId": "m1", "title": "Loops", "completionPct": 62.5, "nEnrolled": 8, "n": 8,
+                  "meanPre": 43.8, "meanPost": 76.2, "meanGain": 32.5, "normalizedGain": 0.58, "suppressed": false } ],
+  "byClass": [
+    { "classId": "cls1", "name": "Class cls1", "enrolled": 5, "completionPct": 100.0, "nEnrolled": 5, "n": 5,
+      "meanPre": 40.0, "meanPost": 80.0, "meanGain": 40.0, "normalizedGain": 0.67, "suppressed": false },
+    { "classId": "cls2", "name": "Class cls2", "enrolled": 3, "completionPct": 0.0, "nEnrolled": 3, "n": 3,
+      "meanPre": null, "meanPost": null, "meanGain": null, "normalizedGain": null, "suppressed": true } ],
+  "definitions": { "gain": "post - pre, in percentage points", "completionPct": "share of (active student, assigned module) pairs where the module is complete" }
 } }
 ```
 
 - Groups with fewer than 5 students return `suppressed: true` and null metrics.
 - No student names, IDs, codes, or free-text answers appear anywhere in this API.
-- Throttled per key. 401 for a missing, unknown, or revoked key. 403 if the scope is missing.
+- 401 for a missing, unknown, or revoked key. 403 if the scope is missing. Throttling is per route (see section 8), not per key.
 - An MCP wrapper over these same functions is possible later. It would add no new data access.
 
 ---
@@ -296,11 +323,21 @@ Query parameters: `from` and `to` (dates), `orgId`, `cohortId`, `classId`, `grou
 | Route prefix | Lambda | Authorizer | Table access |
 |---|---|---|---|
 | `/auth/student/*` | `auth-student` | none (throttled) | core (rw), credential pepper (read secret) |
-| `/me`, `/admin/*` | `admin-api` | Cognito JWT | core (rw), events (w), Cognito admin actions |
+| `/me`, `/admin/*` (except cohort summary), including API keys and the audit list | `admin-api` | Cognito JWT | core (rw), events (rw), Cognito admin actions |
 | `/curriculum/*` | `curriculum-api` | Cognito JWT | content (rw), events (w), assets bucket (put) |
 | `/classes` (CRUD, roster, credentials, assignments) | `class-api` | Cognito JWT | core (rw), progress (r), events (w), credential pepper (read secret) |
-| `/classes/*/progress, attention, gain, concepts, review-queue, export, /admin/cohorts/*/summary` | `reports-api` | Cognito JWT | progress (r), core (r), content (r) |
-| `/student/*` | `student-api` | `authorizer-student` | progress (rw), core (r), content (r), events (w) |
-| `/read/*` | `read-api` | `authorizer-apikey` | progress (r), core (r), content (r) |
+| `/classes/*/progress, attention, modules/*/gain, concepts, review-queue, submissions/*/review, export` and `/admin/cohorts/*/summary` | `reports-api` | Cognito JWT | core (r), content (r), progress (rw: review updates), events (w: export audit) |
+| `/student/*` | `student-api` | `authorizer-student` | core (r), content (r), progress (rw) |
+| `/read/*` | `read-api` | `authorizer-apikey` | core (r), content (r), progress (r) |
+| (authorizer) student sessions | `authorizer-student` | n/a | core (r) |
+| (authorizer) API keys | `authorizer-apikey` | n/a | core (rw: records `lastUsedAt`) |
 
-Gateway throttling: tighter on `/auth/*`, moderate on `/student/*` (heartbeats), low on `/read/*`.
+Throttling (per route, across all callers). Default for every route: 50 requests per second, burst 100.
+
+| Routes | Limit |
+|---|---|
+| `/auth/*` | tighter, set by the login endpoint's owner |
+| `POST /student/.../heartbeat` | 30 per second, burst 60 |
+| `/read/*` | 5 per second, burst 10 |
+
+`POST /student/hints` (stretch) will add events (w) to `student-api`.
