@@ -91,6 +91,9 @@ def sanitize_module(module: dict, act_states: List[dict], act_items: dict, versi
             act.pop("solution", None)  # the reference solution never leaves the server
             act["state"] = state_by_id.get(act["activityId"], "locked")
             saved = act_items.get((doc["moduleId"], act["activityId"])) or {}
+            if act.get("type") in ("video", "slides"):
+                # So the page can show how much more watching is needed before "done" works.
+                act["activeSeconds"] = int(saved.get("activeSeconds", 0) or 0)
             if act.get("type") == "worksheet" and saved.get("draft"):
                 act["draft"] = saved["draft"]
             if act.get("type") == "code" and saved.get("draftCode") is not None:

@@ -123,6 +123,11 @@ def test_cannot_mark_video_done_too_early(api):
     submit(api, "m1", "pre", [{"questionId": "p1", "value": "a"}], "client-sub-001")
     status, body = api("POST /v1/student/modules/{moduleId}/activities/{activityId}/complete", act("m1", "vid"))
     assert status == 409 and body["code"] == "TOO_EARLY"
+    assert body["details"]["secondsCounted"] == 0 and body["details"]["secondsLeft"] == body["details"]["secondsNeeded"] > 0
+    api("POST /v1/student/modules/{moduleId}/activities/{activityId}/heartbeat", act("m1", "vid"), {"seconds": 10})
+    _, module = api("GET /v1/student/modules/{moduleId}", {"moduleId": "m1"})
+    vid = next(a for l in module["data"]["lessons"] for a in l["activities"] if a["activityId"] == "m1-vid")
+    assert vid["activeSeconds"] == 10  # the page shows the countdown from this
 
 
 def test_heartbeat_credit_is_capped_and_validated(api, tables):
