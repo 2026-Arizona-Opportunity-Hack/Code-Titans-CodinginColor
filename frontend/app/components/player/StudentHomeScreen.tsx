@@ -76,7 +76,15 @@ export function StudentHomeScreen() {
 
   return (
     <StudentShell studentName={session.student.displayName} onSignOut={onSignOut}>
-      <h1 className="mb-8">Your learning path</h1>
+      <div className="mb-8">
+        <p className="eyebrow">Welcome back</p>
+        <h1 className="mt-1">Your learning path</h1>
+        {data && data.modules.length > 0 ? (
+          <p className="lede">
+            {data.modules.filter((m) => m.state === "complete").length} of {data.modules.length} modules complete.
+          </p>
+        ) : null}
+      </div>
 
       {home.isPending || unauthorized ? <HomeSkeleton /> : null}
 
@@ -104,6 +112,7 @@ export function StudentHomeScreen() {
               label={cardLabel}
               title={resumeModule?.title ?? "Your next lesson"}
               detail={detail}
+              percent={resumeModule?.state === "in_progress" ? resumeModule.percent : undefined}
               actionLabel={resumeModule?.state === "in_progress" ? "Continue" : "Start"}
               href={`${moduleHref(resume.moduleId)}&a=${encodeURIComponent(resume.activityId)}`}
             />

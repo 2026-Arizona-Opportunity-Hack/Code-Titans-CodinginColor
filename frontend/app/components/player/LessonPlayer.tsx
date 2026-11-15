@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRequireStudent } from "../../context/StudentSessionContext";
 import { ApiError } from "../../lib/api/client";
 import { getStudentModule, type Activity, type StepResult } from "../../lib/api/studentModule";
-import { Icon } from "../common/Icon";
+import { Icon, type IconName } from "../common/Icon";
 import { PublicShell } from "../common/PublicShell";
 import { StudentShell } from "../common/StudentShell";
 import { Markdown } from "./Markdown";
@@ -16,6 +16,15 @@ import { ModuleComplete } from "./ModuleComplete";
 import { QuestionActivity } from "./QuestionActivity";
 import { WatchActivity } from "./WatchActivity";
 import { WorksheetActivity } from "./WorksheetActivity";
+
+const TYPE_ICON: Record<Activity["type"], IconName> = {
+  video: "play",
+  slides: "layers",
+  check: "target",
+  exit: "info",
+  assessment: "review",
+  worksheet: "pencil",
+};
 
 const TYPE_LABEL: Record<Activity["type"], string> = {
   video: "Video",
@@ -63,7 +72,7 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
       <div role="alert" className="callout callout-danger">
         <p className="font-bold text-danger">{locked ? "This module isn't open yet." : "We couldn't load this lesson."}</p>
         <p className="mt-1 text-muted">
-          {locked ? "Finish the module before it first." : lesson.error instanceof ApiError ? lesson.error.message : "Please try again."}
+          {locked ? "Finish the earlier module first." : lesson.error instanceof ApiError ? lesson.error.message : "Please try again."}
         </p>
         <Link href="/student/" className="btn btn-secondary mt-4">
           Back to your path
@@ -80,26 +89,25 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-4 text-sm">
-        <Link href="/student/" className="inline-flex items-center gap-1">
-          <Icon name="arrowLeft" className="size-4" /> Your path
-        </Link>
-      </nav>
+      <Link href="/student/" className="crumbs">
+        <Icon name="arrowLeft" className="size-4" />
+        Your path
+      </Link>
       <h1>{lesson.data.title}</h1>
       {lesson.data.state === "catch_up" ? <CatchUpBanner token={token} /> : null}
       <div className="mt-3 flex items-center gap-3">
         <progress className="meter" value={lesson.data.percent} max={100} aria-label={`${lesson.data.title} progress`} />
         <span className="shrink-0 text-sm font-bold text-muted">{lesson.data.percent}%</span>
       </div>
-
-      <ol aria-label="Steps" className="mt-6 flex flex-wrap gap-2">
+      <ol aria-label="Steps" className="mt-6 flex flex-wrap items-center gap-y-2">
         {activities.map((a, i) => {
           const label = `Step ${i + 1}: ${a.title}${a.state === "complete" ? ", complete" : a.state === "locked" ? ", locked" : ""}`;
           const isCurrent = a.activityId === current.activityId;
           return (
-            <li key={a.activityId}>
+            <li key={a.activityId} className="flex items-center">
+              {i > 0 ? <span aria-hidden="true" className={`h-0.5 w-3 sm:w-5 ${a.state === "locked" ? "bg-hairline" : "bg-brand"}`} /> : null}
               {a.state === "locked" ? (
-                <span role="img" aria-label={label} className="grid size-10 place-items-center rounded-full bg-line/30 text-muted">
+                <span role="img" aria-label={label} className="grid size-10 place-items-center rounded-full bg-wash text-muted ring-1 ring-hairline">
                   <Icon name="lock" className="size-4" />
                 </span>
               ) : (
@@ -107,9 +115,9 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
                   href={href(a.activityId)}
                   aria-label={label}
                   aria-current={isCurrent ? "step" : undefined}
-                  className={`grid size-10 place-items-center rounded-full font-bold no-underline ${
-                    a.state === "complete" ? "bg-brand text-on-brand" : "bg-tint text-brand"
-                  } ${isCurrent ? "ring-2 ring-brand ring-offset-2" : ""}`}
+                  className={`grid size-10 place-items-center rounded-full font-bold no-underline transition-colors ${
+                    a.state === "complete" ? "bg-brand text-on-brand" : "bg-tint text-brand hover:bg-white"
+                  } ${isCurrent ? "ring-[3px] ring-accent ring-offset-2" : ""}`}
                 >
                   {a.state === "complete" ? <Icon name="check" className="size-4" /> : i + 1}
                 </Link>
@@ -118,15 +126,20 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
           );
         })}
       </ol>
-
-      <section aria-labelledby="step-heading" className="card mt-6 sm:p-8">
-        <p className="text-sm font-bold text-muted">
-          Step {index + 1} of {activities.length} · {TYPE_LABEL[current.type]}
-        </p>
-        <h2 id="step-heading" ref={headingRef} tabIndex={-1} className="mt-1 mb-5">
-          {current.title}
-        </h2>
-
+      <section aria-labelledby="step-heading" className="card mt-6 !p-6 sm:!p-8 shadow-[var(--shadow-md)]">
+        <div className="mb-5 flex items-start gap-4">
+          <span className="icon-tile">
+            <Icon name={TYPE_ICON[current.type]} className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="eyebrow">
+              Step {index + 1} of {activities.length} · {TYPE_LABEL[current.type]}
+            </p>
+            <h2 id="step-heading" ref={headingRef} tabIndex={-1} className="mt-0.5">
+              {current.title}
+            </h2>
+          </div>
+        </div>
         {current.body ? <Markdown text={current.body} className="mb-5" /> : null}
 
         {blocked ? (
@@ -151,7 +164,7 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
 
       <nav aria-label="Step navigation" className="mt-6 flex flex-wrap justify-between gap-3">
         {prev ? (
-          <Link href={href(prev.activityId)} className="btn btn-secondary">
+          <Link href={href(prev.activityId)} className="btn btn-ghost">
             <Icon name="arrowLeft" /> Previous
           </Link>
         ) : (
@@ -159,7 +172,7 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
         )}
         {next && next.state !== "locked" ? (
           <Link href={href(next.activityId)} className="btn btn-secondary">
-            Next
+            Next <Icon name="arrowRight" />
           </Link>
         ) : null}
       </nav>
