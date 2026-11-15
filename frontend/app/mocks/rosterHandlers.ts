@@ -61,7 +61,7 @@ export const rosterHandlers = [
     if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't add students.");
     const found = findClass(String(params.classId));
     if (!found) return apiError(404, "NOT_FOUND", "Class not found.");
-    const body = (await request.json().catch(() => ({}))) as { displayName?: string; externalId?: string; startModuleId?: string };
+    const body = (await request.json().catch(() => ({}))) as { displayName?: string; externalId?: string; startModuleId?: string; gradeLevel?: number };
     const name = (body.displayName ?? "").trim();
     if (!name) return apiError(400, "VALIDATION_ERROR", "displayName is required.");
     if (name.length > 100) return apiError(400, "VALIDATION_ERROR", "displayName must be at most 100 characters.");
@@ -70,7 +70,7 @@ export const rosterHandlers = [
       return apiError(409, "CONFLICT", "A student with this externalId is already in the class");
     }
     const duplicate = roster.find((s) => s.status === "active" && normalizeName(s.displayName) === normalizeName(name));
-    const created = addStudent(found.classId, name, body.externalId ?? "");
+    const created = addStudent(found.classId, name, body.externalId ?? "", typeof body.gradeLevel === "number" ? body.gradeLevel : null);
     created.startModuleId = body.startModuleId ?? found.currentModuleId;
     if (created.startModuleId) setStart(created.studentId, created.startModuleId);
     const [issued] = issueWords(found.classId, [created.studentId]);
@@ -103,7 +103,7 @@ export const rosterHandlers = [
     const limit = Math.min(200, Math.max(1, Number(q.get("limit") ?? 50) || 50));
     const hits = allClasses()
       .filter((c) => (!q.get("classId") || c.classId === q.get("classId")) && (!q.get("cohortId") || c.cohortId === q.get("cohortId")))
-      .flatMap((c) => getRoster(c.classId).filter((s) => !needle || normalizeName(s.displayName).includes(needle)).map((s) => ({ studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, classId: c.classId, status: s.status })));
+      .flatMap((c) => getRoster(c.classId).filter((s) => !needle || normalizeName(s.displayName).includes(needle)).map((s) => ({ studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, classId: c.classId, status: s.status, gradeLevel: s.gradeLevel })));
     return HttpResponse.json({ data: hits.slice(0, limit), meta: { nextCursor: null, truncated: hits.length > limit } });
   }),
 
@@ -122,8 +122,12 @@ export const rosterHandlers = [
     if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't change students.");
     const s = getRoster(String(params.classId)).find((x) => x.studentId === params.studentId);
     if (!s) return apiError(404, "NOT_FOUND", "Student not found");
-    const b = (await request.json().catch(() => ({}))) as { displayName?: string; status?: "active" | "inactive" };
-    if (!b.displayName?.trim() && !b.status) return apiError(400, "VALIDATION_ERROR", "Nothing to update");
+    const b = (await request.json().catch(() => ({}))) as { displayName?: string; status?: "active" | "inactive"; gradeLevel?: number | null };
+    if (!b.displayName?.trim() && !b.status && b.gradeLevel === undefined) return apiError(400, "VALIDATION_ERROR", "Nothing to update");
+    if (b.gradeLevel !== undefined) {
+      if (b.gradeLevel !== null && !(Number.isInteger(b.gradeLevel) && b.gradeLevel >= 6 && b.gradeLevel <= 12)) return apiError(400, "VALIDATION_ERROR", "gradeLevel must be a grade from 6 to 12");
+      s.gradeLevel = b.gradeLevel;
+    }
     if (b.displayName?.trim()) s.displayName = b.displayName.trim();
     if (b.status) s.status = b.status;
     return HttpResponse.json({ data: s });

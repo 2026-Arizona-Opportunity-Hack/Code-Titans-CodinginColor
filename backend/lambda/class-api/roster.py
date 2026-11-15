@@ -11,6 +11,18 @@ from cic.ids import new_id, utc_now_iso
 
 STATUSES = ("active", "inactive")
 MAX_ROSTER = 500
+GRADES = range(6, 13)  # grade level 6 to 12; optional
+
+
+def grade_from(value, field="gradeLevel"):
+    """A grade level 6 to 12, or None when not given. Accepts 9 or "9" (CSV cells are text)."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, str) and value.strip().isdigit():
+        value = int(value.strip())
+    if isinstance(value, bool) or not isinstance(value, int) or value not in GRADES:
+        raise ValidationError(f"{field} must be a grade from 6 to 12")
+    return value
 
 
 def normalize_name(name: str) -> str:
@@ -24,6 +36,7 @@ def public(item: dict, class_id: str) -> dict:
         "displayName": item["displayName"], "rosterNumber": int(item["rosterNumber"]),
         "externalId": item.get("externalId"), "status": item["status"],
         "startModuleId": item.get("startModuleId"), "hasCredential": bool(item.get("credHmac")),
+        "gradeLevel": int(item["gradeLevel"]) if item.get("gradeLevel") is not None else None,
     }
 
 
@@ -95,8 +108,9 @@ def add_student(req: Request):
     table = db.get_table(db.CORE)
     require_class_access(req.auth, table, class_id)
     body = req.json()
-    validate.reject_unknown(body, ("displayName", "externalId", "startModuleId"))
+    validate.reject_unknown(body, ("displayName", "externalId", "startModuleId", "gradeLevel"))
     name = validate.text(body, "displayName")
+    grade = grade_from(body.get("gradeLevel"))
     external_id = validate.text(body, "externalId", 64, required=False)
     start_module = resolve_start_module(table, class_id, body.get("startModuleId"))
 
@@ -114,7 +128,7 @@ def add_student(req: Request):
     item = {"pk": f"CLS#{class_id}", "sk": f"STU#{student_id}", "displayName": name,
             "rosterNumber": number, "status": "active", "credHmac": digest, "credVersion": 1,
             "createdAt": utc_now_iso()}
-    for field, value in (("externalId", external_id), ("startModuleId", start_module)):
+    for field, value in (("externalId", external_id), ("startModuleId", start_module), ("gradeLevel", grade)):
         if value:
             item[field] = value
     table.meta.client.transact_write_items(TransactItems=[
@@ -132,20 +146,27 @@ def update_student(req: Request):
     table = db.get_table(db.CORE)
     require_class_access(req.auth, table, class_id)
     body = req.json()
-    validate.reject_unknown(body, ("displayName", "status"))
+    validate.reject_unknown(body, ("displayName", "status", "gradeLevel"))
     changes = {"displayName": validate.text(body, "displayName", required=False),
                "status": validate.choice(body, "status", STATUSES)}
     changes = {k: v for k, v in changes.items() if v is not None}
-    if not changes:
+    clear_grade = "gradeLevel" in body and body["gradeLevel"] is None
+    if "gradeLevel" in body and not clear_grade:
+        changes["gradeLevel"] = grade_from(body["gradeLevel"])
+    if not changes and not clear_grade:
         raise ValidationError("Nothing to update")
     key = {"pk": f"CLS#{class_id}", "sk": f"STU#{student_id}"}
     if not table.get_item(Key=key).get("Item"):
         raise NotFound("Student not found")
+    expression = ("SET " + ", ".join(f"#{k} = :{k}" for k in changes)) if changes else ""
+    names = {f"#{k}": k for k in changes}
+    if clear_grade:
+        expression += " REMOVE #gradeLevel"
+        names["#gradeLevel"] = "gradeLevel"
+    extra = {"ExpressionAttributeValues": {f":{k}": v for k, v in changes.items()}} if changes else {}
     result = table.update_item(
         Key=key, ReturnValues="ALL_NEW", ConditionExpression="attribute_exists(pk)",
-        UpdateExpression="SET " + ", ".join(f"#{k} = :{k}" for k in changes),
-        ExpressionAttributeNames={f"#{k}": k for k in changes},
-        ExpressionAttributeValues={f":{k}": v for k, v in changes.items()})
+        UpdateExpression=expression.strip(), ExpressionAttributeNames=names, **extra)
     return public(result["Attributes"], class_id)
 
 

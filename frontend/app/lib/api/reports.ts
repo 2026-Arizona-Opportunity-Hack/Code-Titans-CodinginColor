@@ -64,7 +64,7 @@ export type ActivityDetail = {
 
 /** GET /classes/{classId}/students/{studentId}/progress: one student's activities, test scores and submissions. */
 export type StudentDetail = {
-  student: { studentId: string; displayName: string; rosterNumber: number; externalId: string | null };
+  student: { studentId: string; displayName: string; rosterNumber: number; externalId: string | null; gradeLevel?: number | null };
   status: "active" | "inactive";
   resume: { moduleId: string; activityId: string } | null;
   modules: {

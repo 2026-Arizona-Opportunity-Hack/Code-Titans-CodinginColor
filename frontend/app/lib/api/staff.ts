@@ -97,7 +97,7 @@ export function rotateJoinCode(token: string, classId: string): Promise<{ classI
   return apiFetch(`/classes/${encodeURIComponent(classId)}/join-code/rotate`, { method: "POST", token });
 }
 
-export type StudentHit = { studentId: string; displayName: string; rosterNumber: number; classId: string; status: "active" | "inactive" };
+export type StudentHit = { studentId: string; displayName: string; rosterNumber: number; classId: string; status: "active" | "inactive"; gradeLevel?: number | null };
 
 /** GET /students?q=&cohortId=&classId=: find students by name. `truncated` means there are more than were returned. */
 /** GET /students. An empty `q` lists every student in the caller's classes (up to 200). */

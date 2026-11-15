@@ -78,7 +78,13 @@ export type RosterStudent = {
   startModuleId: string | null;
   /** False until login words have been issued for the student. */
   hasCredential: boolean;
+  /** School grade, 6 to 12. null when not given. */
+  gradeLevel: number | null;
 };
+
+/** The grades a student can be in (optional everywhere). */
+export const GRADE_LEVELS = [6, 7, 8, 9, 10, 11, 12] as const;
+export const gradeLabel = (g: number | null | undefined) => (g ? `Grade ${g}` : "—");
 
 /** Active students in a class who share a display name (GET .../roster/duplicates). */
 export type DuplicateGroup = {
@@ -114,13 +120,13 @@ export type AddedStudent = RosterStudent & {
 export function addStudent(
   token: string,
   classId: string,
-  input: { displayName: string; externalId?: string; startModuleId?: string },
+  input: { displayName: string; externalId?: string; startModuleId?: string; gradeLevel?: number },
 ): Promise<AddedStudent> {
   return apiFetch<AddedStudent>(`/classes/${encodeURIComponent(classId)}/roster`, { method: "POST", token, body: input });
 }
 
 /** PATCH /classes/{classId}/roster/{studentId}: rename, or set status inactive/active. */
-export function updateStudent(token: string, classId: string, studentId: string, body: { displayName?: string; status?: RosterStudent["status"] }): Promise<RosterStudent> {
+export function updateStudent(token: string, classId: string, studentId: string, body: { displayName?: string; status?: RosterStudent["status"]; gradeLevel?: number | null }): Promise<RosterStudent> {
   return apiFetch<RosterStudent>(`/classes/${encodeURIComponent(classId)}/roster/${encodeURIComponent(studentId)}`, { method: "PATCH", token, body });
 }
 
