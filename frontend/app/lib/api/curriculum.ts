@@ -44,9 +44,11 @@ export type DocQuestion = {
   pairKey?: string;
   points?: number;
 };
+/** A test for a coding exercise. "call" evaluates `expression` after the student's code and compares the result. "output" runs the program with `stdin` and compares what it prints. */
+export type DocCodeTest = { testId: string; label: string; kind: "output" | "call"; stdin?: string; expression?: string; expected: string };
 export type DocActivity = {
   activityId: string;
-  type: "video" | "slides" | "check" | "worksheet" | "exit" | "assessment";
+  type: "video" | "slides" | "check" | "worksheet" | "exit" | "assessment" | "code";
   title?: string;
   body?: string;
   required?: boolean;
@@ -62,6 +64,11 @@ export type DocActivity = {
   instructions?: string;
   questions?: DocQuestion[];
   fields?: DocQuestion[];
+  /** Coding exercises. `solution` stays on the server and is never sent to students. */
+  language?: "python";
+  starterCode?: string;
+  solution?: string;
+  tests?: DocCodeTest[];
 };
 export type ModuleDoc = {
   moduleId: string;

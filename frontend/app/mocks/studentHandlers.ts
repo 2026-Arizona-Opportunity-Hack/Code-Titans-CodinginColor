@@ -32,6 +32,7 @@ export function studentModule(studentId: string, moduleId: string): StudentModul
       a.state = view.states[a.activityId];
       const saved = drafts.get(`${studentId}/${moduleId}/${a.activityId}`);
       if (a.type === "worksheet" && saved) a.draft = saved as typeof a.draft;
+      if (a.type === "code" && saved) a.draftCode = String((saved as { code?: string }).code ?? "");
     }
   }
   return copy;
@@ -123,10 +124,10 @@ export const studentHandlers = [
     const doc = studentModule(me.studentId, String(params.moduleId));
     const activity = doc?.lessons.flatMap((l) => l.activities).find((a) => a.activityId === params.activityId);
     if (!doc || !activity) return studentError(404, "NOT_FOUND", "Activity not found");
-    if (activity.type !== "worksheet") return studentError(400, "VALIDATION_ERROR", "Drafts are only saved for worksheets");
+    if (activity.type !== "worksheet" && activity.type !== "code") return studentError(400, "VALIDATION_ERROR", "Drafts are only saved for worksheets and coding exercises");
     if (doc.state === "locked" || activity.state === "locked") return studentError(403, "ACTIVITY_LOCKED", "Finish the earlier activities first");
-    const body = (await request.json().catch(() => ({}))) as { answers?: { questionId: string; value: unknown }[] };
-    drafts.set(`${me.studentId}/${doc.moduleId}/${activity.activityId}`, Object.fromEntries((body.answers ?? []).map((a) => [a.questionId, a.value])));
+    const body = (await request.json().catch(() => ({}))) as { answers?: { questionId: string; value: unknown }[]; code?: string };
+    drafts.set(`${me.studentId}/${doc.moduleId}/${activity.activityId}`, activity.type === "code" ? { code: body.code ?? "" } : Object.fromEntries((body.answers ?? []).map((a) => [a.questionId, a.value])));
     const st = statusMap(me.studentId);
     if (!st.has(`${doc.moduleId}/${activity.activityId}`)) st.set(`${doc.moduleId}/${activity.activityId}`, "in_progress");
     return HttpResponse.json({ data: { savedAt: Date.now() } });
@@ -169,6 +170,17 @@ export const studentHandlers = [
       return studentError(403, "ASSESSMENT_ALREADY_SUBMITTED", "This test was already submitted");
     }
 
+    if (activity.type === "code") {
+      // The browser ran the tests. The fake server, like the real one, scores from the module's own test list.
+      const sent = (body as { results?: { testId: string; passed: boolean }[] }).results ?? [];
+      const passed = activity.tests.filter((t) => sent.some((r) => r.testId === t.testId && r.passed)).length;
+      const scorePct = Math.round((passed / activity.tests.length) * 1000) / 10;
+      const ok = scorePct >= (activity.passPct ?? 100);
+      const step = commit(me.studentId, doc.moduleId, activity.activityId, ok ? "complete" : "in_progress");
+      const result = { recorded: true, scorePct, passed: ok, testsPassed: passed, testsTotal: activity.tests.length, ...step };
+      submitted.set(key, { csid: body.clientSubmissionId, result });
+      return HttpResponse.json({ data: result });
+    }
     const given = new Map((body.answers ?? []).map((a) => [a.questionId, a.value]));
     if (activity.type === "worksheet") {
       // Fields with an answer key are checked automatically; the rest wait for the teacher.

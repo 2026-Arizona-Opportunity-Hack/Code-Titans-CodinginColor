@@ -12,6 +12,7 @@ import { PublicShell } from "../common/PublicShell";
 import { StudentShell } from "../common/StudentShell";
 import { Markdown } from "./Markdown";
 import { CatchUpBanner } from "./CatchUpBanner";
+import { CodeActivity } from "./CodeActivity";
 import { ModuleComplete } from "./ModuleComplete";
 import { QuestionActivity } from "./QuestionActivity";
 import { WatchActivity } from "./WatchActivity";
@@ -24,6 +25,7 @@ const TYPE_ICON: Record<Activity["type"], IconName> = {
   exit: "info",
   assessment: "review",
   worksheet: "pencil",
+  code: "code",
 };
 
 const TYPE_LABEL: Record<Activity["type"], string> = {
@@ -33,6 +35,7 @@ const TYPE_LABEL: Record<Activity["type"], string> = {
   exit: "Exit question",
   assessment: "Test",
   worksheet: "Worksheet",
+  code: "Coding exercise",
 };
 
 function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: string; requested: string | null }) {
@@ -155,6 +158,8 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
           <WatchActivity key={current.activityId} activity={current} moduleId={moduleId} token={token} onDone={onDone} />
         ) : current.type === "check" || current.type === "exit" || current.type === "assessment" ? (
           <QuestionActivity key={current.activityId} activity={current} moduleId={moduleId} token={token} onDone={onDone} />
+        ) : current.type === "code" ? (
+          <CodeActivity key={current.activityId} activity={current} moduleId={moduleId} token={token} onDone={onDone} />
         ) : current.type === "worksheet" ? (
           <WorksheetActivity key={current.activityId} activity={current} moduleId={moduleId} token={token} onDone={onDone} />
         ) : (

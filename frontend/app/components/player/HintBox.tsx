@@ -4,8 +4,8 @@ import { useState } from "react";
 import { requestHint } from "../../lib/api/studentModule";
 import { playerMessage } from "../../lib/studentErrors";
 
-/** "Need a hint?" for checks and worksheets (never tests). The reply is a nudge, not the answer. */
-export function HintBox({ token, moduleId, activityId }: { token: string; moduleId: string; activityId: string }) {
+/** "Need a hint?" for checks, worksheets and coding exercises (never tests). The reply is a nudge, not the answer. */
+export function HintBox({ token, moduleId, activityId, code, failedTests }: { token: string; moduleId: string; activityId: string; code?: string; failedTests?: string[] }) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -16,7 +16,11 @@ export function HintBox({ token, moduleId, activityId }: { token: string; module
     setBusy(true);
     setError(null);
     try {
-      const r = await requestHint(token, { moduleId, activityId, question: question.trim() });
+      const r = await requestHint(token, {
+        moduleId, activityId, question: question.trim() || undefined,
+        // For a coding exercise the hint is about the student's own code and the tests it does not pass yet.
+        ...(code?.trim() ? { code: code.slice(0, 6000), failedTests: failedTests?.slice(0, 20) } : {}),
+      });
       setHint({ text: r.hint, level: r.level, left: r.remainingToday });
     } catch (err) {
       setError(playerMessage(err));
@@ -31,9 +35,9 @@ export function HintBox({ token, moduleId, activityId }: { token: string; module
   return (
     <section className="callout mt-6" aria-labelledby="hint-h">
       <h3 id="hint-h" className="text-base font-bold">Ask for a hint</h3>
-      <label htmlFor="hint-q" className="mt-2 block font-bold">What are you stuck on?</label>
+      <label htmlFor="hint-q" className="mt-2 block font-bold">What are you stuck on?{code?.trim() ? <span className="font-normal text-muted"> (optional. The hint will look at your code.)</span> : null}</label>
       <textarea id="hint-q" rows={2} maxLength={500} className="field mt-1" value={question} onChange={(e) => setQuestion(e.target.value)} />
-      <button type="button" className="btn btn-primary mt-3" disabled={busy || !question.trim()} onClick={ask}>{busy ? "Thinking…" : hint ? "Ask again" : "Get a hint"}</button>
+      <button type="button" className="btn btn-primary mt-3" disabled={busy || (!question.trim() && !code?.trim())} onClick={ask}>{busy ? "Thinking…" : hint ? "Ask again" : "Get a hint"}</button>
       <div aria-live="polite">
         {hint ? (
           <div className="mt-3">
