@@ -6,7 +6,10 @@ import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ApiError } from "../../lib/api/client";
 import { getAttention, getProgress } from "../../lib/api/reports";
+import { Icon } from "../common/Icon";
+import { PageHeader } from "../common/PageHeader";
 import { StaffPage } from "../common/StaffPage";
+import { StatGrid } from "../common/StatGrid";
 import { AttentionPanel } from "./AttentionPanel";
 import { ProgressTable } from "./ProgressTable";
 import { TEACHER_ROLES } from "../../lib/api/staff";
@@ -39,32 +42,22 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
   const students = matrix?.students ?? [];
   const finished = students.filter((s) => matrix && matrix.modules.length > 0 && matrix.modules.every((m) => s.modules[m.moduleId]?.state === "complete")).length;
   const notStarted = students.filter((s) => matrix?.modules.every((m) => (s.modules[m.moduleId]?.percent ?? 0) === 0)).length;
-  const tiles = [
-    ["Students", students.length],
-    ["Finished every module", finished],
-    ["Haven't started anything", notStarted],
-  ] as const;
-
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-4 text-sm">
-        <Link href={classHref}>← Back to class</Link>
-      </nav>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1>Progress</h1>
-          <p className="mt-1 text-muted">Where each student is in the assigned modules.</p>
-        </div>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => Promise.all([progress.refetch(), attention.refetch()])}
-          disabled={progress.isFetching || attention.isFetching}
-        >
-          {progress.isFetching || attention.isFetching ? "Refreshing…" : "Refresh"}
-        </button>
-      </div>
-
+      <PageHeader
+        back={{ href: classHref, label: "Back to class" }}
+        title="Progress"
+        description="Where each student is in the assigned modules."
+        actions={
+          <>
+            <Link href={`/instructor/class/gain/?id=${encodeURIComponent(classId)}`} className="btn btn-ghost">Learning gain</Link>
+            <Link href={`/instructor/class/concepts/?id=${encodeURIComponent(classId)}`} className="btn btn-ghost">Concepts</Link>
+            <button type="button" className="btn btn-secondary" onClick={() => Promise.all([progress.refetch(), attention.refetch()])} disabled={progress.isFetching || attention.isFetching}>
+              {progress.isFetching || attention.isFetching ? "Refreshing…" : "Refresh"}
+            </button>
+          </>
+        }
+      />
       {progress.isPending ? <div role="status" aria-label="Loading progress" className="skeleton mt-6 h-56" /> : null}
       {progress.isError ? (
         <div role="alert" className="callout callout-danger mt-6">
@@ -78,19 +71,22 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
       ) : null}
 
       {matrix && matrix.modules.length === 0 ? (
-        <div className="card mt-6 max-w-xl">
-          <p className="font-bold">No modules are assigned yet.</p>
-          <p className="mt-1 text-muted">Assign a module to see how students are getting on.</p>
-          <Link href={`/instructor/class/assignments/?id=${encodeURIComponent(classId)}`} className="btn btn-primary mt-4">
+        <div className="empty">
+          <span className="icon-tile"><Icon name="book" className="size-6" /></span>
+          <h2 className="text-lg">No modules are assigned yet</h2>
+          <p className="max-w-md text-muted">Assign a module to see how students are getting on.</p>
+          <Link href={`/instructor/class/assignments/?id=${encodeURIComponent(classId)}`} className="btn btn-primary mt-2">
             Assigned modules
           </Link>
         </div>
       ) : null}
 
       {matrix && matrix.modules.length > 0 && students.length === 0 ? (
-        <div className="card mt-6 max-w-xl">
-          <p className="font-bold">No students yet.</p>
-          <Link href={`/instructor/class/import/?id=${encodeURIComponent(classId)}`} className="btn btn-primary mt-4">
+        <div className="empty">
+          <span className="icon-tile"><Icon name="students" className="size-6" /></span>
+          <h2 className="text-lg">No students yet</h2>
+          <p className="max-w-md text-muted">Add the class list and each student gets a login.</p>
+          <Link href={`/instructor/class/import/?id=${encodeURIComponent(classId)}`} className="btn btn-primary mt-2">
             Add students from a CSV
           </Link>
         </div>
@@ -98,30 +94,26 @@ function ProgressBody({ token, classId }: { token: string; classId: string }) {
 
       {matrix && matrix.modules.length > 0 && students.length > 0 ? (
         <>
-          <dl className="mt-6 grid grid-cols-3 gap-4">
-            {tiles.map(([label, value]) => (
-              <div key={label} className="card">
-                <dt className="text-sm text-muted">{label}</dt>
-                <dd className="mt-1 text-3xl font-bold text-brand">{value}</dd>
-              </div>
-            ))}
-          </dl>
-
+          <StatGrid
+            items={[
+              { label: "Students", value: students.length, icon: "students" },
+              { label: "Finished every module", value: finished, icon: "check", hint: `${Math.round((finished / students.length) * 100)}% of the class` },
+              { label: "Haven't started anything", value: notStarted, icon: "alert" },
+            ]}
+          />
           {attention.data ? (
             <AttentionPanel attention={attention.data} classId={classId} titleOf={(id) => matrix.modules.find((m) => m.moduleId === id)?.title ?? id} />
           ) : null}
 
-          <div className="mt-8 max-w-sm">
-            <label htmlFor="progress-search" className="block font-bold">
-              Search by name
-            </label>
-            <input id="progress-search" type="search" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" className="field mt-1" />
+          <div className="mt-10 flex flex-wrap items-end justify-between gap-4">
+            <div className="w-full max-w-sm">
+              <label htmlFor="progress-search" className="label">Search by name</label>
+              <input id="progress-search" type="search" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" className="field mt-1" />
+            </div>
+            <p aria-live="polite" className="text-sm text-muted">Showing {visible.length} of {students.length} students</p>
           </div>
-          <p aria-live="polite" className="mt-3 text-sm text-muted">
-            Showing {visible.length} of {students.length} students
-          </p>
-          <div className="mt-2">
-            {visible.length > 0 ? <ProgressTable matrix={matrix} students={visible} classId={classId} /> : <p className="card text-muted">No students match.</p>}
+          <div className="mt-4">
+            {visible.length > 0 ? <ProgressTable matrix={matrix} students={visible} classId={classId} /> : <div className="empty"><p className="text-muted">No students match &ldquo;{search.trim()}&rdquo;.</p></div>}
           </div>
         </>
       ) : null}
