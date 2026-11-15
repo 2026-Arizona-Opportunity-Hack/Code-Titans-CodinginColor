@@ -20,20 +20,30 @@ export type StaffMe = {
   orgId?: string;
 };
 
-/**
- * ASSUMPTION: api.md names these endpoints but not the class object, and the class API
- * is not built yet. Fields other than classId and name are treated as optional.
- */
+/** A class, as returned by the backend's class API (backend/lambda/class-api/classes.py). */
 export type ClassSummary = {
   classId: string;
   name: string;
-  orgId?: string;
-  cohortId?: string;
-  status?: string;
-  joinCode?: string;
-  enrolled?: number;
-  termStart?: string;
-  termEnd?: string;
+  orgId: string;
+  cohortId: string | null;
+  status: "active" | "archived";
+  joinCode: string;
+  termStart: string | null;
+  termEnd: string | null;
+  currentModuleId: string | null;
+  settings: {
+    stuckFailedAttempts: number;
+    stuckTimeMultiplier: number;
+    notStartedDays: number;
+    inactiveSchoolDays: number;
+  };
+  createdAt: string;
+};
+
+/** GET /classes/{classId} adds the student count and assignments to the class. */
+export type ClassDetail = ClassSummary & {
+  counts: { students: number };
+  assignments: unknown[];
 };
 
 export type CreateClassInput = {
@@ -55,8 +65,8 @@ export function listClasses(token: string, signal?: AbortSignal): Promise<ClassS
   return apiFetch<ClassSummary[]>("/classes", { token, signal });
 }
 
-export function getClass(token: string, classId: string, signal?: AbortSignal): Promise<ClassSummary> {
-  return apiFetch<ClassSummary>(`/classes/${encodeURIComponent(classId)}`, { token, signal });
+export function getClass(token: string, classId: string, signal?: AbortSignal): Promise<ClassDetail> {
+  return apiFetch<ClassDetail>(`/classes/${encodeURIComponent(classId)}`, { token, signal });
 }
 
 export function createClass(token: string, input: CreateClassInput): Promise<ClassSummary> {

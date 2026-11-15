@@ -12,9 +12,8 @@ export function classHref(classId: string) {
 
 function ClassCard({ item }: { item: ClassSummary }) {
   const facts: string[] = [];
-  if (item.enrolled !== undefined) facts.push(`${item.enrolled} ${item.enrolled === 1 ? "student" : "students"}`);
   if (item.termStart || item.termEnd) facts.push([item.termStart, item.termEnd].filter(Boolean).join(" to "));
-  if (item.status && item.status !== "active") facts.push(item.status);
+  if (item.status !== "active") facts.push(item.status);
 
   return (
     <li className="relative rounded-xl border border-line bg-surface p-5 hover:bg-tint">
