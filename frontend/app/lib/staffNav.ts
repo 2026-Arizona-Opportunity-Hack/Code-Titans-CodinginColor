@@ -21,20 +21,20 @@ export const ROLE_HOME: Record<StaffRole, string> = {
  */
 export function navFor(role: StaffRole): NavItem[] {
   if (role === "reviewer") {
-    return [{ label: "Curriculum", href: "/reviewer/", ready: true }];
+    return [{ label: "Curriculum", href: "/reviewer/", ready: true, icon: "book" }];
   }
   const items: NavItem[] = [
-    { label: "Classes", href: "/instructor/", ready: true },
-    { label: "Students", href: "/instructor/students/", ready: true },
-    { label: "Curriculum", href: "/instructor/curriculum/", ready: true },
+    { label: "Classes", href: "/instructor/", ready: true, icon: "classes", section: "Teach" },
+    { label: "Students", href: "/instructor/students/", ready: true, icon: "students" },
+    { label: "Curriculum", href: "/instructor/curriculum/", ready: true, icon: "book" },
   ];
   if (role === "cic_admin") {
     items.push(
-      { label: "Cohorts", href: "/admin/cohorts/", ready: true },
-      { label: "Schools", href: "/admin/schools/", ready: true },
-      { label: "Users", href: "/admin/users/", ready: true },
-      { label: "API keys", href: "/admin/api-keys/", ready: true },
-      { label: "Audit log", href: "/admin/audit/", ready: true },
+      { label: "Cohorts", href: "/admin/cohorts/", ready: true, icon: "layers", section: "Administer" },
+      { label: "Schools", href: "/admin/schools/", ready: true, icon: "school" },
+      { label: "Users", href: "/admin/users/", ready: true, icon: "shield" },
+      { label: "API keys", href: "/admin/api-keys/", ready: true, icon: "key" },
+      { label: "Audit log", href: "/admin/audit/", ready: true, icon: "audit" },
     );
   }
   return items;
