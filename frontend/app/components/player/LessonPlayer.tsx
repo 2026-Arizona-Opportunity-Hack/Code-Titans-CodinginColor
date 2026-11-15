@@ -10,6 +10,7 @@ import { getStudentModule, type Activity, type StepResult } from "../../lib/api/
 import { Icon } from "../common/Icon";
 import { PublicShell } from "../common/PublicShell";
 import { StudentShell } from "../common/StudentShell";
+import { Markdown } from "./Markdown";
 import { ModuleComplete } from "./ModuleComplete";
 import { QuestionActivity } from "./QuestionActivity";
 import { WatchActivity } from "./WatchActivity";
@@ -123,6 +124,8 @@ function PlayerBody({ token, moduleId, requested }: { token: string; moduleId: s
         <h2 id="step-heading" ref={headingRef} tabIndex={-1} className="mt-1 mb-5">
           {current.title}
         </h2>
+
+        {current.body ? <Markdown text={current.body} className="mb-5" /> : null}
 
         {blocked ? (
           <div className="callout">

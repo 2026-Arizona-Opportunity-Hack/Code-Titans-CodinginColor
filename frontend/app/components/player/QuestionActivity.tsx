@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError } from "../../lib/api/client";
+import { playerMessage } from "../../lib/studentErrors";
 import { sendHeartbeat, submitActivity, type Activity, type Answer, type Question, type StepResult } from "../../lib/api/studentModule";
 import { useActiveTime } from "../../lib/useActiveTime";
 import { Icon } from "../common/Icon";
@@ -92,7 +92,7 @@ export function QuestionActivity({
     try {
       setResult(await submitActivity(token, moduleId, activity.activityId, submissionId, body));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again."); // same id on retry
+      setError(playerMessage(err)); // same id on retry
     } finally {
       setBusy(false);
     }

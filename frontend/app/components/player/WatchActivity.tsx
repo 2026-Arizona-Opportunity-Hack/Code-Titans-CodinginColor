@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ApiError } from "../../lib/api/client";
 import { completeActivity, sendHeartbeat, type Activity, type StepResult } from "../../lib/api/studentModule";
 import { useActiveTime } from "../../lib/useActiveTime";
+import { playerMessage } from "../../lib/studentErrors";
 import { Icon } from "../common/Icon";
+import { Markdown } from "./Markdown";
 
 type Watchable = Extract<Activity, { type: "video" | "slides" }>;
 
@@ -26,8 +27,10 @@ export function WatchActivity({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const done = activity.state === "complete";
+  const [slide, setSlide] = useState(0);
+  const slides = activity.type === "slides" ? (activity.slides ?? []) : [];
 
-  const flush = useActiveTime((seconds) => sendHeartbeat(token, moduleId, activity.activityId, seconds), !done);
+  const flush = useActiveTime((seconds) => sendHeartbeat(token, moduleId, activity.activityId, seconds), !done, activity.type === "video"); // watching a video needs no clicks
 
   async function markDone() {
     setBusy(true);
@@ -36,7 +39,7 @@ export function WatchActivity({
       await flush(); // make sure the server has the time spent before it checks the minimum
       onDone(await completeActivity(token, moduleId, activity.activityId));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setError(playerMessage(err));
     } finally {
       setBusy(false);
     }
@@ -47,7 +50,7 @@ export function WatchActivity({
       {activity.type === "video" ? (
         YOUTUBE_ID.test(activity.videoId) ? (
           <iframe
-            src={`https://www.youtube-nocookie.com/embed/${activity.videoId}?rel=0`}
+            src={`https://www.youtube-nocookie.com/embed/${activity.videoId}?rel=0&cc_load_policy=1&hl=en`}
             title={activity.title}
             allow="accelerometer; encrypted-media; picture-in-picture"
             allowFullScreen
@@ -60,7 +63,19 @@ export function WatchActivity({
           </p>
         )
       ) : (
-        <p className="callout">The slides for this step are not available yet.</p>
+        slides.length > 0 ? (
+          <div className="card" aria-roledescription="carousel" aria-label={activity.title}>
+            <p className="text-sm font-bold text-muted" aria-live="polite">Slide {slide + 1} of {slides.length}</p>
+            {slides[slide].title ? <h3 className="mt-1 text-lg font-bold">{slides[slide].title}</h3> : null}
+            <Markdown text={slides[slide].body ?? ""} />
+            <div className="mt-3 flex gap-3">
+              <button type="button" className="btn btn-secondary" disabled={slide === 0} onClick={() => setSlide(slide - 1)}>Previous slide</button>
+              <button type="button" className="btn btn-secondary" disabled={slide === slides.length - 1} onClick={() => setSlide(slide + 1)}>Next slide</button>
+            </div>
+          </div>
+        ) : (
+          <p className="callout">The slides for this step are not available yet.</p>
+        )
       )}
 
       {error ? (

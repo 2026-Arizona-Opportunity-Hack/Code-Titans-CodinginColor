@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ApiError } from "../../lib/api/client";
+import { playerMessage } from "../../lib/studentErrors";
 import { saveDraft, sendHeartbeat, submitActivity, type Activity, type Answer, type StepResult } from "../../lib/api/studentModule";
 import { useActiveTime } from "../../lib/useActiveTime";
 import { Icon } from "../common/Icon";
 import { InlineCode } from "./InlineCode";
+import { Markdown } from "./Markdown";
 
 type Sheet = Extract<Activity, { type: "worksheet" }>;
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -62,6 +63,13 @@ export function WorksheetActivity({
     timer.current = window.setTimeout(persist, SAVE_DELAY_MS);
   }
 
+  // Moving to another field saves straight away instead of waiting for the typing pause.
+  function saveNow() {
+    if (!unsaved.current) return;
+    window.clearTimeout(timer.current);
+    void persist();
+  }
+
   // Leaving the step with unsaved typing: save it now.
   useEffect(() => {
     const draft = latest;
@@ -81,7 +89,7 @@ export function WorksheetActivity({
     try {
       setResult(await submitActivity(token, moduleId, activity.activityId, submissionId, toAnswers(values, activity)));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setError(playerMessage(err));
     } finally {
       setBusy(false);
     }
@@ -111,7 +119,7 @@ export function WorksheetActivity({
   const complete = activity.fields.every((f) => values[f.fieldId].trim() !== "");
   return (
     <div>
-      {activity.instructions ? <p className="mb-5 text-muted">{activity.instructions}</p> : null}
+      {activity.instructions ? <Markdown text={activity.instructions} className="mb-5 text-muted" /> : null}
       <div className="flex flex-col gap-4">
         {activity.fields.map((f) => (
           <div key={f.fieldId} className="card">
@@ -119,12 +127,13 @@ export function WorksheetActivity({
               <InlineCode text={f.prompt} />
             </label>
             {f.type === "text" ? (
-              <textarea id={f.fieldId} rows={4} value={values[f.fieldId]} onChange={(e) => change(f.fieldId, e.target.value)} className="field mt-3 font-mono" spellCheck={false} />
+              <textarea id={f.fieldId} rows={4} value={values[f.fieldId]} onBlur={saveNow} onChange={(e) => change(f.fieldId, e.target.value)} className="field mt-3 font-mono" spellCheck={false} />
             ) : (
               <input
                 id={f.fieldId}
                 type={f.type === "number" ? "number" : "text"}
                 value={values[f.fieldId]}
+                onBlur={saveNow}
                 onChange={(e) => change(f.fieldId, e.target.value)}
                 autoComplete="off"
                 className="field mt-3"
