@@ -1,23 +1,12 @@
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { Assignment } from "../lib/api/assignments";
-import type { ModuleSummary } from "../lib/api/curriculum";
+import { MODULES } from "./curriculumStore";
 import { register } from "./persist";
 import { apiError, roleOf } from "./staffHandlers";
 
 // Fake curriculum list and class assignments, behaving like the backend's curriculum.py and
 // assignments.py. State lives in memory and resets when the page is reloaded.
-
-const UPDATED = "2026-10-01T00:00:00Z";
-const mod = (moduleId: string, title: string, latestVersion: number, concept: string, estimatedMinutes: number): ModuleSummary => ({
-  moduleId, title, latestVersion, concepts: [concept], estimatedMinutes, updatedAt: UPDATED,
-});
-const MODULES = [
-  mod("py-intro", "Intro to Python", 1, "variables", 30),
-  mod("py-loops", "Python Loops", 2, "loops", 45),
-  mod("py-functions", "Functions", 1, "functions", 45),
-  mod("py-lists", "Lists", 1, "lists", 40),
-];
 
 const assignments = new Map<string, Assignment[]>([
   [
@@ -47,11 +36,6 @@ const sorted = (list: Assignment[]) => [...list].sort((a, b) => a.order - b.orde
 export const assignedFor = (classId: string) => sorted(forClass(classId));
 
 export const assignmentHandlers = [
-  http.get(`${env.apiUrl}/curriculum/modules`, ({ request }) => {
-    if (!roleOf(request)) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
-    return HttpResponse.json({ data: MODULES, meta: { nextCursor: null } });
-  }),
-
   http.get(`${env.apiUrl}/classes/:classId/assignments`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
