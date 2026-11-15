@@ -148,7 +148,10 @@ def unlock(req: Request):
     if not table.get_item(Key={"pk": f"CLS#{class_id}", "sk": f"STU#{student_id}"}).get("Item"):
         raise NotFound("Student not found")
     _find(table, class_id, module_id)  # the module must be assigned to this class
+    # studentId and moduleId are stored as attributes because the student player and the
+    # reports read them directly from the item instead of parsing the sort key.
     table.put_item(Item={"pk": f"CLS#{class_id}", "sk": f"OVR#{student_id}#{module_id}",
+                         "studentId": student_id, "moduleId": module_id,
                          "unlockedBy": staff.user_id, "unlockedAt": utc_now_iso()})
     return {"studentId": student_id, "moduleId": module_id, "unlocked": True}
 
