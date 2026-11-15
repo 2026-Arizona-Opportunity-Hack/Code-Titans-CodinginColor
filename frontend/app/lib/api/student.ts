@@ -10,27 +10,24 @@ export type StudentSession = {
 
 export type ModuleState = "locked" | "available" | "in_progress" | "complete" | "catch_up";
 
+// Field names follow the backend's student-api (feat/student-api branch), which is
+// more specific than api.md section 6: modules carry { moduleId, title, state, percent }
+// and the resume pointer is only { moduleId, activityId }.
 export type HomeModule = {
   moduleId: string;
-  /** ASSUMPTION: api.md does not list titles, but the UI cannot show a path without them. */
   title: string;
   state: ModuleState;
-  progressPct: number;
+  /** Whole-number completion percent, 0 to 100. */
+  percent: number;
 };
 
 export type ResumePointer = {
   moduleId: string;
   activityId: string;
-  /** ASSUMPTION: the display fields below are not in api.md yet. The UI falls back gracefully without them. */
-  moduleTitle?: string;
-  activityTitle?: string;
-  step?: number;
-  stepCount?: number;
 };
 
 export type StudentHome = {
-  /** ASSUMPTION: not in api.md yet. */
-  className?: string;
+  student: { displayName: string; classId: string };
   /** null when everything assigned is finished, or nothing is assigned. */
   resume: ResumePointer | null;
   modules: HomeModule[];

@@ -67,13 +67,10 @@ export function StudentHomeScreen() {
   const data = home.data;
   const resume = data?.resume ?? null;
   const resumeModule = resume ? data?.modules.find((m) => m.moduleId === resume.moduleId) : undefined;
-  const detail =
-    resume?.step && resume.stepCount
-      ? `Step ${resume.step} of ${resume.stepCount}${resume.activityTitle ? ` · ${resume.activityTitle}` : ""}`
-      : resume?.activityTitle;
+  const detail = resumeModule?.state === "in_progress" ? `${resumeModule.percent}% complete` : undefined;
 
   return (
-    <StudentShell studentName={session.student.displayName} className={data?.className} onSignOut={onSignOut}>
+    <StudentShell studentName={session.student.displayName} onSignOut={onSignOut}>
       <h1 className="mb-6 text-3xl">Your learning path</h1>
 
       {home.isPending || unauthorized ? <HomeSkeleton /> : null}
@@ -92,7 +89,7 @@ export function StudentHomeScreen() {
         <>
           {resume ? (
             <StartHereCard
-              title={resume.moduleTitle ?? resumeModule?.title ?? "Your next lesson"}
+              title={resumeModule?.title ?? "Your next lesson"}
               detail={detail}
               actionLabel={resumeModule?.state === "in_progress" ? "Continue" : "Start"}
               href={`${moduleHref(resume.moduleId)}&a=${encodeURIComponent(resume.activityId)}`}

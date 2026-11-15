@@ -22,20 +22,13 @@ function isSignedIn(request: Request) {
 
 // Maya joined late: "Intro to Python" is catch-up, and her start module is Python Loops.
 const home: StudentHome = {
-  className: "Maryvale · Period 3",
-  resume: {
-    moduleId: "py-loops",
-    activityId: "a-pre",
-    moduleTitle: "Python Loops",
-    activityTitle: "Pretest",
-    step: 1,
-    stepCount: 6,
-  },
+  student: { displayName: "Maya R.", classId: "cls_01" },
+  resume: { moduleId: "py-loops", activityId: "a-pre" },
   modules: [
-    { moduleId: "py-intro", title: "Intro to Python", state: "catch_up", progressPct: 0 },
-    { moduleId: "py-loops", title: "Python Loops", state: "available", progressPct: 0 },
-    { moduleId: "py-functions", title: "Functions", state: "locked", progressPct: 0 },
-    { moduleId: "py-lists", title: "Lists", state: "locked", progressPct: 0 },
+    { moduleId: "py-intro", title: "Intro to Python", state: "catch_up", percent: 0 },
+    { moduleId: "py-loops", title: "Python Loops", state: "available", percent: 0 },
+    { moduleId: "py-functions", title: "Functions", state: "locked", percent: 0 },
+    { moduleId: "py-lists", title: "Lists", state: "locked", percent: 0 },
   ],
 };
 
@@ -65,7 +58,7 @@ export const handlers = [
 
   http.post(`${env.apiUrl}/auth/student/logout`, ({ request }) => {
     if (!isSignedIn(request)) return apiError(401, "UNAUTHENTICATED", "Sign in again.");
-    return HttpResponse.json({ data: { loggedOut: true } });
+    return HttpResponse.json({ data: { signedOut: true } });
   }),
 
   http.get(`${env.apiUrl}/student/home`, ({ request }) => {
