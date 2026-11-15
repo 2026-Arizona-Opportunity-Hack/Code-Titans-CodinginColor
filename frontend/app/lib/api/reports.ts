@@ -134,3 +134,25 @@ export type ModuleGain = {
 export function getModuleGain(token: string, classId: string, moduleId: string, signal?: AbortSignal): Promise<ModuleGain> {
   return apiFetch<ModuleGain>(`/classes/${encodeURIComponent(classId)}/modules/${encodeURIComponent(moduleId)}/gain`, { token, signal });
 }
+
+/** GET /classes/{classId}/review-queue: worksheet answers that wait for a teacher's score. */
+export type ReviewItem = {
+  submissionId: string;
+  student: { studentId: string; displayName: string; rosterNumber: number; externalId: string | null } | null;
+  moduleId: string;
+  activityId: string;
+  submittedAt: number | string;
+  /** The student's free-text answers, by field id. Show as plain text only. */
+  answers: Record<string, unknown>;
+  autoScorePct: number | null;
+};
+
+export const getReviewQueue = (token: string, classId: string, signal?: AbortSignal) =>
+  apiFetch<ReviewItem[]>(`/classes/${encodeURIComponent(classId)}/review-queue?limit=50`, { token, signal });
+
+/** PUT /classes/{classId}/submissions/{submissionId}/review: score is 0 to 100, comment up to 1000 characters. */
+export const reviewSubmission = (token: string, classId: string, submissionId: string, body: { score: number; comment: string }) =>
+  apiFetch<{ submissionId: string; reviewStatus: "reviewed" }>(
+    `/classes/${encodeURIComponent(classId)}/submissions/${encodeURIComponent(submissionId)}/review`,
+    { method: "PUT", token, body },
+  );

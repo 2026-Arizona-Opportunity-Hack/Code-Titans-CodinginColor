@@ -2,6 +2,8 @@ import Papa from "papaparse";
 import { http, HttpResponse } from "msw";
 import { env } from "../config/env";
 import type { ActivityDetail, Attention, ConceptGain, GainSummary, ModuleGain, ProgressMatrix, StudentDetail, StuckReason } from "../lib/api/reports";
+import { draftFor } from "./studentHandlers";
+import { register } from "./persist";
 import { recordAudit } from "./adminHandlers";
 import { safeCell } from "../lib/loginLinks";
 import { assignedFor, titleOf } from "./assignmentHandlers";
@@ -84,7 +86,7 @@ function studentDetail(classId: string, studentId: string): StudentDetail | null
       return { moduleId: a.moduleId, title: titleOf(a.moduleId), state: v.state, percent: v.percent, pre: assessmentScore(studentId, a.moduleId, "pre"), post: assessmentScore(studentId, a.moduleId, "post"), activities };
     }),
     // A finished worksheet has a free-text field with no answer key, so it waits for the teacher.
-    submissions: assignedFor(classId).flatMap((a) => (views.find((x) => x.moduleId === a.moduleId)?.states["a-ws"] === "complete" ? [{ activityId: "a-ws", moduleId: a.moduleId, submittedAt: done, reviewStatus: "pending" as const, autoScorePct: 100, reviewScore: null, reviewComment: null }] : [])),
+    submissions: assignedFor(classId).flatMap((a) => (views.find((x) => x.moduleId === a.moduleId)?.states["a-ws"] === "complete" ? [{ activityId: "a-ws", moduleId: a.moduleId, submittedAt: done, reviewStatus: reviewed.has(submissionId(studentId, a.moduleId)) ? ("reviewed" as const) : ("pending" as const), autoScorePct: 100, reviewScore: reviewed.get(submissionId(studentId, a.moduleId))?.score ?? null, reviewComment: reviewed.get(submissionId(studentId, a.moduleId))?.comment ?? null }] : [])),
   };
 }
 
@@ -136,7 +138,42 @@ function exportCsv(classId: string, kind: string): string {
   return Papa.unparse({ fields: ["module", "rosterNumber", "student", "pre", "post", "gain", "normalizedGain"], data: rows }, { newline: "\n" });
 }
 
+// Worksheets with a free-text field wait for a teacher. Reviewed ones leave the queue.
+const reviewed = new Map<string, { score: number; comment: string }>();
+register({ key: "reviews", snapshot: () => [...reviewed], restore: (d: [string, { score: number; comment: string }][]) => { reviewed.clear(); d.forEach(([k, v]) => reviewed.set(k, v)); } });
+const submissionId = (studentId: string, moduleId: string) => `sub_${studentId}__${moduleId}`;
+
+function reviewQueue(classId: string) {
+  return getRoster(classId).filter((s) => s.status === "active").flatMap((s) =>
+    assignedFor(classId).flatMap((a) => {
+      const done = moduleViews(s.studentId).views.find((v) => v.moduleId === a.moduleId)?.states["a-ws"] === "complete";
+      if (!done || reviewed.has(submissionId(s.studentId, a.moduleId))) return [];
+      return [{ submissionId: submissionId(s.studentId, a.moduleId), student: { studentId: s.studentId, displayName: s.displayName, rosterNumber: s.rosterNumber, externalId: s.externalId }, moduleId: a.moduleId, activityId: "a-ws", submittedAt: Date.now() - 3600_000, answers: draftFor(s.studentId, a.moduleId, "a-ws"), autoScorePct: 100 }];
+    }));
+}
+
 export const reportHandlers = [
+  http.get(`${env.apiUrl}/classes/:classId/review-queue`, ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't see class data.");
+    return HttpResponse.json({ data: reviewQueue(String(params.classId)), meta: { nextCursor: null } });
+  }),
+
+  http.put(`${env.apiUrl}/classes/:classId/submissions/:submissionId/review`, async ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't review submissions.");
+    const body = (await request.json().catch(() => ({}))) as { score?: unknown; comment?: unknown };
+    if (typeof body.score !== "number" || body.score < 0 || body.score > 100) return apiError(400, "VALIDATION_ERROR", "score must be a number from 0 to 100");
+    const comment = body.comment ?? "";
+    if (typeof comment !== "string" || comment.length > 1000) return apiError(400, "VALIDATION_ERROR", "comment must be text up to 1000 characters");
+    const id = String(params.submissionId);
+    if (!reviewQueue(String(params.classId)).some((i) => i.submissionId === id)) return apiError(404, "NOT_FOUND", "Submission not found in this class");
+    reviewed.set(id, { score: body.score, comment });
+    return HttpResponse.json({ data: { submissionId: id, reviewStatus: "reviewed" } });
+  }),
+
   http.get(`${env.apiUrl}/classes/:classId/modules/:moduleId/gain`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");

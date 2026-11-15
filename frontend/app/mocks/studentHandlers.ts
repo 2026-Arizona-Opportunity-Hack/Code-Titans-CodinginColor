@@ -13,6 +13,8 @@ let failures = 0;
 
 const drafts = new Map<string, Record<string, unknown>>(); // saved worksheet answers, per student step
 
+export const draftFor = (studentId: string, moduleId: string, activityId: string) => drafts.get(`${studentId}/${moduleId}/${activityId}`) ?? {};
+
 export function studentError(status: number, code: string, error: string, headers?: Record<string, string>) {
   return HttpResponse.json({ error, code, requestId: "req_mock" }, { status, headers });
 }
