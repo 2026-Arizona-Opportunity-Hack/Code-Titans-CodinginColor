@@ -61,8 +61,12 @@ export function getMe(token: string, signal?: AbortSignal): Promise<StaffMe> {
   return apiFetch<StaffMe>("/me", { token, signal });
 }
 
-export function listClasses(token: string, signal?: AbortSignal): Promise<ClassSummary[]> {
-  return apiFetchAll<ClassSummary>("/classes", { token, signal });
+/** Admins can narrow the list by school (orgId) or cohort. Instructors always get their own classes. */
+export function listClasses(token: string, signal?: AbortSignal, filters: { orgId?: string; cohortId?: string } = {}): Promise<ClassSummary[]> {
+  const q = new URLSearchParams();
+  if (filters.orgId) q.set("orgId", filters.orgId);
+  if (filters.cohortId) q.set("cohortId", filters.cohortId);
+  return apiFetchAll<ClassSummary>(`/classes${q.size ? `?${q}` : ""}`, { token, signal });
 }
 
 export function getClass(token: string, classId: string, signal?: AbortSignal): Promise<ClassDetail> {
@@ -102,3 +106,7 @@ export async function searchStudents(token: string, filters: { q: string; classI
   const { data, meta } = await apiFetchPage<StudentHit[]>(`/students?${params}`, { token, signal });
   return { students: data, truncated: Boolean(meta.truncated) };
 }
+
+/** POST /classes/{classId}/members: an admin adds another instructor to a class. */
+export const addClassMember = (token: string, classId: string, userId: string) =>
+  apiFetch<{ classId: string; userId: string }>(`/classes/${encodeURIComponent(classId)}/members`, { method: "POST", token, body: { userId } });

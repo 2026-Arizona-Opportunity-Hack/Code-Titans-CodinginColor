@@ -71,7 +71,7 @@ function ModuleCard({ module }: { module: StudentDetail["modules"][number] }) {
   );
 }
 
-function DetailBody({ token, classId, studentId }: { token: string; classId: string; studentId: string }) {
+function DetailBody({ token, classId, studentId, isAdmin }: { token: string; classId: string; studentId: string; isAdmin: boolean }) {
   const detail = useQuery({
     queryKey: ["student-detail", token, classId, studentId],
     queryFn: ({ signal }) => getStudentDetail(token, classId, studentId, signal),
@@ -119,7 +119,7 @@ function DetailBody({ token, classId, studentId }: { token: string; classId: str
             ))}
           </div>
 
-          <StudentManage token={token} classId={classId} detail={d} onMerged={() => router.replace(back)} />
+          <StudentManage token={token} classId={classId} detail={d} isAdmin={isAdmin} onMerged={() => router.replace(back)} />
 
           {d.submissions.length > 0 ? (
             <section aria-labelledby="subs-heading" className="mt-8">
@@ -153,9 +153,9 @@ export function StudentDetailScreen() {
   const studentId = params.get("id") ?? "";
   return (
     <StaffPage roles={["instructor", "cic_admin"]}>
-      {({ token }) =>
+      {({ token, me }) =>
         classId && studentId ? (
-          <DetailBody token={token} classId={classId} studentId={studentId} />
+          <DetailBody token={token} classId={classId} studentId={studentId} isAdmin={me.role === "cic_admin"} />
         ) : (
           <p role="alert" className="callout callout-danger">
             No student was chosen. Open this page from the progress list.

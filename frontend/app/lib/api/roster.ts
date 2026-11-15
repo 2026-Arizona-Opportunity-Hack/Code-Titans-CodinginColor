@@ -128,3 +128,8 @@ export function updateStudent(token: string, classId: string, studentId: string,
 export function mergeStudent(token: string, classId: string, studentId: string, intoStudentId: string): Promise<unknown> {
   return apiFetch(`/classes/${encodeURIComponent(classId)}/roster/${encodeURIComponent(studentId)}/merge`, { method: "POST", token, body: { intoStudentId } });
 }
+
+/** DELETE /classes/{classId}/roster/{studentId}: admin only. Removes the student and all their progress for good. */
+export function deleteStudent(token: string, classId: string, studentId: string): Promise<unknown> {
+  return apiFetch(`/classes/${encodeURIComponent(classId)}/roster/${encodeURIComponent(studentId)}`, { method: "DELETE", token });
+}
