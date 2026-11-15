@@ -104,7 +104,7 @@ export const studentHandlers = [
     const activity = doc?.lessons.flatMap((l) => l.activities).find((a) => a.activityId === params.activityId);
     if (!doc || !activity) return studentError(404, "NOT_FOUND", "Activity not found");
     if (activity.type !== "worksheet") return studentError(400, "VALIDATION_ERROR", "Drafts are only saved for worksheets");
-    if (doc.state === "locked" || activity.state === "locked") return studentError(403, "FORBIDDEN", "Finish the earlier activities first");
+    if (doc.state === "locked" || activity.state === "locked") return studentError(403, "ACTIVITY_LOCKED", "Finish the earlier activities first");
     const body = (await request.json().catch(() => ({}))) as { answers?: { questionId: string; value: unknown }[] };
     drafts.set(`${me.studentId}/${doc.moduleId}/${activity.activityId}`, Object.fromEntries((body.answers ?? []).map((a) => [a.questionId, a.value])));
     const st = statusMap(me.studentId);
@@ -138,7 +138,7 @@ export const studentHandlers = [
     const doc = studentModule(me.studentId, String(params.moduleId));
     const activity = doc?.lessons.flatMap((l) => l.activities).find((a) => a.activityId === params.activityId);
     if (!doc || !activity) return studentError(404, "NOT_FOUND", "Activity not found");
-    if (doc.state === "locked" || activity.state === "locked") return studentError(403, "FORBIDDEN", "Finish the earlier activities first");
+    if (doc.state === "locked" || activity.state === "locked") return studentError(403, "ACTIVITY_LOCKED", "Finish the earlier activities first");
     if (activity.type === "video" || activity.type === "slides") {
       return studentError(400, "VALIDATION_ERROR", "This activity type is not submitted with answers");
     }
@@ -184,7 +184,7 @@ export const studentHandlers = [
     if (activity.type !== "video" && activity.type !== "slides") {
       return studentError(400, "VALIDATION_ERROR", "Only video and slides are marked done this way");
     }
-    if (doc.state === "locked" || activity.state === "locked") return studentError(403, "FORBIDDEN", "Finish the earlier activities first");
+    if (doc.state === "locked" || activity.state === "locked") return studentError(403, "ACTIVITY_LOCKED", "Finish the earlier activities first");
     const spent = secondsFor(`${me.studentId}/${params.moduleId}/${params.activityId}`);
     if (spent < (activity.minSeconds ?? 0)) return studentError(409, "TOO_EARLY", "Keep watching before marking this done");
     return HttpResponse.json({ data: commit(me.studentId, doc.moduleId, activity.activityId, "complete") });
