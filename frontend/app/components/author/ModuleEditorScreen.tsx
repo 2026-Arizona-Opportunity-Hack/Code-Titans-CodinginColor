@@ -8,8 +8,9 @@ import { ApiError } from "../../lib/api/client";
 import { getModuleDoc, listConcepts, listVersions, problemsOf, publishModule, saveDraft, type DocActivity, type ModuleDoc, type Problem } from "../../lib/api/curriculum";
 import { StaffPage } from "../common/StaffPage";
 import { ActivityEditor, newQuestion } from "./ActivityEditor";
+import { ModuleClassesPanel } from "./ModuleClassesPanel";
 
-const ADDABLE: [DocActivity["type"], string][] = [["video", "Video"], ["slides", "Slides"], ["check", "Check"], ["worksheet", "Worksheet"], ["exit", "Exit question"]];
+const ADDABLE: [DocActivity["type"], string][] = [["video", "Video"], ["slides", "Slides (PDF, PowerPoint or Google Slides)"], ["check", "Check"], ["worksheet", "Worksheet"], ["exit", "Exit question"]];
 
 function Editor({ token, moduleId, initial, onReload }: { token: string; moduleId: string; initial: ModuleDoc; onReload: () => void }) {
   const qc = useQueryClient();
@@ -55,8 +56,14 @@ function Editor({ token, moduleId, initial, onReload }: { token: string; moduleI
 
   const publish = useMutation({
     mutationFn: async () => { if (dirty) await save.mutateAsync(); return publishModule(token, moduleId); },
-    onSuccess: (r) => { setError(""); setProblems([]); setNotice(`Published as version ${r.version}. Classes keep the version they were assigned until a teacher upgrades them.`); qc.invalidateQueries({ queryKey: ["versions", token, moduleId] }); qc.invalidateQueries({ queryKey: ["author-modules", token] }); qc.invalidateQueries({ queryKey: ["modules", token] }); },
+    onSuccess: (r) => { setError(""); setProblems([]); setNotice(`Published as version ${r.version}. To show it to students, move your classes to version ${r.version} below.`); qc.invalidateQueries({ queryKey: ["versions", token, moduleId] }); qc.invalidateQueries({ queryKey: ["author-modules", token] }); qc.invalidateQueries({ queryKey: ["modules", token] }); qc.invalidateQueries({ queryKey: ["module-classes", token, moduleId] }); },
     onError: (e) => {
+      if (e instanceof ApiError && e.code === "ALREADY_PUBLISHED") {
+        // Not a failure: the saved draft is already the latest version.
+        setError(""); setProblems([]);
+        setNotice("Nothing new to publish: the latest version already has these changes. If students don't see them, move their class to the latest version below.");
+        return;
+      }
       if (e instanceof ApiError && e.code === "REVISION_CONFLICT") { setConflict(true); }
       setNotice("");
       setError(e instanceof ApiError ? e.message : "The module could not be published.");
@@ -96,6 +103,7 @@ function Editor({ token, moduleId, initial, onReload }: { token: string; moduleI
             </div>
           ) : null}
 
+          <ModuleClassesPanel token={token} moduleId={moduleId} />
           <label htmlFor="module-title" className="mt-6 block font-bold">Module title</label>
           <input id="module-title" className="field mt-1 max-w-xl" maxLength={120} value={doc.title} onChange={(e) => edit((d) => { d.title = e.target.value; })} />
 
@@ -121,7 +129,7 @@ function Editor({ token, moduleId, initial, onReload }: { token: string; moduleI
                     const acts = d.lessons[li].activities;
                     const act: DocActivity = { activityId: `a-${Math.random().toString(36).slice(2, 8)}`, type: add, title: ADDABLE.find(([v]) => v === add)?.[1] ?? "" };
                     if (add === "video") Object.assign(act, { provider: "youtube", videoId: "", minSeconds: 0 });
-                    if (add === "slides") act.slides = [{ body: "" }];
+                    if (add === "slides") Object.assign(act, { title: "Slides", slides: [] });
                     if (add === "check" || add === "exit") act.questions = [newQuestion(false)];
                     if (add === "worksheet") Object.assign(act, { instructions: "", fields: [newQuestion(true)] });
                     const post = acts.findIndex((x) => x.type === "assessment" && x.role === "post");

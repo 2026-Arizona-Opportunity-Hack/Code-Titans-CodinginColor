@@ -36,9 +36,12 @@ export function WorksheetDocumentPicker({ a, token, set }: { a: DocActivity; tok
         </div>
       ) : (
         <>
-          <label htmlFor={`${id}-file`} className="sr-only">Worksheet PDF</label>
-          <input id={`${id}-file`} type="file" accept="application/pdf" disabled={busy} aria-describedby={`${id}-h`}
-            onChange={(e) => onFile(e.target.files?.[0])} className="mt-2 block text-sm" />
+          <label htmlFor={`${id}-file`} className="mt-2 flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 border-dashed border-brand bg-tint px-4 py-5 text-center hover:bg-surface">
+            <span className="font-bold text-brand">Choose the worksheet PDF</span>
+            <span className="text-sm text-muted">Scan or export the printed worksheet as a PDF.</span>
+          </label>
+          <input id={`${id}-file`} type="file" accept="application/pdf,.pdf" disabled={busy} aria-describedby={`${id}-h`}
+            onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} className="sr-only" />
         </>
       )}
       {busy ? <p role="status" className="mt-2 text-muted">Uploading…</p> : null}

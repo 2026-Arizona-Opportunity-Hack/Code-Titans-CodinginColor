@@ -22,13 +22,15 @@ VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")  # a YouTube video ID
 # A Google Slides embed link, published ("/d/e/...") or shared ("/d/..."). The editor turns any
 # Slides link into this form, so nothing else can be embedded in a module.
 GOOGLE_SLIDES_EMBED = re.compile(r"^https://docs\.google\.com/presentation/d/(e/)?[A-Za-z0-9_-]{20,}/embed(\?[A-Za-z0-9=&_.-]{0,100})?$")
-PDF_KEY = re.compile(r"^curriculum/[a-f0-9]{32}\.pdf$")  # what the upload route issues
+UPLOAD_KEY = {"pdf": re.compile(r"^curriculum/[a-f0-9]{32}\.pdf$"),  # what the upload route issues
+              "pptx": re.compile(r"^curriculum/[a-f0-9]{32}\.pptx$")}
 
 
-def pdf_url_ok(url) -> bool:
-    """Only PDFs uploaded through our own upload route, served by our CDN."""
+def upload_url_ok(url, kind: str) -> bool:
+    """Only files uploaded through our own upload route, served by our CDN."""
     base = os.environ.get("ASSETS_URL", "").rstrip("/")
-    return bool(base) and isinstance(url, str) and url.startswith(base + "/") and bool(PDF_KEY.match(url[len(base) + 1:]))
+    return (bool(base) and isinstance(url, str) and url.startswith(base + "/")
+            and bool(UPLOAD_KEY[kind].match(url[len(base) + 1:])))
 
 ACTIVITY_TYPES = ("video", "slides", "check", "worksheet", "exit", "assessment")
 QUESTION_TYPES = ("mcq", "multi", "short", "numeric")
@@ -151,7 +153,7 @@ class Checker:
         self.answer_key(q, path, self.choices(q, path))
 
     def document(self, d: Any, path: str) -> None:
-        """A slide deck shown instead of typed slides: an uploaded PDF or a Google Slides link."""
+        """A slide deck shown instead of typed slides: an uploaded PDF or PowerPoint, or a Google Slides link."""
         if d is None:
             return
         if not isinstance(d, dict):
@@ -160,14 +162,14 @@ class Checker:
         self.unknown(d, {"kind", "url", "name"}, path)
         self.text(d, "name", path, 200)
         kind, url = d.get("kind"), d.get("url")
-        if kind == "pdf":
-            if not pdf_url_ok(url):
-                self.bad(f"{path}.url", "must be a PDF uploaded to this site")
+        if kind in ("pdf", "pptx"):
+            if not upload_url_ok(url, kind):
+                self.bad(f"{path}.url", f"must be a {'PDF' if kind == 'pdf' else 'PowerPoint file'} uploaded to this site")
         elif kind == "google":
             if not (isinstance(url, str) and GOOGLE_SLIDES_EMBED.match(url)):
                 self.bad(f"{path}.url", "must be a Google Slides link")
         else:
-            self.bad(f"{path}.kind", "must be pdf or google")
+            self.bad(f"{path}.kind", "must be pdf, pptx or google")
 
     def activity(self, a: Any, path: str) -> None:
         if not isinstance(a, dict):
@@ -328,7 +330,7 @@ def publish_problems(doc: dict) -> List[dict]:
         if kind == "video" and not (isinstance(a.get("videoId"), str) and VIDEO_ID.match(a["videoId"])):
             bad(f"{path}.videoId", "needs an 11-character YouTube video ID")
         if kind == "slides" and not a.get("document") and not any(not _blank(s.get("body")) for s in a.get("slides") or []):
-            bad(f"{path}.slides", "needs a PDF, a Google Slides link, or at least one slide with text")
+            bad(f"{path}.slides", "needs a PDF, a PowerPoint file, a Google Slides link, or at least one slide with text")
         if kind == "worksheet":
             if not a.get("fields"):
                 bad(f"{path}.fields", "needs at least one field")

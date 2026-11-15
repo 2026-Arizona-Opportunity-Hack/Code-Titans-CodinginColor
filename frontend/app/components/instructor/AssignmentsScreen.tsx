@@ -11,7 +11,7 @@ import { getClass, updateClass } from "../../lib/api/staff";
 import { StaffPage } from "../common/StaffPage";
 import { AssignmentRow } from "./AssignmentRow";
 
-function AssignmentsBody({ token, classId, isAdmin }: { token: string; classId: string; isAdmin: boolean }) {
+function AssignmentsBody({ token, classId }: { token: string; classId: string }) {
   const queryClient = useQueryClient();
   const classHref = `/instructor/class/?id=${encodeURIComponent(classId)}`;
 
@@ -103,7 +103,6 @@ function AssignmentsBody({ token, classId, isAdmin }: { token: string; classId: 
               count={list.length}
               busy={busy}
               latestVersion={modules.data?.find((m) => m.moduleId === a.moduleId)?.latestVersion ?? a.moduleVersion}
-              canChangeVersion={isAdmin}
               onMove={(direction) => move(i, direction)}
               onDate={(date) => run(() => updateAssignment(token, classId, a.moduleId, { targetDate: date }))}
               onUpgrade={() =>
@@ -198,9 +197,9 @@ export function AssignmentsScreen() {
   const classId = useSearchParams().get("id") ?? "";
   return (
     <StaffPage roles={["instructor", "cic_admin"]}>
-      {({ token, me }) =>
+      {({ token }) =>
         classId ? (
-          <AssignmentsBody token={token} classId={classId} isAdmin={me.role === "cic_admin"} />
+          <AssignmentsBody token={token} classId={classId} />
         ) : (
           <p role="alert" className="callout callout-danger">
             No class was chosen. Open this page from a class.

@@ -83,3 +83,15 @@ def test_a_worksheet_can_show_the_original_worksheet(api, doc):
     ws["document"] = {"kind": "pdf", "url": "https://evil.example.com/x.pdf"}
     status, body = save(api, doc)
     assert status == 400 and any("document" in p["path"] for p in body["details"])
+
+
+PPTX_URL = f"{CDN}/curriculum/{'b' * 32}.pptx"
+
+
+def test_a_slides_step_can_show_an_uploaded_powerpoint(api, doc):
+    slides(doc)["document"] = {"kind": "pptx", "url": PPTX_URL, "name": "Loops.pptx"}
+    assert save(api, doc)[0] == 200
+    slides(doc)["document"] = {"kind": "pptx", "url": PDF}  # a PDF key under the pptx kind
+    assert save(api, doc)[0] == 400
+    slides(doc)["document"] = {"kind": "pptx", "url": "https://evil.example.com/curriculum/" + "b" * 32 + ".pptx"}
+    assert save(api, doc)[0] == 400
