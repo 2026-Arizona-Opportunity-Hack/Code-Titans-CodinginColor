@@ -213,7 +213,7 @@ Logs and audit entries reference IDs, never names.
 
 ### 7.1 Completion and unlocking
 
-- **Activity complete:** video and slides after the student marks done and a minimum active time; check, worksheet, and exit after submit (a check may require `scorePct >= X` if the author sets it); assessment after its single submit.
+- **Activity complete:** video and slides after the student marks done and a minimum active time; check, worksheet, and exit after submit (a check may require `scorePct >= X` if the author sets it); a coding exercise completes on any submit (its score and pass mark are kept for the teacher); assessment after its single submit.
 - **Module complete:** all required activities complete.
 - **Module unlocked** for a student when it is the student's **start module**, or the previous module is complete, or the instructor created an override. Modules *before* the start module are `catch_up`: available to open, but they never block progress.
 - **Assessment order:** the pretest is the first activity, the post-test the last. Neither shows correct answers or scores to the student.

@@ -20,7 +20,7 @@ Built by **Code Titans** at the [ASU Fall Hackathon 2026, Phoenix Hackathon for 
 
 **For students.** No email, no password. A teacher prints a login sheet; a student opens their link, or types the class code and three secret words. Each lesson is a short path of steps: pretest, video or slides, checks, worksheets, **coding exercises** and a post-test. Students who join late land on the module their class is on and can catch up on earlier ones. A student who is stuck can ask an **AI hint** that nudges without giving the answer, and there is a free **Code runner** for practice.
 
-**For teachers.** Upload the class list from a spreadsheet, pick modules, print the login sheets. The dashboard shows who is stuck or has not started, per-student progress, **learning gain** from pretest to post-test, and **mastery per concept** ("33% of the class reached 80% on loops"). Worksheets that need a human go to a review queue. Grades can be exported to CSV.
+**For teachers.** Upload the class list from a spreadsheet, pick modules, print the login sheets. The dashboard shows who is stuck or has not started, per-student progress, **learning gain** from pretest to post-test, and **mastery per concept** ("33% of the class reached 80% on loops"). Worksheets that need a human go to a review queue. A **hints report** shows what students asked the AI tutor about, so you know what to reteach, and a **gradebook** (downloadable as CSV) lists every student's scores, gain and hints. Duplicate roster entries are flagged and can be merged.
 
 **For CIC.** Admins invite staff, manage schools and cohorts, and author and publish curriculum (instructors can be made "curriculum authors"). A read-only **API with keys** feeds CIC's own dashboard with aggregated results only. Teachers outside CIC can **request an account**; an admin approves, and they run their own classes on CIC's curriculum. CIC sees usage counts for those classes and nothing about their students.
 
@@ -233,7 +233,7 @@ The interface targets WCAG 2.1 AA: keyboard operation everywhere (including the 
 
 ## Testing and quality
 
-- **532 pytest tests** run the real Lambda handlers against an in-memory DynamoDB (moto), including end-to-end paths: roster to student login to lesson to report to read API. They include a test for every cross-access case (a teacher to another class, an admin to an external class, a student to another student, a reviewer to student data).
+- **538 pytest tests** run the real Lambda handlers against an in-memory DynamoDB (moto), including end-to-end paths: roster to student login to lesson to report to read API. They include a test for every cross-access case (a teacher to another class, an admin to an external class, a student to another student, a reviewer to student data).
 - **81 jest tests** assert the CDK stacks: routes match the Lambdas, throttles, least-privilege IAM, MFA, encryption.
 - **Frontend:** `tsc --noEmit` and ESLint pass, and axe-core scans pass on the screens.
 - **CI:** a pull request check nudges toward small PRs with clear descriptions. See [AGENTS.md](AGENTS.md).
@@ -256,10 +256,9 @@ Code comments explain the reasons and rules that are not obvious (authorization,
 
 Honest list of what remains before this is a finished product:
 
-- **Coding exercise results are self-reported.** The browser runs the tests, so a student could fake a pass. Teachers can read the submitted code. Server-side grading would need a sandboxed runner. Exercises are practice and never replace the pre-test and post-test.
+- **Coding exercise results are self-reported.** The browser runs the tests, so a student could fake a pass. Teachers can read the submitted code and see the score. Submitting always finishes the step so no student gets stuck. Server-side grading would need a sandboxed runner. Exercises are practice and never replace the pre-test and post-test.
 - **Pyodide loads from a public CDN** (about 12 MB the first time). Self-host it through `NEXT_PUBLIC_PYODIDE_URL` for schools that block the CDN.
-- **Merging a roster duplicate** (`POST /classes/{id}/roster/{studentId}/merge`) is designed but not built. Duplicates are flagged for a teacher to resolve.
-- **Gradebook export, low-bandwidth mode and a teacher summary of hints** are not built.
+- **Low-bandwidth mode** (lighter pages and no video autoplay for slow connections) is not built.
 - **Frontend publishing is manual** (zip upload). Connecting Amplify to GitHub would automate it.
 - **Cognito's default email sender** is limited to a small number of invites per day. Switch to Amazon SES for a larger rollout.
 - **Cost** is expected to stay in the low single-digit dollars per month at classroom scale. That is an estimate from AWS pricing, not a measured bill.
