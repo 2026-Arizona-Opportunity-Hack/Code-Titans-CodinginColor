@@ -46,7 +46,7 @@ const loops: StudentModule = {
     ] },
     { ...base, activityId: "a-ws", type: "worksheet", title: "Worksheet", instructions: "Answer both questions. Your answers save as you type.", fields: [
       { fieldId: "f1", type: "text", prompt: "Write a loop that prints the numbers 1 to 3." },
-      { fieldId: "f2", type: "number", prompt: "How many times does `range(5)` repeat?" },
+      { fieldId: "f2", type: "numeric", prompt: "How many times does `range(5)` repeat?" },
     ] },
     { ...base, activityId: "a-exit", type: "exit", title: "Exit question", questions: [
       mcq("q-exit-1", "A loop that never ends is called…", ["A fast loop", "An infinite loop", "A long loop"], "b", "loops"),

@@ -46,7 +46,7 @@ function QuestionField({ q, value, onChange, disabled }: { q: Question; value: V
         </div>
       ) : (
         <input
-          type={q.type === "number" ? "number" : "text"}
+          type={q.type === "numeric" ? "number" : "text"}
           aria-label={q.prompt}
           value={(value as string | undefined) ?? ""}
           onChange={(e) => onChange(e.target.value)}
@@ -88,7 +88,7 @@ export function QuestionActivity({
     setConfirming(false);
     const body: Answer[] = activity.questions.map((q) => ({
       questionId: q.questionId,
-      value: q.type === "number" ? Number(answers[q.questionId]) : (answers[q.questionId] ?? null),
+      value: q.type === "numeric" ? Number(answers[q.questionId]) : (answers[q.questionId] ?? null),
     }));
     try {
       setResult(await submitActivity(token, moduleId, activity.activityId, submissionId, body));

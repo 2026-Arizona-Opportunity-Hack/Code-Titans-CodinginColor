@@ -8,7 +8,7 @@ export type Choice = { id: string; text: string };
 
 export type Question = {
   questionId: string;
-  type: "mcq" | "multi" | "short" | "number";
+  type: "mcq" | "multi" | "short" | "numeric";
   prompt: string;
   points: number;
   choices?: Choice[];

@@ -14,7 +14,7 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 
 const SAVE_DELAY_MS = 1500;
 const toAnswers = (values: Record<string, string>, sheet: Sheet): Answer[] =>
-  sheet.fields.map((f) => ({ questionId: f.fieldId, value: f.type === "number" && values[f.fieldId] !== "" ? Number(values[f.fieldId]) : values[f.fieldId] }));
+  sheet.fields.map((f) => ({ questionId: f.fieldId, value: f.type === "numeric" && values[f.fieldId] !== "" ? Number(values[f.fieldId]) : values[f.fieldId] }));
 
 /** A worksheet: answers save as the student types, so a closed lid or dropped connection loses nothing. */
 export function WorksheetActivity({
@@ -132,7 +132,7 @@ export function WorksheetActivity({
             ) : (
               <input
                 id={f.fieldId}
-                type={f.type === "number" ? "number" : "text"}
+                type={f.type === "numeric" ? "number" : "text"}
                 value={values[f.fieldId]}
                 onBlur={saveNow}
                 onChange={(e) => change(f.fieldId, e.target.value)}
