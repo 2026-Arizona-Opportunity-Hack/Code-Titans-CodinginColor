@@ -18,6 +18,12 @@ MAX_HEARTBEAT_CREDIT = 45  # seconds credited per heartbeat
 QUESTION_TYPES = ("check", "exit", "assessment")
 
 
+MAX_CODE_CHARS = 6000
+MAX_CODE_ATTEMPTS = 100  # per activity; stops a script from filling the progress table
+def _code_text(value, allow_empty=False) -> str:
+    if not isinstance(value, str) or len(value) > MAX_CODE_CHARS or (not allow_empty and not value.strip()):
+        raise ValidationError(f"code must be text of at most {MAX_CODE_CHARS} characters")
+    return value
 def _ids(req):
     return keys.safe_id(req.path.get("moduleId"), "moduleId"), keys.safe_id(req.path.get("activityId"), "activityId")
 
@@ -48,16 +54,20 @@ def save_draft(req):
     student = student_from_auth(req.auth)
     ctx = svc.load_ctx(student)
     activity = svc.find_activity(ctx.module(module_id), activity_id)
-    if activity.get("type") != "worksheet":
-        raise ValidationError("Drafts are only saved for worksheets")
+    if activity.get("type") not in ("worksheet", "code"):
+        raise ValidationError("Drafts are only saved for worksheets and coding exercises")
     svc.assert_open(ctx, module_id, activity_id)
-    fields = {f["fieldId"] for f in activity.get("fields", [])}
-    answers = grading.parse_answers(req.json().get("answers"), fields)
+    body = req.json()
+    if activity.get("type") == "code":
+        draft_attr, draft = "draftCode", _code_text(body.get("code"), allow_empty=True)
+    else:
+        fields = {f["fieldId"] for f in activity.get("fields", [])}
+        draft_attr, draft = "draft", grading.parse_answers(body.get("answers"), fields)
     db.get_table(db.PROGRESS).update_item(
         Key={"pk": keys.stu_pk(student.student_id), "sk": keys.activity_sk(module_id, activity_id)},
-        UpdateExpression="SET draft = :d, classId = :c, lastActiveAt = :n, startedAt = if_not_exists(startedAt, :n), #st = if_not_exists(#st, :ip)",
+        UpdateExpression=f"SET {draft_attr} = :d, classId = :c, lastActiveAt = :n, startedAt = if_not_exists(startedAt, :n), #st = if_not_exists(#st, :ip)",
         ExpressionAttributeNames={"#st": "status"},
-        ExpressionAttributeValues={":d": db.to_dynamo(answers), ":c": student.class_id, ":n": now_ms(), ":ip": IN_PROGRESS},
+        ExpressionAttributeValues={":d": db.to_dynamo(draft), ":c": student.class_id, ":n": now_ms(), ":ip": IN_PROGRESS},
     )
     return {"savedAt": now_ms()}
 
@@ -109,6 +119,8 @@ def submit(req):
     kind = activity.get("type")
     if kind == "worksheet":
         status, payload = _submit_worksheet(ctx, module_id, activity, body.get("answers"))
+    elif kind == "code":
+        status, payload = _submit_code(ctx, module_id, activity, body)
     elif kind in QUESTION_TYPES:
         status, payload = _submit_questions(ctx, module_id, activity, kind, body.get("answers"))
     else:
@@ -134,6 +146,37 @@ def _submit_questions(ctx, module_id, activity, kind, raw):
     return (COMPLETE if passed else IN_PROGRESS), payload
 
 
+def _submit_code(ctx, module_id, activity, body):
+    """A coding exercise. The browser ran the tests, so the result is the student's own report ("selfReported").
+    The server keeps the code so a teacher can read it, and works the score out from the module's own test list:
+    unknown test IDs are ignored and a test with no result counts as not passed."""
+    code = _code_text(body.get("code"))
+    tests = activity.get("tests") or []
+    if not tests:
+        raise ValidationError("This exercise has no tests")
+    raw = body.get("results")
+    if not isinstance(raw, list) or len(raw) > len(tests):
+        raise ValidationError("results must be a list with one entry per test")
+    known = {t["testId"] for t in tests}
+    passed_ids = set()
+    for r in raw:
+        if not isinstance(r, dict) or set(r) - {"testId", "passed"} or not isinstance(r.get("passed"), bool) or r.get("testId") not in known:
+            raise ValidationError("Each result needs a known testId and passed true or false")
+        if r["passed"]:
+            passed_ids.add(r["testId"])
+    prior = ctx.act_items.get((module_id, activity["activityId"])) or {}
+    if int(prior.get("attempts", 0)) >= MAX_CODE_ATTEMPTS:
+        raise Forbidden("You have reached the limit of submissions for this exercise. Ask your teacher.", code="SUBMISSION_LIMIT")
+    passed, total = len(passed_ids), len(tests)
+    pct = round(passed / total * 100, 1)
+    ok = pct >= float(activity.get("passPct", 100))
+    ts = now_ms()
+    db.get_table(db.PROGRESS).put_item(Item=db.to_dynamo({
+        "pk": keys.stu_pk(ctx.student.student_id), "sk": keys.submission_sk(activity["activityId"], ts), "classId": ctx.student.class_id,
+        "moduleId": module_id, "activityId": activity["activityId"], "kind": "code", "code": code, "testsPassed": passed,
+        "testsTotal": total, "scorePct": pct, "selfReported": True, "submittedAt": ts}))
+    return (COMPLETE if ok else IN_PROGRESS), {"_score": pct, "_extra": {"code": code, "draftCode": code, "testsPassed": passed, "testsTotal": total, "selfReported": True},
+                                               "recorded": True, "scorePct": pct, "passed": ok, "testsPassed": passed, "testsTotal": total}
 def _record_assessment(ctx, module_id, activity, answers, graded):
     role = activity.get("role")
     sk = keys.assessment_sk(module_id, role)
@@ -171,6 +214,7 @@ def _submit_worksheet(ctx, module_id, activity, raw):
 def _commit(ctx, module_id, activity_id, status, payload, csid=None):
     """Compute the response (including the next step), save it with the activity, and update module state."""
     score = payload.pop("_score", None)
+    extra = payload.pop("_extra", None)
     current = ctx.statuses.get((module_id, activity_id))
     new_status = COMPLETE if current == COMPLETE else status
     after = {**ctx.statuses, (module_id, activity_id): new_status}
@@ -183,7 +227,7 @@ def _commit(ctx, module_id, activity_id, status, payload, csid=None):
         unlocked = ctx.order[idx + 1] if idx + 1 < len(ctx.order) else None
     result = {**payload, "activityState": new_status,
               "next": {"type": "activity", "activityId": nxt} if nxt else {"type": "module_complete"}, "moduleUnlocked": unlocked}
-    svc.save_activity(ctx, module_id, activity_id, new_status, csid, result, score)
+    svc.save_activity(ctx, module_id, activity_id, new_status, csid, result, score, extra)
     svc.sync_module_state(ctx, module_id, done)
     return result
 

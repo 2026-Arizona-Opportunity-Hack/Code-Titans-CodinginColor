@@ -163,7 +163,7 @@ A module document is one JSON item (well under the 400 KB item limit):
 ```
 
 Question shape: `{questionId, type, prompt, choices?, answerKey, explanation?, concept, pairKey?, points}`. `concept` is required on assessment questions. It powers gain-per-concept.
-Activity types: `video`, `slides`, `check`, `worksheet`, `exit`, `assessment`, and (stretch) `code`.
+Activity types: `video`, `slides`, `check`, `worksheet`, `exit`, `assessment`, and `code`. A `code` activity is a Python exercise: the student's code runs in their own browser (Pyodide in a Web Worker) against the author's tests, and the server only stores the code and the student's reported result. Server-side execution of student code was rejected as a security risk, so a pass is self-reported and the exercise is practice, never a pretest or post-test. The author's reference solution is kept server-side and is only used to keep AI hints from giving it away.
 
 Publishing validates the module and creates the next `V#` item. Published versions are never edited, so student progress can never point at changed content.
 
@@ -299,7 +299,7 @@ backend/
 - All logs are JSON with IDs only. No names, codes, tokens, or free-text answers.
 - Encryption at rest (DynamoDB, S3 AWS-managed) and TLS in transit (S3 `enforceSSL`).
 - Retention: sessions (8 hours), hints (about 180 days), audit (about 1 year) via DynamoDB TTL. Student data for archived classes is deletable by an admin.
-- AI hints (Bedrock): student text is untrusted input in a prompt, passed as quoted data. The model is given the answers only as a "do not say" list, and its reply is checked again on the server (answers, spelled-out letters, long code) before a student sees it. Hints work only on check and worksheet activities, never tests. They are rate-limited per student, capped per month, and logged for teachers for 180 days. Student names are never sent.
+- AI hints (Bedrock): student text is untrusted input in a prompt, passed as quoted data. The model is given the answers only as a "do not say" list, and its reply is checked again on the server (answers, spelled-out letters, long code) before a student sees it. Hints work only on check, worksheet and code activities, never tests. They are rate-limited per student, capped per month, and logged for teachers for 180 days. Student names are never sent.
 - Pyodide-style client-side code grading (stretch) is tamperable, so it is for formative use only. The docs must say so.
 - Secrets only in Secrets Manager and `.env` (gitignored). The repo's pre-commit hook stays enabled.
 

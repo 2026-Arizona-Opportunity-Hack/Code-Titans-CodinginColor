@@ -121,12 +121,17 @@ def student_detail(data: ClassData, roster_item: dict) -> dict:
         detail = []
         for act, state in zip(flatten_activities(data.modules[mid]), v["activities"]):
             rec = acts.get((mid, act["activityId"])) or {}
-            detail.append({"activityId": act["activityId"], "type": act.get("type"), "state": state["state"],
-                           "attempts": int(rec.get("attempts", 0)), "bestScore": rec.get("bestScore"),
-                           "activeMinutes": round(int(rec.get("activeSeconds", 0)) / 60, 1), "completedAt": rec.get("completedAt")})
+            row = {"activityId": act["activityId"], "type": act.get("type"), "state": state["state"],
+                   "attempts": int(rec.get("attempts", 0)), "bestScore": rec.get("bestScore"),
+                   "activeMinutes": round(int(rec.get("activeSeconds", 0)) / 60, 1), "completedAt": rec.get("completedAt")}
+            if act.get("type") == "code" and rec.get("code") is not None:
+                # What the student last submitted, for the teacher to read. The pass count is the student's own report.
+                row.update(title=act.get("title"), code=rec["code"], testsPassed=int(rec.get("testsPassed", 0)),
+                           testsTotal=int(rec.get("testsTotal", 0)), hintCount=int(rec.get("hintCount", 0)))
+            detail.append(row)
         modules.append({"moduleId": mid, "title": v["title"], "state": v["state"], "percent": v["percent"],
                         "pre": assessments.get(mid, {}).get("pre"), "post": assessments.get(mid, {}).get("post"), "activities": detail})
     submissions = [{"activityId": i["activityId"], "moduleId": i["moduleId"], "submittedAt": i["submittedAt"], "reviewStatus": i.get("reviewStatus"),
                     "autoScorePct": i.get("autoScorePct"), "reviewScore": i.get("reviewScore"), "reviewComment": i.get("reviewComment")}
-                   for i in items if i["sk"].startswith("SUB#")]
+                   for i in items if i["sk"].startswith("SUB#") and i.get("kind") != "code"]
     return {"student": student_row(roster_item), "status": roster_item.get("status", "active"), "resume": resume, "modules": modules, "submissions": submissions}

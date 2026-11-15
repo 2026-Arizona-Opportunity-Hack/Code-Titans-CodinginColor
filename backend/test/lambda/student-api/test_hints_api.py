@@ -149,7 +149,7 @@ def test_hint_log_is_reviewable_and_expires(hints):
 @pytest.mark.parametrize("body", [
     {"moduleId": "m1", "activityId": "chk"},                                   # nothing to go on
     {"moduleId": "m1", "activityId": "chk", "question": "x" * 501},
-    {"moduleId": "m1", "activityId": "chk", "code": "x" * 4001},
+    {"moduleId": "m1", "activityId": "chk", "code": "x" * 6001},
     {"moduleId": "m1", "activityId": "chk", "question": "hi", "studentId": "other"},
     {"moduleId": "m1#", "activityId": "chk", "question": "hi"},
     {"moduleId": "m1", "activityId": "chk", "question": "hi", "questionId": "a b"},

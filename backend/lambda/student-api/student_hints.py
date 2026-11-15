@@ -61,12 +61,13 @@ def _release(table, pk: str, sk: str) -> None:
 def hint(req):
     student = student_from_auth(req.auth)
     body = req.json()
-    validate.reject_unknown(body, ("moduleId", "activityId", "questionId", "question", "code"))
+    validate.reject_unknown(body, ("moduleId", "activityId", "questionId", "question", "code", "failedTests"))
     module_id = keys.safe_id(body.get("moduleId"), "moduleId")
     activity_id = keys.safe_id(body.get("activityId"), "activityId")
     question_id = keys.safe_id(body["questionId"], "questionId") if body.get("questionId") is not None else None
     question = validate.text(body, "question", 500, required=False)
-    code = validate.text(body, "code", 4000, required=False)
+    code = validate.text(body, "code", 6000, required=False)
+    failed_ids = validate.string_list(body, "failedTests", 20) or []
     if not question and not code:
         raise ValidationError("Say what you are stuck on, or include your code")
 
@@ -76,6 +77,8 @@ def hint(req):
         raise Forbidden("Hints are not available for this activity", code="HINTS_NOT_ALLOWED")
     svc.assert_open(ctx, module_id, activity_id)
     items = hints.question_context(activity, question_id)
+    labels = {t.get("testId"): t.get("label", "") for t in activity.get("tests") or []}
+    failing = [labels[t] for t in failed_ids if t in labels]  # labels come from the module, never from the student
     if question_id and not items:
         raise NotFound("Question not found")
 
@@ -94,7 +97,7 @@ def hint(req):
         raise RateLimited("Hints are paused for this month. Ask your teacher for help.", code="AI_QUOTA_EXCEEDED")
 
     try:
-        reply = llm.converse(hints.system_prompt(level), hints.build_user_message(activity, items, question, code))
+        reply = llm.converse(hints.system_prompt(level), hints.build_user_message(activity, items, question, code, failing))
     except Exception as err:  # noqa: BLE001 - any model or network failure
         _release(events, *day_key)
         _release(events, *month_key)

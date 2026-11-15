@@ -10,7 +10,7 @@ from typing import List, Optional
 
 MAX_LEVEL = 3
 MAX_HINT_CHARS = 600
-HINT_ACTIVITY_TYPES = ("check", "worksheet")  # never assessments: a hint on a test would spoil the measurement
+HINT_ACTIVITY_TYPES = ("check", "worksheet", "code")  # never assessments: a hint on a test would spoil the measurement
 
 SYSTEM_PROMPT = """You are a patient tutor for high-school students learning to code in a free after-school program.
 Write ONE short hint of at most 3 sentences, in simple words. Do not greet and do not praise.
@@ -43,7 +43,11 @@ def _norm(text) -> str:
 
 
 def question_context(activity: dict, question_id: Optional[str]) -> List[dict]:
-    """The questions or fields a hint is about: one if the student picked it, else the first few."""
+    """The questions or fields a hint is about: one if the student picked it, else the first few.
+    A coding exercise is one item: the task, its tests, and the author's reference solution (for the do-not-say list)."""
+    if activity.get("type") == "code":
+        return [{"type": "code", "prompt": activity.get("body") or activity.get("title") or "", "tests": activity.get("tests") or [],
+                 "solution": activity.get("solution") or ""}]
     items = list(activity.get("questions") or []) + list(activity.get("fields") or [])
     id_of = lambda q: q.get("questionId") or q.get("fieldId")  # noqa: E731
     if question_id:
@@ -60,13 +64,19 @@ def _quote(text: Optional[str]) -> str:
     return (text or "").replace("</student_", "<\\/student_")
 
 
-def build_user_message(activity: dict, items: List[dict], question: Optional[str], code: Optional[str]) -> str:
-    """The prompt body: the questions, the choices, the words to avoid, and the student's own text. Never a name."""
+def build_user_message(activity: dict, items: List[dict], question: Optional[str], code: Optional[str],
+                       failing: Optional[List[str]] = None) -> str:
+    """The prompt body: the questions, the choices, the words to avoid, and the student's own text. Never a name.
+    `failing` is the labels of the tests the student's code does not pass yet (taken from the module, not from the student)."""
     lines = [f"Activity: {activity.get('title') or activity.get('type')}"]
     for q in items:
         lines.append(f"Question: {q.get('prompt', '')}")
         for c in q.get("choices") or []:
             lines.append(f"  - {c.get('text', '')}")
+        for t in q.get("tests") or []:
+            lines.append(f"  - The code must pass: {t.get('label', '')}")
+    if failing:
+        lines.append("Tests not passing yet: " + "; ".join(failing))
     concepts = concepts_of(items)
     if concepts:
         lines.append("Concepts: " + ", ".join(concepts))
@@ -90,6 +100,11 @@ def answer_terms(items: List[dict]) -> List[str]:
 
 def _raw_answers(item: dict) -> List[str]:
     key, kind = item.get("answerKey"), item.get("type")
+    if kind == "code":
+        # What a hint must not hand over: the lines of the reference solution and what the tests expect.
+        lines = [ln.strip() for ln in str(item.get("solution") or "").splitlines() if len(ln.strip()) >= 10]
+        expected = [str(t.get("expected", "")).strip() for t in item.get("tests") or []]
+        return [x for x in lines + expected if x]
     if kind in ("mcq", "multi"):
         wanted = key if isinstance(key, list) else [key]
         return [str(c.get("text", "")) for c in item.get("choices") or [] if c.get("id") in wanted]
