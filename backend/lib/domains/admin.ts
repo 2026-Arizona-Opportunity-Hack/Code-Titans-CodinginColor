@@ -14,9 +14,14 @@ export class AdminDomain extends Construct {
       dir: "admin-api",
       description: "Staff identity and admin routes",
       timeout: cdk.Duration.seconds(10),
-      environment: { CORE_TABLE: ctx.tables.core.tableName, USER_POOL_ID: ctx.userPool.userPoolId },
+      environment: {
+        CORE_TABLE: ctx.tables.core.tableName,
+        EVENTS_TABLE: ctx.tables.events.tableName,
+        USER_POOL_ID: ctx.userPool.userPoolId,
+      },
     });
     ctx.tables.core.grantReadWriteData(fn);
+    ctx.tables.events.grantReadWriteData(fn); // audit entries for key changes, and the audit list
     // Only the Cognito calls the user routes make, on this pool only.
     ctx.userPool.grant(
       fn,
@@ -46,6 +51,10 @@ export class AdminDomain extends Construct {
         "GET /v1/admin/users",
         "POST /v1/admin/users",
         "PATCH /v1/admin/users/{userId}",
+        "GET /v1/admin/api-keys",
+        "POST /v1/admin/api-keys",
+        "DELETE /v1/admin/api-keys/{keyId}",
+        "GET /v1/admin/audit",
       ],
       ctx.staffAuthorizer,
     );
