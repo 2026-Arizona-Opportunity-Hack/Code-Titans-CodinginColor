@@ -79,6 +79,28 @@ export const assignmentHandlers = [
     return HttpResponse.json({ data: created }, { status: 201 });
   }),
 
+  http.patch(`${env.apiUrl}/classes/:classId/assignments/:moduleId`, async ({ request, params }) => {
+    const role = roleOf(request);
+    if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");
+    if (role === "reviewer") return apiError(403, "FORBIDDEN", "Reviewers can't change assignments.");
+    const item = forClass(String(params.classId)).find((a) => a.moduleId === params.moduleId);
+    if (!item) return apiError(404, "NOT_FOUND", "Assignment not found");
+    const body = (await request.json().catch(() => ({}))) as { order?: number; targetDate?: string | null; moduleVersion?: number };
+    if (body.moduleVersion !== undefined) {
+      const latest = MODULES.find((m) => m.moduleId === item.moduleId)?.latestVersion ?? 1;
+      if (body.moduleVersion <= item.moduleVersion || body.moduleVersion > latest) {
+        return apiError(400, "VALIDATION_ERROR", "moduleVersion must be newer than the current one and already published");
+      }
+      if ((item.startedCount ?? 0) > 0 && role !== "cic_admin") {
+        return apiError(403, "FORBIDDEN", "Students have started this module. Ask an administrator to change its version");
+      }
+      item.moduleVersion = body.moduleVersion;
+    }
+    if (body.order !== undefined) item.order = body.order;
+    if (body.targetDate !== undefined) item.targetDate = body.targetDate;
+    return HttpResponse.json({ data: item });
+  }),
+
   http.delete(`${env.apiUrl}/classes/:classId/assignments/:moduleId`, ({ request, params }) => {
     const role = roleOf(request);
     if (!role) return apiError(401, "UNAUTHENTICATED", "Sign in required.");

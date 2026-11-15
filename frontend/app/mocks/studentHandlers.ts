@@ -3,7 +3,7 @@ import { env } from "../config/env";
 import type { StudentHome } from "../lib/api/student";
 import type { StudentModule } from "../lib/api/studentModule";
 import { register } from "./persist";
-import { addSeconds, commit, DOCS, findLogin, KEYS, moduleViews, personFromToken, secondsFor, statusMap } from "./studentStore";
+import { addSeconds, commit, DOCS, findLogin, KEYS, moduleViews, personFromToken, recordAssessment, secondsFor, statusMap } from "./studentStore";
 
 // Fake student API (backend auth-student and student-api). Demo student: class code K7M4QX,
 // words maple-tiger-blue (Maya R.). Words from the teacher's login sheet work too.
@@ -165,6 +165,7 @@ export const studentHandlers = [
     });
     const scorePct = Math.round((results.filter((r) => r.correct).length / results.length) * 100);
     const passed = activity.type !== "check" || scorePct >= (activity.passPct ?? 0);
+    if (activity.type === "assessment") recordAssessment(me.studentId, doc.moduleId, activity.role, scorePct);
     const step = commit(me.studentId, doc.moduleId, activity.activityId, passed ? "complete" : "in_progress");
     // Tests never reveal scores or answers.
     const result = activity.type === "check" ? { recorded: true, scorePct, passed, results, ...step } : { recorded: true, ...step };

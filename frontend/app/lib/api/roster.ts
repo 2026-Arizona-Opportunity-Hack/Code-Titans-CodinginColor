@@ -99,3 +99,22 @@ export function listRoster(
 export function listDuplicates(token: string, classId: string, signal?: AbortSignal): Promise<DuplicateGroup[]> {
   return apiFetch<DuplicateGroup[]>(`/classes/${encodeURIComponent(classId)}/roster/duplicates`, { token, signal });
 }
+
+/**
+ * POST /classes/{classId}/roster: adds one student (a late joiner) and issues their words.
+ * The words come back in this response ONLY. The class code and link base are not returned:
+ * the class page already has the code, and the link is on this app's own address.
+ */
+export type AddedStudent = RosterStudent & {
+  studentCode: string;
+  /** Set when an active student with the same name already exists (they are still added). */
+  possibleDuplicateOf?: string;
+};
+
+export function addStudent(
+  token: string,
+  classId: string,
+  input: { displayName: string; externalId?: string; startModuleId?: string },
+): Promise<AddedStudent> {
+  return apiFetch<AddedStudent>(`/classes/${encodeURIComponent(classId)}/roster`, { method: "POST", token, body: input });
+}
