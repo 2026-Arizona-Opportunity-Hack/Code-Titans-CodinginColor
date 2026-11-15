@@ -6,14 +6,16 @@ import { useStaffSession } from "../../context/StaffSessionContext";
 import { env } from "../../config/env";
 import type { StaffRole } from "../../lib/api/staff";
 import { ROLE_HOME, ROLE_LABEL } from "../../lib/staffNav";
+import { isCognitoConfigured } from "../../lib/cognito";
 import { PublicShell } from "./PublicShell";
+import { StaffSignInForm } from "./StaffSignInForm";
 
 const DEMO_ROLES: StaffRole[] = ["instructor", "cic_admin", "reviewer"];
 
 /**
- * Staff sign-in. The real sign-in is CIC's Cognito login (Managed Login), which is not
- * connected yet. While fake data is on, this page offers demo accounts so every staff
- * screen can be built and tried. Only the token in staffSessionStore changes later.
+ * Staff sign-in. With the real backend this is a Cognito sign-in (email, password, then a
+ * new password or authenticator code when Cognito asks). While fake data is on, it offers
+ * demo accounts instead so every staff screen can be tried without an account.
  */
 export function StaffLogin() {
   const router = useRouter();
@@ -28,6 +30,12 @@ export function StaffLogin() {
   useEffect(() => {
     if (hydrated && token && !signedInHere.current) router.replace("/instructor/");
   }, [hydrated, token, router]);
+
+  function onSignedIn(idToken: string, role: StaffRole | null) {
+    signedInHere.current = true;
+    signIn(idToken);
+    router.push(role ? ROLE_HOME[role] : "/instructor/");
+  }
 
   function continueAs(role: StaffRole) {
     signedInHere.current = true;
@@ -61,10 +69,12 @@ export function StaffLogin() {
             ))}
           </ul>
         </section>
+      ) : isCognitoConfigured() ? (
+        <StaffSignInForm onSignedIn={onSignedIn} />
       ) : (
         <p className="mt-3 text-muted">
-          Staff sign-in uses the Coding in Color account login, which is not connected to this build yet. Set the
-          Cognito values in <code className="font-mono">frontend/.env.local</code> once the backend is deployed.
+          Staff sign-in is not set up in this build. Set the Cognito values in{" "}
+          <code className="font-mono">frontend/.env.local</code> (see <code className="font-mono">.env.example</code>).
         </p>
       )}
     </PublicShell>

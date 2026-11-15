@@ -1,6 +1,5 @@
-// Where the staff sign-in token lives while Cognito is not connected yet: sessionStorage,
-// so closing the tab signs out. When Cognito Managed Login is wired up, this store is
-// the one place that changes: it will hold the Cognito access token instead.
+// The staff sign-in token: the Cognito ID token (or a demo token while fake data is on).
+// Kept in sessionStorage, so closing the tab signs out.
 
 const KEY = "cic.staffToken";
 let cache: string | null | undefined; // undefined = not read from storage yet
