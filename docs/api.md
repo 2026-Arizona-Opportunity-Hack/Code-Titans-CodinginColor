@@ -142,8 +142,8 @@ All `A` only.
 | GET | `/students/{studentId}` | I, A | Student detail by ID (authorization checked against the student's class) |
 | POST | `/classes/{classId}/roster/import?dryRun=true` | I, A | Preview a CSV import. No writes. |
 | POST | `/classes/{classId}/roster/import` | I, A | Commit the import |
-| POST | `/classes/{classId}/roster` | I, A | Add one student `{displayName, externalId?, startModuleId?}` (late joiner). `startModuleId` defaults to the class's `currentModuleId`. Returns that student's credential once. It cannot be shown again; use `/credentials` to reissue. A repeated name is created as a new student and returned with `possibleDuplicateOf`. |
-| PATCH | `/classes/{classId}/roster/{studentId}` | I, A | Rename or deactivate (deactivating retires a duplicate without deleting it) |
+| POST | `/classes/{classId}/roster` | I, A | Add one student `{displayName, externalId?, gradeLevel?, startModuleId?}` (late joiner). `gradeLevel` is a whole number from 6 to 12. `startModuleId` defaults to the class's `currentModuleId`. Returns that student's credential once. It cannot be shown again; use `/credentials` to reissue. A repeated name is created as a new student and returned with `possibleDuplicateOf`. |
+| PATCH | `/classes/{classId}/roster/{studentId}` | I, A | Body `{displayName?, status?, gradeLevel?}`. Rename, deactivate (retires a duplicate without deleting it), or set the grade level (`null` clears it) |
 | POST | `/classes/{classId}/roster/{studentId}/merge` | I, A | Merge this duplicate into `{intoStudentId}` (same class) and remove it. Activities keep the better result (complete wins, highest score, attempts and time add up). Pretest and post-test keep the earlier submission, so gain is not inflated. Submissions and unlock overrides move over. The kept student's name and login words do not change. Safe to retry. |
 | DELETE | `/classes/{classId}/roster/{studentId}` | A | Delete a student and their progress |
 | POST | `/classes/{classId}/credentials` | I, A | Generate or reset credentials `{studentIds?}` (all if omitted). Old words stop working and those students' sessions are revoked. The words are returned in this response only. |
@@ -160,7 +160,7 @@ All `A` only.
 { "csv": "displayName,externalId\nAna R.,1042\nBen T.,1043\n", "duplicateNames": "create", "startModuleId": "py-loops" }
 ```
 
-- `displayName` is required. `externalId` is optional. Any other column is **ignored, never stored or logged**, and listed in the dry-run response as `ignoredColumns`. The frontend should also strip extra columns in the browser before sending, so unneeded data (a birthdate column in a school export, for example) never leaves the instructor's machine.
+- `displayName` is required. `externalId` and `gradeLevel` (6 to 12) are optional. Any other column is **ignored, never stored or logged**, and listed in the dry-run response as `ignoredColumns`. The web app strips every column except `displayName` and `externalId` in the browser before sending (a teacher sets grade levels on the student's page), so unneeded data (a birthdate column in a school export, for example) never leaves the instructor's machine.
 - `startModuleId` (optional) sets the start module for newly created students. It defaults to the class's `currentModuleId`.
 - **Matching.** A row with an `externalId` that already exists in the class updates that student (no new credential is created). A row without a match is added as a new student.
 - **Repeated names.** Names are not unique. By default a repeated name is created as a new student and flagged as a possible duplicate. Set `duplicateNames` to `"skip"` to ignore rows whose name already exists, which is useful when re-importing a file that has no `externalId` column.

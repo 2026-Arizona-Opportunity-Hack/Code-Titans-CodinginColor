@@ -343,7 +343,7 @@ flowchart LR
 
 ## Run it locally
 
-You need **Node 20+** and, for the backend tests, **Python 3.12+**.
+You need **Node 20.9+** and, for the backend tests, **Python 3.12+**.
 
 ### 1. The app on your machine, against the deployed backend
 
@@ -406,7 +406,7 @@ Lambda environment variables (table names, the Cognito pool, the pepper secret A
 
 ## Deploy
 
-Full runbook, including operations and troubleshooting: **[docs/operations.md](docs/operations.md)**. The short version:
+First time? Follow **[docs/setup.md](docs/setup.md)**, which goes step by step and ends with a checklist. For day-to-day operations and troubleshooting, use **[docs/operations.md](docs/operations.md)**. The short version:
 
 ```bash
 # One time per AWS account and region
@@ -439,7 +439,7 @@ Tables and the user pool use `RETAIN`, so deleting a stack never deletes data.
 
 ## Security and privacy
 
-- **Data minimization.** Students are a name, a school and a class. No email, birthdate or address. An optional school-issued student ID is stored only if the school provides it.
+- **Data minimization.** Students are a name, a school and a class. No email, birthdate or address. Two optional fields exist: a school-issued student ID, and a grade from 6 to 12 that a teacher can enter (it appears in the gradebook for credit records). Neither is required.
 - **Authentication.** Staff use Cognito: invite-only, TOTP MFA required, 12-character passwords. Students have no account. Their secret words are checked as an HMAC with a pepper held in Secrets Manager, with per-class rate limiting (10 failures in 5 minutes) and teacher reset.
 - **Authorization.** Roles are Cognito groups, and each Lambda checks them (`cic.authz`) before touching data. A teacher can only open classes they belong to. Reviewers see no student data. An admin is refused on an external teacher's class. A student can only see their own progress.
 - **Secrets.** None are committed. `.env*` files are git-ignored (only `.env.example` is tracked). API keys are shown once and only their SHA-256 hash is stored.
@@ -465,10 +465,14 @@ The interface targets WCAG 2.1 AA: keyboard operation everywhere (including the 
 
 | File | What is in it |
 |---|---|
+| [docs/setup.md](docs/setup.md) | Step by step from an empty AWS account to a working site, with a checklist |
+| [docs/user-guide.md](docs/user-guide.md) | How students, teachers, authors, admins, outside teachers and reviewers use the app |
+| [docs/configuration.md](docs/configuration.md) | Every setting, stack output, environment variable, secret and fixed limit |
 | [docs/architecture.md](docs/architecture.md) | The model, roles, rules, data model, security, cost |
 | [docs/api.md](docs/api.md) | Every endpoint, who can call it, request and response shapes, and the route-to-Lambda map |
 | [docs/decisions.md](docs/decisions.md) | Why the key choices were made, and what was rejected |
 | [docs/operations.md](docs/operations.md) | Deploy, first admin, daily tasks, monitoring, costs, backups, teardown, troubleshooting |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Workflow, checks before a pull request, where code goes, and the backend and frontend rules |
 | [backend/README.md](backend/README.md) | Backend layout, commands, adding an endpoint, frontend hosting |
 | [docs/brand/](docs/brand) | CIC logo source files |
 
