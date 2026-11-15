@@ -74,3 +74,26 @@ export function getModuleDoc(token: string, moduleId: string, draft = false, sig
 
 export type ConceptTag = { concept: string; moduleCount: number };
 export const listConcepts = (token: string, signal?: AbortSignal) => apiFetch<ConceptTag[]>("/curriculum/concepts", { token, signal });
+
+// Authoring: authors and admins only.
+export type Problem = { path: string; message: string };
+/** Problems the server lists when a save or publish is refused (ApiError.details). */
+export const problemsOf = (details: unknown): Problem[] =>
+  Array.isArray(details) ? details.filter((d): d is Problem => typeof d?.path === "string" && typeof d?.message === "string") : [];
+
+/** POST /curriculum/modules: a new draft seeded with the standard structure. */
+export const createModule = (token: string, body: { title: string; template: "standard" }) =>
+  apiFetch<ModuleDoc>("/curriculum/modules", { method: "POST", token, body });
+
+/** PUT /curriculum/modules/{id}/draft: saves the whole document. 409 REVISION_CONFLICT if someone saved first. */
+export const saveDraft = (token: string, moduleId: string, doc: ModuleDoc, revision: number) =>
+  apiFetch<{ revision: number; updatedAt: string }>(`/curriculum/modules/${encodeURIComponent(moduleId)}/draft`, {
+    method: "PUT", token, body: doc, ifMatch: revision,
+  });
+
+/** POST /curriculum/modules/{id}/publish: validates, then creates the next immutable version. */
+export const publishModule = (token: string, moduleId: string) =>
+  apiFetch<{ moduleId: string; version: number; publishedAt: string }>(`/curriculum/modules/${encodeURIComponent(moduleId)}/publish`, { method: "POST", token });
+
+export const listVersions = (token: string, moduleId: string, signal?: AbortSignal) =>
+  apiFetch<{ version: number; publishedAt: string; publishedBy: string }[]>(`/curriculum/modules/${encodeURIComponent(moduleId)}/versions`, { token, signal });
